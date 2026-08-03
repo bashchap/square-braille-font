@@ -61,13 +61,9 @@ The chronological design and validation history is documented in
 
 ## External assets and licensing
 
-Normal text outlines derive from DejaVu Sans Mono under the included
+Original project code is released under the [MIT License](LICENSE). Normal text
+outlines derive from DejaVu Sans Mono and remain subject to the included
 [Bitstream Vera / DejaVu license](LICENSE-DejaVu.txt).
-
-No project-wide open-source license has yet been selected. Until the repository
-owner adds one, the remaining original code and assets are not implicitly
-licensed for redistribution or modification.
 
 Third-party spacecraft meshes and derived geometry caches are deliberately not
 included. See [Third-party assets](docs/THIRD-PARTY-ASSETS.md).
-
