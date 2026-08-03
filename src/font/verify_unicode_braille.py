@@ -15,7 +15,7 @@ def outline(font, name):
     return pen.value
 
 
-def verify(path):
+def verify(path, expected_family):
     font = TTFont(path)
     cmap = font.getBestCmap()
     assert font["head"].unitsPerEm == 1000
@@ -37,17 +37,18 @@ def verify(path):
         assert codepoint in cmap, hex(codepoint)
 
     family = font["name"].getName(1, 3, 1, 0x409).toUnicode()
-    assert family == "Square Braille Unicode Text Seamless", family
+    assert family == expected_family, family
     font.close()
     print(f"PASS {path}: text + U+2800-U+28FF + U+E000-U+E0FF")
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--family", default="Square Braille Unicode Text Seamless")
     parser.add_argument("fonts", nargs="+")
     args = parser.parse_args()
     for path in args.fonts:
-        verify(path)
+        verify(path, args.family)
 
 
 if __name__ == "__main__":

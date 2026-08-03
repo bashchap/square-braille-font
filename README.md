@@ -9,7 +9,8 @@ The recommended font contains:
 - square Braille at official Unicode `U+2800–U+28FF`;
 - identical compatibility aliases at PUA `U+E000–U+E0FF`;
 - a 500-unit character advance and 1000-unit em;
-- 60 units of controlled exterior overfill to suppress raster seams.
+- 100 units of controlled exterior overfill to suppress raster seams,
+  including small-point-size CoreText rendering on macOS.
 
 ![Unicode and PUA mappings rendered with the current font](assets/unicode-braille-proof.png)
 

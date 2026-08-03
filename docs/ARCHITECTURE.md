@@ -18,6 +18,10 @@ adjacent occupied squares have no visible gap.
 4. **Square Braille Unicode Text Seamless 1.3** — mapped official
    `U+2800–U+28FF` directly to the proven square glyphs while retaining the PUA
    aliases for existing demonstrations.
+5. **Square Braille Unicode Text Seamless 1.4** — increased exterior overfill
+   from 60 to 100 units after controlled macOS Terminal tests found seams in
+   high-contrast `btop` graphics at 9–12 pt. The new outline rendered
+   seamlessly down to 8 pt in the tested CoreText environment.
 
 ## Current mapping
 
@@ -39,7 +43,7 @@ contain separately regenerated outlines.
 - Ascent/descent: 800/200
 - Grid: 2 columns × 4 rows
 - Logical square: 250×250 units
-- Exterior overfill: 60 units
+- Exterior overfill: 100 units (60 units in archived v1.3)
 - Typographic line gap: zero
 
 Normal text fixes the primary terminal font's advance and line-box metrics.
@@ -51,9 +55,9 @@ terminal rasterization seams.
 - FontTools cmap, metric and outline verification
 - FontForge generation and source files
 - Pango/Cairo Linux raster proofs
+- CoreText/macOS Terminal proofs at 8–13 pt using solid fills and `btop`
 - solid-fill, checkerboard and moving-diagonal probes
 - snow, starfield, interactive trail and filled-triangle demonstrations
 - depth-buffered vector and 3D demonstrations
 
 The full engineering record is available as PDF and DOCX in this directory.
-

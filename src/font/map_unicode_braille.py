@@ -12,27 +12,28 @@ from fontTools.ttLib import TTFont
 BRAILLE_FIRST = 0x2800
 PUA_FIRST = 0xE000
 COUNT = 256
-FAMILY = "Square Braille Unicode Text Seamless"
-FULL_NAME = FAMILY
-POSTSCRIPT_NAME = "SquareBrailleUnicodeTextSeamless-Regular"
-VERSION = "Version 1.3"
-DESCRIPTION = (
+DEFAULT_FAMILY = "Square Braille Unicode Text Seamless"
+DEFAULT_VERSION = "1.4"
+DEFAULT_DESCRIPTION = (
     "Text-capable monospaced terminal font with seamless square-cell Braille "
     "at official Unicode Braille Patterns U+2800-U+28FF and compatibility "
     "aliases at Private Use Area U+E000-U+E0FF."
 )
 
 
-def replace_names(font: TTFont) -> None:
+def replace_names(font: TTFont, family: str, version: str,
+                  description: str) -> None:
+    postscript_name = "".join(character for character in family
+                              if character.isalnum()) + "-Regular"
     replacements = {
-        1: FAMILY,
+        1: family,
         2: "Regular",
-        3: f"1.3;Square Braille Unicode Text Seamless;Regular",
-        4: FULL_NAME,
-        5: VERSION,
-        6: POSTSCRIPT_NAME,
-        10: DESCRIPTION,
-        16: FAMILY,
+        3: f"{version};{family};Regular",
+        4: family,
+        5: f"Version {version}",
+        6: postscript_name,
+        10: description,
+        16: family,
         17: "Regular",
     }
     table = font["name"]
@@ -46,7 +47,8 @@ def replace_names(font: TTFont) -> None:
         table.setName(value, name_id, 1, 0, 0)
 
 
-def build(source: Path, output: Path) -> None:
+def build(source: Path, output: Path, family: str, version: str,
+          description: str) -> None:
     font = TTFont(source, recalcBBoxes=False, recalcTimestamp=False)
     best = font.getBestCmap()
     missing = [PUA_FIRST + offset for offset in range(COUNT)
@@ -66,7 +68,7 @@ def build(source: Path, output: Path) -> None:
     if not changed_tables:
         raise SystemExit("no Unicode cmap subtable contains the complete PUA mapping")
 
-    replace_names(font)
+    replace_names(font, family, version, description)
     output.parent.mkdir(parents=True, exist_ok=True)
     font.save(output, reorderTables=False)
     font.close()
@@ -78,8 +80,12 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("source", type=Path)
     parser.add_argument("output", type=Path)
+    parser.add_argument("--family", default=DEFAULT_FAMILY)
+    parser.add_argument("--version", default=DEFAULT_VERSION)
+    parser.add_argument("--description", default=DEFAULT_DESCRIPTION)
     args = parser.parse_args()
-    build(args.source, args.output)
+    build(args.source, args.output, args.family, args.version,
+          args.description)
 
 
 if __name__ == "__main__":
