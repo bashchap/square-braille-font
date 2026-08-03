@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>PUA Square Braille — Visual Verification</title>
+<style>
+@font-face { font-family: "PUA Square Braille"; src: url("dist/PUA-Square-Braille.ttf") format("truetype"); }
+* { box-sizing: border-box; }
+body { margin: 24px; color: #171717; background: #f5f5f5; font: 14px/1.35 system-ui, sans-serif; }
+h1 { margin-bottom: 6px; }
+.intro { max-width: 920px; margin-bottom: 22px; }
+.legend { display: flex; gap: 24px; align-items: center; margin: 16px 0; }
+.swatch { display: inline-block; width: 18px; height: 18px; border: 1px solid #555; vertical-align: middle; }
+.filled { background: #111; }
+.empty { background: white; }
+#cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(215px, 1fr)); gap: 12px; }
+.card { background: white; border: 1px solid #bbb; padding: 12px; break-inside: avoid; }
+.codes { font: 12px/1.45 ui-monospace, monospace; margin-bottom: 9px; }
+.comparison { display: flex; gap: 16px; align-items: flex-start; }
+.caption { text-align: center; font-size: 11px; color: #555; margin-bottom: 4px; }
+.expected { display: grid; grid-template-columns: repeat(2, 25px); grid-template-rows: repeat(4, 25px); border: 1px solid #777; }
+.expected span { width: 25px; height: 25px; outline: 1px solid #aaa; outline-offset: -1px; }
+.actual { font-family: "PUA Square Braille"; font-size: 100px; line-height: 1; width: 50px; height: 100px; overflow: hidden; color: #111; background: white; }
+@media print { body { margin: 8mm; background: white; } #cards { grid-template-columns: repeat(4, 1fr); } }
+</style>
+</head>
+<body>
+<h1>PUA Square Braille — Visual Verification</h1>
+<div class="intro">
+  Each card compares the expected square-cell pattern (left) with the glyph rendered
+  from <code>PUA-Square-Braille.ttf</code> (right). The mapping is
+  <code>U+E000 + n ↔ U+2800 + n</code>. Filled cells must match exactly.
+</div>
+<div class="legend"><span><i class="swatch filled"></i> raised/filled</span><span><i class="swatch empty"></i> empty</span></div>
+<div id="cards"></div>
+<script>
+const dots = [[1,4],[2,5],[3,6],[7,8]];
+const hex = n => n.toString(16).toUpperCase().padStart(4, "0");
+const cards = document.getElementById("cards");
+for (let pattern = 0; pattern < 256; pattern++) {
+  const pua = 0xE000 + pattern;
+  const braille = 0x2800 + pattern;
+  const card = document.createElement("section");
+  card.className = "card";
+  const expected = dots.flat().map(dot =>
+    `<span class="${pattern & (1 << (dot - 1)) ? "filled" : "empty"}"></span>`
+  ).join("");
+  card.innerHTML = `<div class="codes"><b>Font:</b> U+${hex(pua)}<br><b>Source:</b> U+${hex(braille)}<br><b>Pattern:</b> ${pattern}</div>
+    <div class="comparison"><div><div class="caption">Expected</div><div class="expected">${expected}</div></div>
+    <div><div class="caption">Font</div><div class="actual">&#${pua};</div></div></div>`;
+  cards.appendChild(card);
+}
+</script>
+</body>
+</html>

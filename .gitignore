@@ -1,0 +1,15 @@
+.DS_Store
+__pycache__/
+*.py[cod]
+recordings/
+captures/
+*.ansi
+
+# Third-party or user-supplied model data and derived geometry caches.
+*.3ds
+*.c4d
+*.obj
+*.fbx
+*.rar
+*.npz
+
