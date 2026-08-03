@@ -1,0 +1,6 @@
+# Font verification and mapping
+fonttools>=4.0
+
+# Native 3D demonstrations
+numpy>=1.24
+Pillow>=10.0

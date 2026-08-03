@@ -16,5 +16,6 @@ test -f "$SOURCE" || { echo "Font not found: $SOURCE" >&2; exit 1; }
 mkdir -p "$HOME/Library/Fonts"
 install -m 0644 "$SOURCE" "$DESTINATION"
 echo "Installed: $DESTINATION"
+shasum -a 256 "$DESTINATION"
 echo 'Restart Terminal, then select "Square Braille Unicode Text Seamless" in a profile.'
-
+echo 'Tested Terminal settings: character spacing 0.969; line spacing 0.861; 8 pt or larger.'

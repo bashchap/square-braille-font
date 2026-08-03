@@ -55,6 +55,45 @@ To confirm the active font and point size in Terminal.app:
 osascript -e 'tell application "Terminal" to get {font name, font size} of front window'
 ```
 
+Expected family:
+
+```text
+SquareBrailleUnicodeTextSeamless-Regular
+```
+
+Command-Plus and Command-Minus apply temporary window zoom and did not change
+the point size reported by AppleScript during testing. Set exact test sizes in
+the profile's font panel and open a new window.
+
+## 4. Install native demo dependencies
+
+```sh
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
+./scripts/macos/smoke-demos.sh
+```
+
+See [Native macOS demonstration guide](DEMOS-MACOS.md) for every launch command,
+interactive controls, 3D model preparation and frame recording.
+
+## 5. Optional build tools
+
+Installing the released font does not require FontForge. To rebuild it locally:
+
+```sh
+brew install fontforge python
+source .venv/bin/activate
+make clean
+make verify \
+  DEJAVU_MONO=fonts/legacy/unicode-text-seamless-v1.3/Square-Braille-Unicode-Text-Seamless-v1.3.ttf
+```
+
+The archived v1.3 font supplies the already licensed normal-text outlines while
+the generators replace the Braille geometry with the v1.4 100-unit-overfill
+outlines.
+
 Apple's current Font Book documentation describes installation by double-click,
 drag-and-drop, or **File → Add Fonts to Current User**:
 <https://support.apple.com/guide/font-book/fntbk1000/mac>

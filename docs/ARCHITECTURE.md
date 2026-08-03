@@ -56,8 +56,11 @@ terminal rasterization seams.
 - FontForge generation and source files
 - Pango/Cairo Linux raster proofs
 - CoreText/macOS Terminal proofs at 8–13 pt using solid fills and `btop`
+- native macOS Python smoke tests for basic, vector and procedural 3D demos
+- native OBJ conversion, grid simplification and hidden-line cache preparation
 - solid-fill, checkerboard and moving-diagonal probes
 - snow, starfield, interactive trail and filled-triangle demonstrations
 - depth-buffered vector and 3D demonstrations
 
 The full engineering record is available as PDF and DOCX in this directory.
+Exact macOS reproduction commands are in [DEMOS-MACOS.md](DEMOS-MACOS.md).

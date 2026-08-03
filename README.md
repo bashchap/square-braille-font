@@ -22,6 +22,9 @@ Download or clone the repository, then follow the guide for your system:
 - [macOS quick start](docs/QUICKSTART-MACOS.md)
 - [Windows quick start](docs/QUICKSTART-WINDOWS.md)
 
+macOS users can run the complete Python and ANSI demonstration suite natively;
+see the [native macOS demonstration guide](docs/DEMOS-MACOS.md).
+
 The recommended file is:
 
 ```text
@@ -55,6 +58,7 @@ demos/vector/        Vector tunnel and space demonstrations
 demos/3d/            Parametric and external-mesh rendering engines
 docs/                Quick starts and engineering record
 config/              VROBI PUA mapping
+requirements.txt     Python verification and 3D demo dependencies
 ```
 
 The chronological design and validation history is documented in

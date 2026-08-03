@@ -20,9 +20,13 @@ locally tested geometry is intentionally excluded from this repository.
 `demos/3d/convert_obj_mesh.py` and `simplify_mesh.py` can rebuild renderer
 caches from a separately obtained, properly licensed OBJ file.
 
+The complete OBJ-to-hidden-line-cache command sequence for Linux and macOS is
+documented in [the native macOS demonstration guide](DEMOS-MACOS.md). Generated
+`*.npz` caches and the suggested `local-assets/` workspace remain excluded by
+the repository's model-data ignore rules.
+
 ## Parametric Enterprise demonstration
 
 `demos/3d/enterprise_flyby.py` generates its geometry programmatically and does
 not embed a downloaded mesh. It remains a non-commercial technical font demo;
 third-party names and marks belong to their respective owners.
-

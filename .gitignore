@@ -3,6 +3,7 @@ __pycache__/
 *.py[cod]
 recordings/
 captures/
+local-assets/
 *.ansi
 
 # Third-party or user-supplied model data and derived geometry caches.
@@ -12,4 +13,3 @@ captures/
 *.fbx
 *.rar
 *.npz
-
