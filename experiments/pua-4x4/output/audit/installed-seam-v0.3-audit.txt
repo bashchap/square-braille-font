@@ -1,0 +1,10 @@
+PASS  8 px: 256x129 solid raster, zero seam pixels
+PASS  9 px: 320x145 solid raster, zero seam pixels
+PASS 10 px: 320x160 solid raster, zero seam pixels
+PASS 11 px: 384x177 solid raster, zero seam pixels
+PASS 12 px: 384x193 solid raster, zero seam pixels
+PASS 13 px: 448x209 solid raster, zero seam pixels
+PASS 14 px: 448x225 solid raster, zero seam pixels
+PASS 16 px: 512x257 solid raster, zero seam pixels
+PASS 18 px: 576x289 solid raster, zero seam pixels
+PASS 20 px: 640x320 solid raster, zero seam pixels

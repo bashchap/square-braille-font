@@ -1,0 +1,33 @@
+{
+  "name": "PUA 4x4",
+  "version": "0.1",
+  "mapping": "row-major bit = row * 4 + column",
+  "advance": 500,
+  "ascent": 800,
+  "descent": 200,
+  "edge_overfill": 100,
+  "parts": [
+    {
+      "part": 0,
+      "family": "PUA 4x4 Part 0",
+      "postscript": "PUA4x4Part0-Regular",
+      "mask_start": 0,
+      "codepoint_start": 983040,
+      "mask_end": 32767,
+      "codepoint_end": 1015807,
+      "file": "PUA4x4Part0.ttf",
+      "sha256": "76609f28ca8f9a268d29ed178f79e9aa5dead7252f1bfb5bb654720b5876ea5b"
+    },
+    {
+      "part": 1,
+      "family": "PUA 4x4 Part 1",
+      "postscript": "PUA4x4Part1-Regular",
+      "mask_start": 32768,
+      "codepoint_start": 1048576,
+      "mask_end": 65535,
+      "codepoint_end": 1081343,
+      "file": "PUA4x4Part1.ttf",
+      "sha256": "ea679c28d5ee7ae840602f83c67d929c78557ab55e6506c16f49ed20fd5a0103"
+    }
+  ]
+}

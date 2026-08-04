@@ -1,0 +1,908 @@
+{
+  "audit": "Independent PUA 4x4 mathematical-to-TrueType chain",
+  "status": "PASS",
+  "edge_overfill": 0,
+  "mapping": "bit = 4 * local_y + (3 - local_x)",
+  "part_formula": {
+    "P0": "mask < 0x8000: codepoint = 0xF0000 + mask",
+    "P1": "mask >= 0x8000: codepoint = 0x100000 + (mask - 0x8000)"
+  },
+  "parts": [
+    {
+      "part": 0,
+      "file": "/home/tara/.local/share/fonts/PUA4x4Part0.ttf",
+      "sha256": "b34587617903d8115d8df788b6430b172c614d8fa9d1689eb403a5c8d26f8c6d",
+      "mask_range": [
+        0,
+        32767
+      ],
+      "codepoint_range": [
+        983040,
+        1015807
+      ],
+      "glyph_count": 32786,
+      "format_12_cmap": true,
+      "component_bounds": [
+        {
+          "bit": 0,
+          "actual": [
+            375,
+            550,
+            500,
+            800
+          ],
+          "expected": [
+            375,
+            550,
+            500,
+            800
+          ]
+        },
+        {
+          "bit": 1,
+          "actual": [
+            250,
+            550,
+            375,
+            800
+          ],
+          "expected": [
+            250,
+            550,
+            375,
+            800
+          ]
+        },
+        {
+          "bit": 2,
+          "actual": [
+            125,
+            550,
+            250,
+            800
+          ],
+          "expected": [
+            125,
+            550,
+            250,
+            800
+          ]
+        },
+        {
+          "bit": 3,
+          "actual": [
+            0,
+            550,
+            125,
+            800
+          ],
+          "expected": [
+            0,
+            550,
+            125,
+            800
+          ]
+        },
+        {
+          "bit": 4,
+          "actual": [
+            375,
+            300,
+            500,
+            550
+          ],
+          "expected": [
+            375,
+            300,
+            500,
+            550
+          ]
+        },
+        {
+          "bit": 5,
+          "actual": [
+            250,
+            300,
+            375,
+            550
+          ],
+          "expected": [
+            250,
+            300,
+            375,
+            550
+          ]
+        },
+        {
+          "bit": 6,
+          "actual": [
+            125,
+            300,
+            250,
+            550
+          ],
+          "expected": [
+            125,
+            300,
+            250,
+            550
+          ]
+        },
+        {
+          "bit": 7,
+          "actual": [
+            0,
+            300,
+            125,
+            550
+          ],
+          "expected": [
+            0,
+            300,
+            125,
+            550
+          ]
+        },
+        {
+          "bit": 8,
+          "actual": [
+            375,
+            50,
+            500,
+            300
+          ],
+          "expected": [
+            375,
+            50,
+            500,
+            300
+          ]
+        },
+        {
+          "bit": 9,
+          "actual": [
+            250,
+            50,
+            375,
+            300
+          ],
+          "expected": [
+            250,
+            50,
+            375,
+            300
+          ]
+        },
+        {
+          "bit": 10,
+          "actual": [
+            125,
+            50,
+            250,
+            300
+          ],
+          "expected": [
+            125,
+            50,
+            250,
+            300
+          ]
+        },
+        {
+          "bit": 11,
+          "actual": [
+            0,
+            50,
+            125,
+            300
+          ],
+          "expected": [
+            0,
+            50,
+            125,
+            300
+          ]
+        },
+        {
+          "bit": 12,
+          "actual": [
+            375,
+            -200,
+            500,
+            50
+          ],
+          "expected": [
+            375,
+            -200,
+            500,
+            50
+          ]
+        },
+        {
+          "bit": 13,
+          "actual": [
+            250,
+            -200,
+            375,
+            50
+          ],
+          "expected": [
+            250,
+            -200,
+            375,
+            50
+          ]
+        },
+        {
+          "bit": 14,
+          "actual": [
+            125,
+            -200,
+            250,
+            50
+          ],
+          "expected": [
+            125,
+            -200,
+            250,
+            50
+          ]
+        },
+        {
+          "bit": 15,
+          "actual": [
+            0,
+            -200,
+            125,
+            50
+          ],
+          "expected": [
+            0,
+            -200,
+            125,
+            50
+          ]
+        }
+      ],
+      "patterns_verified": 32768
+    },
+    {
+      "part": 1,
+      "file": "/home/tara/.local/share/fonts/PUA4x4Part1.ttf",
+      "sha256": "ccfad9f530ceda3f33791aec877b81b81472604e68c5e1633c50bb6d2da2681a",
+      "mask_range": [
+        32768,
+        65535
+      ],
+      "codepoint_range": [
+        1048576,
+        1081343
+      ],
+      "glyph_count": 32786,
+      "format_12_cmap": true,
+      "component_bounds": [
+        {
+          "bit": 0,
+          "actual": [
+            375,
+            550,
+            500,
+            800
+          ],
+          "expected": [
+            375,
+            550,
+            500,
+            800
+          ]
+        },
+        {
+          "bit": 1,
+          "actual": [
+            250,
+            550,
+            375,
+            800
+          ],
+          "expected": [
+            250,
+            550,
+            375,
+            800
+          ]
+        },
+        {
+          "bit": 2,
+          "actual": [
+            125,
+            550,
+            250,
+            800
+          ],
+          "expected": [
+            125,
+            550,
+            250,
+            800
+          ]
+        },
+        {
+          "bit": 3,
+          "actual": [
+            0,
+            550,
+            125,
+            800
+          ],
+          "expected": [
+            0,
+            550,
+            125,
+            800
+          ]
+        },
+        {
+          "bit": 4,
+          "actual": [
+            375,
+            300,
+            500,
+            550
+          ],
+          "expected": [
+            375,
+            300,
+            500,
+            550
+          ]
+        },
+        {
+          "bit": 5,
+          "actual": [
+            250,
+            300,
+            375,
+            550
+          ],
+          "expected": [
+            250,
+            300,
+            375,
+            550
+          ]
+        },
+        {
+          "bit": 6,
+          "actual": [
+            125,
+            300,
+            250,
+            550
+          ],
+          "expected": [
+            125,
+            300,
+            250,
+            550
+          ]
+        },
+        {
+          "bit": 7,
+          "actual": [
+            0,
+            300,
+            125,
+            550
+          ],
+          "expected": [
+            0,
+            300,
+            125,
+            550
+          ]
+        },
+        {
+          "bit": 8,
+          "actual": [
+            375,
+            50,
+            500,
+            300
+          ],
+          "expected": [
+            375,
+            50,
+            500,
+            300
+          ]
+        },
+        {
+          "bit": 9,
+          "actual": [
+            250,
+            50,
+            375,
+            300
+          ],
+          "expected": [
+            250,
+            50,
+            375,
+            300
+          ]
+        },
+        {
+          "bit": 10,
+          "actual": [
+            125,
+            50,
+            250,
+            300
+          ],
+          "expected": [
+            125,
+            50,
+            250,
+            300
+          ]
+        },
+        {
+          "bit": 11,
+          "actual": [
+            0,
+            50,
+            125,
+            300
+          ],
+          "expected": [
+            0,
+            50,
+            125,
+            300
+          ]
+        },
+        {
+          "bit": 12,
+          "actual": [
+            375,
+            -200,
+            500,
+            50
+          ],
+          "expected": [
+            375,
+            -200,
+            500,
+            50
+          ]
+        },
+        {
+          "bit": 13,
+          "actual": [
+            250,
+            -200,
+            375,
+            50
+          ],
+          "expected": [
+            250,
+            -200,
+            375,
+            50
+          ]
+        },
+        {
+          "bit": 14,
+          "actual": [
+            125,
+            -200,
+            250,
+            50
+          ],
+          "expected": [
+            125,
+            -200,
+            250,
+            50
+          ]
+        },
+        {
+          "bit": 15,
+          "actual": [
+            0,
+            -200,
+            125,
+            50
+          ],
+          "expected": [
+            0,
+            -200,
+            125,
+            50
+          ]
+        }
+      ],
+      "patterns_verified": 32768
+    }
+  ],
+  "patterns_verified": 65536,
+  "unique_codepoints_verified": 65536,
+  "boundary_samples": [
+    {
+      "mask": 0,
+      "mask_hex": "0x0000",
+      "part": 0,
+      "codepoint": 983040,
+      "codepoint_hex": "U+0F0000",
+      "bits": [],
+      "bitmap": [
+        "....",
+        "....",
+        "....",
+        "...."
+      ]
+    },
+    {
+      "mask": 1,
+      "mask_hex": "0x0001",
+      "part": 0,
+      "codepoint": 983041,
+      "codepoint_hex": "U+0F0001",
+      "bits": [
+        0
+      ],
+      "bitmap": [
+        "...#",
+        "....",
+        "....",
+        "...."
+      ]
+    },
+    {
+      "mask": 8,
+      "mask_hex": "0x0008",
+      "part": 0,
+      "codepoint": 983048,
+      "codepoint_hex": "U+0F0008",
+      "bits": [
+        3
+      ],
+      "bitmap": [
+        "#...",
+        "....",
+        "....",
+        "...."
+      ]
+    },
+    {
+      "mask": 32766,
+      "mask_hex": "0x7FFE",
+      "part": 0,
+      "codepoint": 1015806,
+      "codepoint_hex": "U+0F7FFE",
+      "bits": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14
+      ],
+      "bitmap": [
+        "###.",
+        "####",
+        "####",
+        ".###"
+      ]
+    },
+    {
+      "mask": 32767,
+      "mask_hex": "0x7FFF",
+      "part": 0,
+      "codepoint": 1015807,
+      "codepoint_hex": "U+0F7FFF",
+      "bits": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14
+      ],
+      "bitmap": [
+        "####",
+        "####",
+        "####",
+        ".###"
+      ]
+    },
+    {
+      "mask": 32768,
+      "mask_hex": "0x8000",
+      "part": 1,
+      "codepoint": 1048576,
+      "codepoint_hex": "U+100000",
+      "bits": [
+        15
+      ],
+      "bitmap": [
+        "....",
+        "....",
+        "....",
+        "#..."
+      ]
+    },
+    {
+      "mask": 32769,
+      "mask_hex": "0x8001",
+      "part": 1,
+      "codepoint": 1048577,
+      "codepoint_hex": "U+100001",
+      "bits": [
+        0,
+        15
+      ],
+      "bitmap": [
+        "...#",
+        "....",
+        "....",
+        "#..."
+      ]
+    },
+    {
+      "mask": 35939,
+      "mask_hex": "0x8C63",
+      "part": 1,
+      "codepoint": 1051747,
+      "codepoint_hex": "U+100C63",
+      "bits": [
+        0,
+        1,
+        5,
+        6,
+        10,
+        11,
+        15
+      ],
+      "bitmap": [
+        "..##",
+        ".##.",
+        "##..",
+        "#..."
+      ]
+    },
+    {
+      "mask": 50737,
+      "mask_hex": "0xC631",
+      "part": 1,
+      "codepoint": 1066545,
+      "codepoint_hex": "U+104631",
+      "bits": [
+        0,
+        4,
+        5,
+        9,
+        10,
+        14,
+        15
+      ],
+      "bitmap": [
+        "...#",
+        "..##",
+        ".##.",
+        "##.."
+      ]
+    },
+    {
+      "mask": 65534,
+      "mask_hex": "0xFFFE",
+      "part": 1,
+      "codepoint": 1081342,
+      "codepoint_hex": "U+107FFE",
+      "bits": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15
+      ],
+      "bitmap": [
+        "###.",
+        "####",
+        "####",
+        "####"
+      ]
+    },
+    {
+      "mask": 65535,
+      "mask_hex": "0xFFFF",
+      "part": 1,
+      "codepoint": 1081343,
+      "codepoint_hex": "U+107FFF",
+      "bits": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15
+      ],
+      "bitmap": [
+        "####",
+        "####",
+        "####",
+        "####"
+      ]
+    }
+  ],
+  "geometry_test": {
+    "predicate": "(virtual_x - virtual_y - tick) mod 13 is 0 or 1",
+    "phase_cases_verified": 2197,
+    "decode_mismatches": 0,
+    "unique_masks": [
+      {
+        "mask": 0,
+        "mask_hex": "0x0000",
+        "part": 0,
+        "codepoint": 983040,
+        "codepoint_hex": "U+0F0000",
+        "bitmap": [
+          "....",
+          "....",
+          "....",
+          "...."
+        ],
+        "occurrences_in_13x13x13_phase_audit": 845
+      },
+      {
+        "mask": 1,
+        "mask_hex": "0x0001",
+        "part": 0,
+        "codepoint": 983041,
+        "codepoint_hex": "U+0F0001",
+        "bitmap": [
+          "...#",
+          "....",
+          "....",
+          "...."
+        ],
+        "occurrences_in_13x13x13_phase_audit": 169
+      },
+      {
+        "mask": 19,
+        "mask_hex": "0x0013",
+        "part": 0,
+        "codepoint": 983059,
+        "codepoint_hex": "U+0F0013",
+        "bitmap": [
+          "..##",
+          "...#",
+          "....",
+          "...."
+        ],
+        "occurrences_in_13x13x13_phase_audit": 169
+      },
+      {
+        "mask": 310,
+        "mask_hex": "0x0136",
+        "part": 0,
+        "codepoint": 983350,
+        "codepoint_hex": "U+0F0136",
+        "bitmap": [
+          ".##.",
+          "..##",
+          "...#",
+          "...."
+        ],
+        "occurrences_in_13x13x13_phase_audit": 169
+      },
+      {
+        "mask": 4972,
+        "mask_hex": "0x136C",
+        "part": 0,
+        "codepoint": 988012,
+        "codepoint_hex": "U+0F136C",
+        "bitmap": [
+          "##..",
+          ".##.",
+          "..##",
+          "...#"
+        ],
+        "occurrences_in_13x13x13_phase_audit": 169
+      },
+      {
+        "mask": 14024,
+        "mask_hex": "0x36C8",
+        "part": 0,
+        "codepoint": 997064,
+        "codepoint_hex": "U+0F36C8",
+        "bitmap": [
+          "#...",
+          "##..",
+          ".##.",
+          "..##"
+        ],
+        "occurrences_in_13x13x13_phase_audit": 169
+      },
+      {
+        "mask": 27776,
+        "mask_hex": "0x6C80",
+        "part": 0,
+        "codepoint": 1010816,
+        "codepoint_hex": "U+0F6C80",
+        "bitmap": [
+          "....",
+          "#...",
+          "##..",
+          ".##."
+        ],
+        "occurrences_in_13x13x13_phase_audit": 169
+      },
+      {
+        "mask": 32768,
+        "mask_hex": "0x8000",
+        "part": 1,
+        "codepoint": 1048576,
+        "codepoint_hex": "U+100000",
+        "bitmap": [
+          "....",
+          "....",
+          "....",
+          "#..."
+        ],
+        "occurrences_in_13x13x13_phase_audit": 169
+      },
+      {
+        "mask": 51200,
+        "mask_hex": "0xC800",
+        "part": 1,
+        "codepoint": 1067008,
+        "codepoint_hex": "U+104800",
+        "bitmap": [
+          "....",
+          "....",
+          "#...",
+          "##.."
+        ],
+        "occurrences_in_13x13x13_phase_audit": 169
+      }
+    ]
+  }
+}

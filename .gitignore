@@ -4,6 +4,26 @@ __pycache__/
 recordings/
 captures/
 local-assets/
+experiments/pua-4x4/build/
+experiments/pua-4x4/__pycache__/
+experiments/pua-4x4/tmp/
+experiments/pua-4x4/build-candidate-no-overfill/
+experiments/pua-4x4/build-v0.2/
+experiments/pua-4x4/dist/
+experiments/pua-4x4/output/*
+!experiments/pua-4x4/output/audit/
+experiments/pua-4x4/output/audit/*
+!experiments/pua-4x4/output/audit/installed-pua4x4-v0.3-audit.json
+!experiments/pua-4x4/output/audit/installed-seam-v0.3-audit.txt
+!experiments/pua-4x4/output/audit/installed-v0.3-geometry-glyphs.png
+!experiments/pua-4x4/output/audit/installed-v0.3-boundary-glyphs.png
+!experiments/pua-4x4/output/audit/installed-v0.3-horizontal-64.png
+!experiments/pua-4x4/output/pdf/
+experiments/pua-4x4/output/pdf/*
+!experiments/pua-4x4/output/pdf/PUA-4x4-Mapping-Specification-v0.8.pdf
+!experiments/pua-4x4/output/pdf/PUA-4x4-Full-Character-Specification-v0.2.pdf
+!experiments/pua-4x4/output/pdf/PUA-4x4-Complete-Mapping-and-Glyph-Catalog-v0.8.pdf
+!experiments/pua-4x4/output/pdf/PUA-4x4-Mapping-Chain-MSB-Left-Evidence-v1.2.pdf
 *.ansi
 
 # Third-party or user-supplied model data and derived geometry caches.

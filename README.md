@@ -64,6 +64,20 @@ requirements.txt     Python verification and 3D demo dependencies
 The chronological design and validation history is documented in
 [Architecture and history](docs/ARCHITECTURE.md).
 
+## Experimental PUA 4x4 font family
+
+The repository also contains a separate two-font graphics experiment that
+turns each terminal cell into a 4×4 virtual-pixel grid. Version 0.3 contains
+all 65,536 patterns and implements the explicit MSB-left formula:
+
+```text
+bit = 4 * local_y + (3 - local_x)
+```
+
+The 4×4 fonts do not replace the released Square Braille font. See the
+[PUA 4x4 guide](docs/PUA-4X4.md) for the ranges, installation, demos,
+verification evidence and complete specification.
+
 ## External assets and licensing
 
 Original project code is released under the [MIT License](LICENSE). Normal text
