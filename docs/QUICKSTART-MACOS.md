@@ -1,5 +1,14 @@
 # macOS quick start
 
+> **Complete Apple Silicon setup:** for the final Square Braille font, both
+> current PUA 4x4 Candidate 6 parts, an isolated fallback terminal, every demo,
+> and VGR capture/playback, use
+> [macOS Apple Silicon: all fonts and demonstrations](QUICKSTART-MACOS-ALL-FONTS.md).
+
+For both font systems, a deterministic PUA 4x4 fallback terminal, complete
+character catalogs, every demo, and VGR capture/playback, see the
+[cross-platform operations guide](OPERATIONS-QUICKSTART.md).
+
 ## 1. Install for the current user
 
 From Terminal in the repository root:
@@ -97,3 +106,23 @@ outlines.
 Apple's current Font Book documentation describes installation by double-click,
 drag-and-drop, or **File → Add Fonts to Current User**:
 <https://support.apple.com/guide/font-book/fntbk1000/mac>
+
+## PUA 4x4
+
+Install the final Square Braille TTF and both PUA 4x4 RC1 TTFs for this user:
+
+```sh
+./scripts/macos/install-all-user.sh
+```
+
+Because the 65,536-pattern 4x4 repertoire is split across two fonts, use the
+supplied explicit Candidate 6 WezTerm fallback configuration for deterministic
+rendering:
+
+```sh
+wezterm --config-file "$PWD/config/wezterm/pua4.lua" start --cwd "$PWD"
+```
+
+Terminal.app remains the validated reference for the final Square Braille
+2x4 face. For PUA 4x4, the WezTerm configuration makes the required normal
+text, Part 0, Part 1 order explicit without changing an existing profile.

@@ -1,0 +1,22 @@
+{
+  "name": "PUA 4x4 v0.6 RC1",
+  "candidate": "Candidate 6",
+  "mapping": "bit = 4 * local_y + (3 - local_x)",
+  "part_0": {
+    "codepoints": "U+0F0000..U+0F7FFF",
+    "masks": "0x0000..0x7FFF",
+    "file": "PUA4x4Part0V06Candidate6.ttf",
+    "sha256": "2a473fc9fab1d1399fd46a04f85b9ff04a97962500a05d67c9677cb5bfe999af"
+  },
+  "part_1": {
+    "codepoints": "U+100000..U+107FFF",
+    "masks": "0x8000..0xFFFF",
+    "file": "PUA4x4Part1V06Candidate6.ttf",
+    "sha256": "f023c3f4c74b69858b2a8083479589166d11c0562b6afe7261263127eb43dfe0"
+  },
+  "source": "PUA 4x4 v0.5 Candidate 4",
+  "geometry": "x unchanged at 0..500 with advance 500; exterior y edges changed from -200..800 to -300..900; internal 4x4 boundaries unchanged",
+  "encoding_invariant": "full occupancy is foreground mask 0xFFFF at U+107FFF; no background or reverse-video substitution",
+  "supported_linux_range": "normal and enlarged MATE Terminal sizes",
+  "known_limit": "horizontal seams can appear at the two smallest MATE Terminal Ctrl-minus zoom levels"
+}

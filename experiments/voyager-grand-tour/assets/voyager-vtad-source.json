@@ -1,0 +1,13 @@
+{
+  "title": "Voyager 3D Model",
+  "credit": "NASA Visualization Technology Applications and Development (VTAD)",
+  "source_page": "https://science.nasa.gov/resource/voyager-3d-model/",
+  "source_asset": "https://assets.science.nasa.gov/content/dam/science/psd/solar/2023/09/v/Voyager.glb",
+  "source_sha256": "5338241f2e89e9cfe3ebb82f519b4cad64c97e66883cccba6fdda98667aec731",
+  "source_format": "glTF Binary 2.0",
+  "cache": "voyager-vtad-hlr.npz",
+  "cache_vertices": 12456,
+  "cache_triangles": 20372,
+  "cache_unique_edges": 31637,
+  "conversion": "world transform, normalization, coincident-position weld, topology and crease classification"
+}

@@ -1,5 +1,16 @@
 # Native macOS demonstration guide
 
+> **Current complete inventory:** the final Square Braille 2x4 suite and PUA
+> 4x4 Candidate 6 suite now share a user-only Apple Silicon launcher. See
+> [macOS Apple Silicon: all fonts and demonstrations](QUICKSTART-MACOS-ALL-FONTS.md)
+> for the authoritative commands.
+
+This document covers the final Square Braille 2×4 suite. For user-only
+installation of both 2×4 and PUA 4×4 fonts, the explicit cross-platform 4×4
+fallback profile, complete character catalogs, Voyager demos, and VGR capture
+and playback, see the
+[cross-platform operations guide](OPERATIONS-QUICKSTART.md).
+
 The demonstrations use UTF-8 PUA characters, ANSI colour and standard terminal
 control sequences. The basic and vector suites need only Python's standard
 library. The 3D renderers additionally use NumPy and Pillow. They run natively
