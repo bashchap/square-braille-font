@@ -68,6 +68,30 @@ switch hidden-line removal for wireframe, and `c` to switch Grand Tour/contour
 camera programmes.  Resizing the terminal changes the virtual framebuffer on
 the next frame; there is no 246-column limit.
 
+## Layer-aware live compositing
+
+The live Linux and macOS launchers run the same renderer and the same
+two-colour terminal compositor.  The status line displays `2CLR=ON` when this
+path is active.  The scene is retained as ordered semantic layers until the
+final terminal-cell encode: stars, rear rings, planet, front rings, moons and
+Voyager.  Ring samples are classified geometrically against the visible planet
+surface instead of relying on draw order alone.
+
+Within a terminal cell, the nearest visible layer owns the PUA/Braille glyph
+mask and ANSI foreground colour.  Where unselected subpixels reveal the next
+layer, the encoder may retain that layer as the ANSI background colour.  It
+does so only when measured RGB reconstruction error is lower.  Consequently a
+sparse cyan spacecraft edge crossing a blue planet remains a sparse cyan
+glyph over blue; it no longer turns the entire 4x4 cell cyan.  The real glyph
+is always emitted—this does not use reverse video or replace a full glyph with
+a space.
+
+This enhancement currently applies to the live animation and ANSI snapshot
+path.  The VGR v1 packet described below stores one mask and one foreground
+RGB value per cell.  Existing VGR v1 recordings therefore cannot contain, or
+recover, the second colour and semantic depth information.  VGR v1 capture and
+playback remain unchanged for format compatibility.
+
 ## Offline capture and exact playback
 
 The normative container layout, 22-byte VGF1 header, mask/color plane sizes,
@@ -229,6 +253,7 @@ Each `.vgf` member is independently compressed and indexed, permitting random
 access, paused single-frame stepping and streaming. Its binary payload is a
 small `VGF1` header followed by one mask per terminal cell (8 bits for 2×4 or
 16-bit little-endian for 4×4), then RGB888 foreground colour for every cell.
+There is no background-colour or per-virtual-pixel depth plane in VGR v1.
 `metadata.json` records font mode, renderer/source hashes, NASA model
 provenance, terminal and virtual dimensions, bit mapping, camera/style/HLR,
 timeline, capture rate, each frame's mission time, render/write timing, sizes,

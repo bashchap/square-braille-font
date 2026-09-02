@@ -29,6 +29,7 @@ import numpy as np
 
 from voyager_core import (BRAILLE_BITS, MATERIAL_COLORS, PUA4_BITS, normalize,
                           pua4_codepoint, raster_depth, terminal_picture)
+from voyager_layers import render_layered_frame, terminal_picture_v2
 
 
 HERE = Path(__file__).resolve().parent
@@ -573,7 +574,7 @@ def status_line(columns, mode, encounter, programme, style, hidden_lines,
     depth_status = ("HLR=N/A" if style == "filled" else
                     f"HLR={'ON' if hidden_lines else 'OFF'}")
     text = (f" {TITLE}  -{mode}  {programme.upper()}  {style.upper()} "
-            f"{depth_status}  "
+            f"{depth_status}  2CLR=ON  "
             f"{encounter.title} [{encounter.date}]  {fps_actual:4.1f} fps  "
             "q/ESC quit  f style  h HLR  c camera ")
     return "\x1b[0;30;47m" + text[:columns].ljust(columns) + "\x1b[0m"
@@ -978,10 +979,16 @@ def live_main(args):
                 total_rows = max(8, args.rows or terminal.lines)
                 status_rows = 0 if args.no_status else 1
                 graphic_rows = total_rows-status_rows
-                encounter, _, masks, colors, _ = render_frame(
-                    mesh, args.mode, columns, graphic_rows, elapsed, programme,
-                    style, hidden_lines, args.depth_scale)
-                picture = terminal_picture(masks, colors, args.mode)
+                # Keep scene objects separate until the terminal-cell encode.
+                # This preserves a sparse, near spacecraft edge as the cell
+                # foreground while retaining a planet or ring behind it as the
+                # cell background.  The legacy one-colour renderer remains in
+                # place for backwards-compatible VGR v1 capture/playback.
+                encounter, _, cell_frame, _, _ = render_layered_frame(
+                    sys.modules[__name__], mesh, args.mode, columns,
+                    graphic_rows, elapsed, programme, style, hidden_lines,
+                    args.depth_scale)
+                picture = terminal_picture_v2(cell_frame, args.mode)
                 if args.no_status:
                     output = "\x1b[H"+picture
                 else:

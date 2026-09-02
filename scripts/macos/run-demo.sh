@@ -123,7 +123,10 @@ font_resolution="$($wezterm_bin --config-file "$config" ls-fonts \
     printf '%s\n' "$font_resolution" >&2
     exit 1
 }
-printf '%s\n' "$font_resolution" | grep -Fq "/fonts/current/Square-Braille-Unicode-Text-Seamless.ttf" || {
+# CoreText/WezTerm may choose either byte-equivalent packaged outline format
+# from FontDirs.  The demo only needs to prove that it came from this
+# repository, not force TTF when the same face is also present as OTF.
+printf '%s\n' "$font_resolution" | grep -Fq "/fonts/current/Square-Braille-Unicode-Text-Seamless." || {
     echo 'Refusing to open a misleading demo window: Square Braille did not resolve to the repository font.' >&2
     printf '%s\n' "$font_resolution" >&2
     exit 1

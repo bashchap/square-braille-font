@@ -18,6 +18,8 @@ import numpy as np
 
 import voyager_grand_tour as demo
 from voyager_core import BRAILLE_BITS, PUA4_BITS, pua4_codepoint
+from voyager_layers import (BACKGROUND_VALID, encode_layers, expand_frame,
+                            render_layered_frame, terminal_picture_v2)
 from voyager_recording import (CaptureDashboard, CaptureMetrics, VGRReader,
                                decode_frame_packet, encode_frame_packet,
                                play_recording)
@@ -190,6 +192,46 @@ class VoyagerGrandTourTests(unittest.TestCase):
                                     "4x4 render never exercised bits 8..15")
                 picture = demo.terminal_picture(masks, colors, mode)
                 self.assertEqual(picture.count("\n"), 8)
+
+    def test_two_colour_cell_preserves_sparse_foreground_over_planet(self):
+        """A spacecraft pixel must not recolour an entire filled planet cell."""
+        planet = np.full((4, 4, 3), (24, 80, 176), dtype=np.uint8)
+        spacecraft = np.zeros((4, 4, 3), dtype=np.uint8)
+        spacecraft[1, 2] = (32, 232, 240)
+        frame = encode_layers(((20, planet), (30, spacecraft)), 4, 1, 1)
+
+        # MSB-left mapping: b = 4*y + (3-x), so local (2,1) is bit 5.
+        self.assertEqual(int(frame.masks[0, 0]), 1 << 5)
+        self.assertEqual(tuple(frame.foreground[0, 0]), (32, 232, 240))
+        self.assertEqual(tuple(frame.background[0, 0]), (24, 80, 176))
+        self.assertTrue(int(frame.flags[0, 0]) & int(BACKGROUND_VALID))
+
+        reconstructed = expand_frame(frame, 4)
+        expected = planet.copy()
+        expected[1, 2] = spacecraft[1, 2]
+        np.testing.assert_array_equal(reconstructed, expected)
+
+        picture = terminal_picture_v2(frame, 4)
+        self.assertIn("\x1b[38;2;32;232;240m", picture)
+        self.assertIn("\x1b[48;2;24;80;176m", picture)
+        self.assertIn(chr(pua4_codepoint(1 << 5)), picture)
+
+    def test_layered_neptune_overlap_uses_background_cells(self):
+        encounter, _, frame, stats, _ = render_layered_frame(
+            demo, self.mesh, 4, 60, 18, 47.9, "grand-tour", "wire", True, 2)
+        self.assertIs(encounter.planet, demo.NEPTUNE)
+        self.assertTrue(np.any(frame.masks))
+        self.assertTrue(np.any(frame.flags & BACKGROUND_VALID))
+        dual = (frame.flags & BACKGROUND_VALID) != 0
+        self.assertTrue(np.any(frame.foreground[dual] != frame.background[dual]))
+        self.assertGreater(stats[0], 0)
+        self.assertGreater(stats[1], 0)
+
+    def test_live_status_identifies_two_colour_compositor(self):
+        line = demo.status_line(
+            160, 4, demo.ENCOUNTERS[3], "grand-tour", "wire", True,
+            12.0, 47.9)
+        self.assertIn("2CLR=ON", line)
 
     def test_vgr_packet_roundtrip_for_both_font_modes(self):
         for mode, dtype in ((2, np.uint8), (4, np.uint16)):

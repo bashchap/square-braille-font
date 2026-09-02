@@ -128,6 +128,17 @@ key.
 ./scripts/macos/run-demo.sh pua4 model-viewer --start-rotating
 ```
 
+The Voyager live demo uses the same layer-aware two-colour compositor on
+macOS and Linux.  `2CLR=ON` in its status line confirms that the active path
+preserves a sparse foreground spacecraft edge over a differently coloured
+planet or ring.  For a stationary Neptune-overlap inspection:
+
+```sh
+./scripts/macos/run-demo.sh \
+  --terminal-columns 180 --terminal-rows 52 --font-size 9 \
+  pua4 voyager --freeze-at 47.9 --hold 30 --style wire
+```
+
 The model viewer uses the included, provenance-recorded NASA Voyager cache.
 Press `q` to quit. Its full control table is in
 [`experiments/voyager-model-viewer/README.md`](../experiments/voyager-model-viewer/README.md).
@@ -175,6 +186,8 @@ Play it at its stored rate:
 
 For 2×4, replace `pua4` with `square`; archive and player modes must match.
 VGR records terminal cells, so playback does not repeat the 3D render.
+VGR v1 stores one glyph mask and one foreground RGB colour per cell; it does
+not store the live compositor's background-colour or depth information.
 
 ## 9. External-model demonstrations
 

@@ -91,6 +91,14 @@ Colours are per terminal cell, not per virtual pixel. Mask zero is normally
 emitted as an ordinary space. A nonzero mask selects the glyph; that cell's
 RGB triplet becomes its ANSI true-colour foreground.
 
+VGR v1 has no background-colour plane, layer identifier or per-virtual-pixel
+depth plane.  The live Voyager renderer can preserve a near object's sparse
+foreground mask over a rear object's ANSI background colour, but that
+two-colour result cannot be represented losslessly in VGR v1.  Existing v1
+recordings cannot recover colour or depth data that was not stored.  Adding
+those planes requires a new packet version rather than silently changing this
+schema.
+
 ## 4×4 mask and codepoint mapping
 
 Inside one 4×4 terminal cell, bit positions are MSB-left within every row:
