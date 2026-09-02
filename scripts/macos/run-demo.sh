@@ -34,7 +34,7 @@ Square Braille 2x4:
 
 PUA 4x4:
   geometry snow starfield trail editor triangle vertical vector elite doom
-  enterprise enterprise-hlr spaceship defender voyager model-viewer
+  vortex enterprise enterprise-hlr spaceship defender voyager model-viewer
 
 Both modes also provide:
   shell       open an interactive shell with the correct font/fallback stack
@@ -45,6 +45,8 @@ Square mode additionally provides:
   catalog-all display official Square, aliases and both PUA 4x4 parts
 
 enterprise-hlr and spaceship require a separately licensed local mesh cache.
+Pass it after the demo name with --mesh /absolute/path/to/cache.npz. The
+launcher checks this before opening a window and prints an exact diagnostic.
 The procedural enterprise and NASA Voyager demos include their required data.
 EOF
 }
@@ -110,6 +112,38 @@ if [[ -z "$python_bin" ]]; then
     fi
 fi
 
+export FONT_DEMO_ROOT="$ROOT_DIR"
+export FONT_DEMO_COLUMNS="$columns"
+export FONT_DEMO_ROWS="$rows"
+export FONT_DEMO_SIZE="$font_size"
+
+font_resolution="$($wezterm_bin --config-file "$config" ls-fonts \
+    --codepoints 41,2801,28ff 2>&1 | tr -d '\000')" || {
+    echo 'WezTerm could not resolve the configured Square Braille font.' >&2
+    printf '%s\n' "$font_resolution" >&2
+    exit 1
+}
+printf '%s\n' "$font_resolution" | grep -Fq "/fonts/current/Square-Braille-Unicode-Text-Seamless.ttf" || {
+    echo 'Refusing to open a misleading demo window: Square Braille did not resolve to the repository font.' >&2
+    printf '%s\n' "$font_resolution" >&2
+    exit 1
+}
+if [[ "$mode" == pua4 ]]; then
+    font_resolution="$($wezterm_bin --config-file "$config" ls-fonts \
+        --codepoints f0001,100001 2>&1 | tr -d '\000')" || {
+        echo 'WezTerm could not resolve both configured PUA 4x4 fonts.' >&2
+        printf '%s\n' "$font_resolution" >&2
+        exit 1
+    }
+    for expected in PUA4x4Part0V06Candidate6.ttf PUA4x4Part1V06Candidate6.ttf; do
+        printf '%s\n' "$font_resolution" | grep -Fq "/$expected" || {
+            echo "Refusing to open a misleading demo window: $expected was not selected." >&2
+            printf '%s\n' "$font_resolution" >&2
+            exit 1
+        }
+    done
+fi
+
 demo_dir="$ROOT_DIR"
 case "$name" in
     shell)
@@ -152,6 +186,11 @@ case "$name" in
         fi
         command=("$python_bin" "$demo_dir/$script" "$@")
         ;;
+    vortex|motion)
+        [[ "$mode" == pua4 ]] || { echo 'vortex is a PUA 4x4 demo.' >&2; exit 2; }
+        demo_dir="$ROOT_DIR/experiments/pua-4x4"
+        command=("$python_bin" "$demo_dir/pua4x4_motion_demo.py" "$@")
+        ;;
     enterprise|enterprise-hlr|spaceship)
         case "$name" in
             enterprise) script=enterprise_flyby.py ;;
@@ -162,6 +201,42 @@ case "$name" in
             demo_dir="$ROOT_DIR/demos/3d"
         else
             demo_dir="$ROOT_DIR/experiments/pua-4x4/demos4x4"
+        fi
+        if [[ "$name" == enterprise-hlr || "$name" == spaceship ]]; then
+            mesh_argument=''
+            previous=''
+            for argument in "$@"; do
+                if [[ "$previous" == --mesh ]]; then
+                    mesh_argument="$argument"
+                    break
+                fi
+                previous="$argument"
+            done
+            if [[ -z "$mesh_argument" ]]; then
+                [[ "$name" == enterprise-hlr ]] && mesh_name=enterprise_tos_wire.npz || mesh_name=space_ship_wire.npz
+                for candidate in "$ROOT_DIR/local-assets/$mesh_name" "$demo_dir/$mesh_name"; do
+                    if [[ -f "$candidate" ]]; then
+                        mesh_argument="$candidate"
+                        set -- "$@" --mesh "$candidate"
+                        break
+                    fi
+                done
+                if [[ -z "$mesh_argument" ]]; then
+                    echo "$name needs the separately licensed local mesh cache $mesh_name." >&2
+                    echo 'It is intentionally not distributed in this public repository.' >&2
+                    echo "Run again with:" >&2
+                    echo "  ./scripts/macos/run-demo.sh $mode $name --mesh /absolute/path/to/$mesh_name" >&2
+                    exit 1
+                fi
+            elif [[ ! -f "$mesh_argument" ]]; then
+                echo "Mesh cache not found: $mesh_argument" >&2
+                exit 1
+            fi
+            if [[ "$mesh_argument" != /* ]]; then
+                echo "Mesh cache path must be absolute: $mesh_argument" >&2
+                echo 'Use --mesh /absolute/path/to/cache.npz so the new window resolves the same file.' >&2
+                exit 1
+            fi
         fi
         command=("$python_bin" "$demo_dir/$script" "$@")
         ;;
@@ -195,9 +270,6 @@ case "$name" in
     *) echo "Unknown demo: $name" >&2; list_demos >&2; exit 2 ;;
 esac
 
-export FONT_DEMO_COLUMNS="$columns"
-export FONT_DEMO_ROWS="$rows"
-export FONT_DEMO_SIZE="$font_size"
-
 exec "$wezterm_bin" --config-file "$config" start --always-new-process \
-    --cwd "$demo_dir" -- "${command[@]}"
+    --cwd "$demo_dir" -- "$ROOT_DIR/scripts/macos/run-command-and-hold.sh" \
+    "${command[@]}"

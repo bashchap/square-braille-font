@@ -120,9 +120,11 @@ supplied explicit Candidate 6 WezTerm fallback configuration for deterministic
 rendering:
 
 ```sh
-wezterm --config-file "$PWD/config/wezterm/pua4.lua" start --cwd "$PWD"
+./scripts/macos/run-demo.sh pua4 shell
 ```
 
 Terminal.app remains the validated reference for the final Square Braille
 2x4 face. For PUA 4x4, the WezTerm configuration makes the required normal
 text, Part 0, Part 1 order explicit without changing an existing profile.
+The launcher reads the repository TTFs directly, disables WezTerm's built-in
+Braille renderer, and verifies the selected font files before opening a window.

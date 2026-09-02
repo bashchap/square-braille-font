@@ -5,11 +5,18 @@
 > [macOS Apple Silicon: all fonts and demonstrations](QUICKSTART-MACOS-ALL-FONTS.md)
 > for the authoritative commands.
 
-This document covers the final Square Braille 2×4 suite. For user-only
-installation of both 2×4 and PUA 4×4 fonts, the explicit cross-platform 4×4
-fallback profile, complete character catalogs, Voyager demos, and VGR capture
-and playback, see the
-[cross-platform operations guide](OPERATIONS-QUICKSTART.md).
+The authoritative entry point for both font families is:
+
+```sh
+./scripts/macos/run-demo.sh --list
+```
+
+Use that launcher rather than invoking the Python files directly. It opens a
+new, isolated WezTerm window, loads the repository font files explicitly,
+disables WezTerm's built-in dotted-Braille renderer, verifies the selected font
+files, and then starts the requested demo. For complete installation, catalog,
+Voyager and VGR commands, see
+[macOS Apple Silicon: all fonts and demonstrations](QUICKSTART-MACOS-ALL-FONTS.md).
 
 The demonstrations use UTF-8 PUA characters, ANSI colour and standard terminal
 control sequences. The basic and vector suites need only Python's standard
@@ -60,10 +67,37 @@ source .venv/bin/activate
 Run the automated native smoke test:
 
 ```sh
-./scripts/macos/smoke-demos.sh
+./scripts/macos/smoke-all-demos.sh
 ```
 
-## Basic demonstrations
+## Demonstrations through the verified launcher
+
+Square Braille 2×4 examples:
+
+```sh
+./scripts/macos/run-demo.sh square snow
+./scripts/macos/run-demo.sh square starfield
+./scripts/macos/run-demo.sh square triangle --pps 6000 --hold 5
+./scripts/macos/run-demo.sh square voyager --camera grand-tour --style wire
+```
+
+PUA 4×4 examples:
+
+```sh
+./scripts/macos/run-demo.sh pua4 snow
+./scripts/macos/run-demo.sh pua4 triangle
+./scripts/macos/run-demo.sh pua4 voyager --camera contour --style wire
+./scripts/macos/run-demo.sh pua4 vortex --fps 20
+```
+
+The `vortex` command is the twisting, moving-opening flight demo. It uses both
+PUA 4×4 font parts, shades distant rings more darkly, and distributes the star
+field across the entire viewport. Press `q` or Escape to quit.
+
+The direct Python commands below remain useful for development, but they do not
+select or verify a terminal font on their own.
+
+## Direct Python: basic demonstrations
 
 ```sh
 python demos/basic/unicode_braille_probe.py

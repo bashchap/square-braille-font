@@ -12,6 +12,12 @@ These are user-only steps. They do not use `sudo`, edit system fonts, or alter
 an existing Terminal.app profile. A repository-local WezTerm configuration
 provides the exact font order for every newly opened demo window.
 
+The launcher also tells WezTerm to read the repository font files directly and
+disables WezTerm's built-in Braille renderer. This is essential: otherwise
+WezTerm can draw ordinary dotted Braille even though the Square Braille TTF is
+installed. Before opening a window, the launcher verifies the resolved file for
+Square Braille and, in 4x4 mode, both Candidate 6 parts.
+
 ## 1. Clone and prepare Python
 
 ```sh
@@ -113,6 +119,7 @@ key.
 ./scripts/macos/run-demo.sh pua4 triangle
 ./scripts/macos/run-demo.sh pua4 vertical
 ./scripts/macos/run-demo.sh pua4 vector --duration 30 --fps 20
+./scripts/macos/run-demo.sh pua4 vortex --fps 20
 ./scripts/macos/run-demo.sh pua4 doom --duration 30 --fps 6
 ./scripts/macos/run-demo.sh pua4 elite --once --duration 60 --fps 20
 ./scripts/macos/run-demo.sh pua4 enterprise --once --duration 60 --fps 1 --detail 2
@@ -184,6 +191,25 @@ Those two caches cannot be distributed because their source models have
 separate licensing. Conversion tools remain in `demos/3d/` and
 `experiments/pua-4x4/demos4x4/`. The procedural Enterprise and NASA Voyager
 demos above require no external model.
+
+If `--mesh` is omitted, the launcher also looks for the matching cache in
+`local-assets/`. If neither location contains it, the command stops in the
+calling shell with a clear message instead of opening a window that immediately
+disappears. Any unexpected Python failure inside a new window is held on screen
+until Return is pressed.
+
+Confirm which fonts WezTerm will actually use:
+
+```sh
+FONT_DEMO_ROOT="$PWD" wezterm --config-file config/wezterm/square-braille.lua \
+  ls-fonts --codepoints 41,2801,28ff
+
+FONT_DEMO_ROOT="$PWD" wezterm --config-file config/wezterm/pua4.lua \
+  ls-fonts --codepoints 41,f0001,100001
+```
+
+The output must name the TTFs under this repository, not WezTerm's built-in
+Braille renderer, a Nerd Font, or a placeholder glyph.
 
 ## 10. Run the complete native M1 audit
 
