@@ -15,6 +15,7 @@ treetops, airborne leaves, and rolling tumbleweed.
 ```text
 CLI settings
     │
+    ├── gradient sky ─────────── 2–8 colours / stops / blend curve
     ├── deterministic scenery ── trees / cabin / reindeer
     ├── snow particles ───────── size / rate / speed / wind / gust / drift
     └── snow bank ────────────── settle / accumulate / broad shed / local slump
@@ -58,8 +59,15 @@ stack. Its window controls may precede the mode or follow the demo name:
 
 ./scripts/macos/run-demo.sh pua4 christmas-snow \
   --terminal-columns 300 --terminal-rows 90 --font-size 7 \
+  --window-position 80,40 \
   --scenery all --ambient all --fps 4
 ```
+
+`--window-position X,Y` sets the initial macOS WezTerm pixel position. The
+saved control-console command records the live terminal rows/columns and
+effective font size. It also asks macOS Accessibility for the front window's
+current position; if that access is unavailable, it preserves the explicitly
+launched `--window-position` value instead.
 
 ### Linux with MATE Terminal
 
@@ -197,8 +205,10 @@ The foreground is not limited to falling snow:
   `--flyby-speed` for a particular demonstration. All flights occupy a distant
   compositing layer and are occluded by trees, cabins, animals and snow.
   `--santa-scale 0.50` is the half-size default. `--santa-arc-height` controls
-  his mid-flight rise, and `--santa-trail-seconds` controls the fading
-  gold-and-ice particle trail left behind the sleigh.
+  his mid-flight rise, `--santa-trail-length` controls its spatial extent, and
+  `--santa-trail-seconds` controls the fading gold-and-ice particle trail left
+  behind the sleigh. The defaults are now `3.0` times the original spatial
+  length and `5.6` seconds—twice the original lifetime.
 - The snow plough is enabled by default. `--plough-interval` controls how often
   it enters, `--plough-speed` controls traversal speed, and
   `--plough-clear-to` is the shallow bank left by a completed pass. Use
@@ -209,8 +219,28 @@ To isolate the half-scale arcing Santa and his fading trail:
 ```sh
 ./scripts/macos/run-demo.sh pua4 christmas-snow \
   --sky-events santa --flyby-interval 1 --flyby-speed 32 \
-  --santa-scale 0.50 --santa-arc-height 0.16 --santa-trail-seconds 2.8
+  --santa-scale 0.50 --santa-arc-height 0.16 \
+  --santa-trail-length 3 --santa-trail-seconds 5.6
 ```
+
+## Gradient sky
+
+The sky is the farthest raster layer, beneath flybys and every scenery or snow
+pixel. It is enabled by default. Choose two to eight hexadecimal RGB colours,
+give each a matching top-to-bottom stop between `0` and `1`, and select the
+interpolation curve:
+
+```sh
+./scripts/macos/run-demo.sh pua4 christmas-snow \
+  --sky-colours 07152F,315A82,B9D8E8 \
+  --sky-stops 0,0.58,1 --sky-blend smooth
+```
+
+`linear` changes colour at a constant rate, `smooth` eases into and out of each
+stop, and `cosine` gives an even gentler merge. Use `--no-sky` for the old
+terminal-black background. Colours, stops, blend, and the on/off state are live
+controls. When changing the number of colours in the console, evenly spaced
+stops are generated automatically and can then be edited precisely.
 
 For a busy, reproducible test scene:
 
@@ -318,15 +348,21 @@ allowed values, its predicted visual effect, and whether large values have
 low, moderate, or high performance sensitivity. Direct input remains available
 when a value outside the convenient slider range is valid.
 
+The console is divided into related pages instead of one oversized list:
+`DISPLAY`, `WINDOW`, `LIVE`, `SNOW`, `SKY`, `GROUND`, `SCENE`, `TREES`,
+`ANIMALS`, and `FLIGHTS`. The active page is bracketed in the coloured Unicode
+tab strip.
+
 Controller keys:
 
 | Key | Operation |
 |---|---|
+| Tab / Shift-Tab | Move to the next / previous related option page |
 | Up / Down, Page Up / Page Down, Home / End | Navigate every option |
 | Left / Right | Move a numeric slider or cycle a choice |
 | Space | Toggle an on/off option |
 | Enter | Type an exact value; type `AUTO` for auto-sized controls |
-| `S` | Save a JSON preset and adjacent standalone `.command.txt` launch command |
+| `S` | Capture window geometry/font size, then save a JSON preset and adjacent standalone `.command.txt` launch command |
 | `P` | Display a complete standalone command; it is also printed on exit |
 | `R` | Restore defaults for the selected font mode |
 | `Q` | Quit the controller; the viewer keeps its last accepted values |
@@ -387,7 +423,7 @@ Add `--detailed-dashboard` when the compact one-line status is not enough:
 ```
 
 The five extra rows are now a tabbed dashboard. Press `Tab` to rotate through
-`FONT`, `SNOW`, `TREES`, `ANIMALS`, `FLIGHTS`, and `PROCESS`; the highlighted
+`FONT`, `SNOW`, `SKY`, `TREES`, `ANIMALS`, `FLIGHTS`, and `PROCESS`; the highlighted
 name in the Unicode tab strip is the active page. Press `q` or `Esc` to leave
 the animation. The terminal input mode is temporary and restored on exit.
 
@@ -396,6 +432,8 @@ the animation. The terminal input mode is temporary and restored on exit.
   active/blank cells, deduplication, and colour combinations.
 - `SNOW` covers airborne particles, ground-bank mass, repose relaxation,
   broad/local shedding, and sparse object-snow catches and releases.
+- `SKY` shows the current colour sequence, stop positions, blend curve, and
+  layer order.
 - `TREES` shows species, density, branch formula controls, the segment budget,
   sway and object-snow state.
 - `ANIMALS` shows rabbit states/reactions and foreground-reindeer state.

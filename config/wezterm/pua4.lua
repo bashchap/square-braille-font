@@ -36,4 +36,27 @@ config.enable_tab_bar = false
 config.adjust_window_size_when_changing_font_size = false
 config.warn_about_missing_glyphs = true
 
+local function write_geometry(window, pane)
+  local path = os.getenv('FONT_DEMO_GEOMETRY_FILE')
+  if path == nil or path == '' then
+    return
+  end
+  local dimensions = pane:get_dimensions()
+  local effective = window:effective_config()
+  local position = os.getenv('FONT_DEMO_POSITION') or ''
+  local temporary = path .. '.tmp'
+  local file = io.open(temporary, 'w')
+  if file ~= nil then
+    file:write(string.format(
+      '{"columns":%d,"rows":%d,"font_size":%.3f,"window_position":"%s"}\n',
+      dimensions.cols, dimensions.viewport_rows, effective.font_size,
+      position:gsub('"', '\\"')))
+    file:close()
+    os.rename(temporary, path)
+  end
+end
+
+wezterm.on('window-resized', write_geometry)
+wezterm.on('update-status', write_geometry)
+
 return config

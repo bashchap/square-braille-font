@@ -8,6 +8,8 @@ import io
 import json
 import os
 import shlex
+import shutil
+import subprocess
 import sys
 import textwrap
 import time
@@ -26,6 +28,8 @@ from christmas_snow import (
 RANGES = {
     "fps": (1.0, 60.0, 1.0), "duration": (0.0, 3600.0, 5.0),
     "frames": (0, 100000, 10), "columns": (24, 500, 1), "rows": (8, 200, 1),
+    "terminal_columns": (24, 600, 1), "terminal_rows": (8, 240, 1),
+    "font_size": (4.0, 72.0, 0.5),
     "seed": (0, 99999, 1), "control_poll": (0.05, 2.0, 0.05),
     "snow_rate": (0.0, 500.0, 5.0), "max_flakes": (0, 5000, 25),
     "preload_seconds": (0.0, 20.0, 0.5), "fall_speed": (1.0, 80.0, 1.0),
@@ -66,19 +70,23 @@ RANGES = {
     "flyby_speed": (1.0, 100.0, 2.0), "plough_interval": (1.0, 600.0, 5.0),
     "santa_scale": (0.2, 2.0, 0.05), "santa_arc_height": (0.0, 0.5, 0.01),
     "santa_trail_seconds": (0.0, 15.0, 0.25),
+    "santa_trail_length": (0.25, 8.0, 0.25),
     "plough_speed": (1.0, 100.0, 2.0), "plough_clear_to": (0.0, 0.50, 0.005),
 }
 
 RESTART_ONLY = frozenset({
     "mode", "duration", "frames", "columns", "rows", "seed", "snapshot",
     "no_dashboard", "detailed_dashboard", "preload_seconds", "initial_snow",
-    "bank_drift", "control_poll",
+    "bank_drift", "control_poll", "terminal_columns", "terminal_rows",
+    "font_size", "window_position",
 })
 
 GROUP_COLOURS = {
     "display and reproducibility": 1,
+    "launcher window reproduction": 3,
     "live control": 4,
     "falling snow": 6,
+    "sky and atmosphere": 7,
     "accumulation and shedding": 5,
     "seasonal scenery": 2,
     "wildlife and occasional events": 7,
@@ -86,8 +94,10 @@ GROUP_COLOURS = {
 
 GROUP_ICONS = {
     "display and reproducibility": "▣",
+    "launcher window reproduction": "▤",
     "live control": "◎",
     "falling snow": "❄",
+    "sky and atmosphere": "◒",
     "accumulation and shedding": "▂",
     "seasonal scenery": "♠",
     "wildlife and occasional events": "✦",
@@ -97,12 +107,16 @@ OPTION_ICONS = {
     "mode": "▦", "fps": "◷", "duration": "◴", "frames": "≡",
     "physics": "⚙",
     "columns": "↔", "rows": "↕", "seed": "※", "snapshot": "▣",
+    "terminal_columns": "⇔", "terminal_rows": "⇕", "font_size": "A",
+    "window_position": "⌖",
     "no_dashboard": "▤", "detailed_dashboard": "▥", "listen": "◎",
     "control_poll": "↻", "snow_rate": "❄", "max_flakes": "⁙",
     "preload_seconds": "◌", "flake_sizes": "✣", "size_weights": "⚖",
     "fall_speed": "↓", "speed_variation": "±", "wind": "→",
     "gust_strength": "≋", "gust_period": "∿", "drift": "⌁",
-    "wobble": "〰", "palette": "◈", "initial_snow": "▂",
+    "wobble": "〰", "palette": "◈", "sky": "◒",
+    "sky_colours": "◈", "sky_stops": "↕", "sky_blend": "≋",
+    "initial_snow": "▂",
     "bank_drift": "≈", "accumulation": "▴", "accumulate": "+",
     "snow_repose_slope": "∡", "snow_relaxation": "≈",
     "shed_threshold": "⌁", "shed_to": "↘", "shed_width": "↔",
@@ -126,7 +140,7 @@ OPTION_ICONS = {
     "rabbit_count": "♙", "rabbit_interval": "◴", "rabbit_speed": "→",
     "sky_events": "✈", "flyby_interval": "◴", "flyby_speed": "→",
     "santa_scale": "↕", "santa_arc_height": "⌒",
-    "santa_trail_seconds": "☄",
+    "santa_trail_seconds": "◴", "santa_trail_length": "☄",
     "snow_plough": "▰", "plough_interval": "◴", "plough_speed": "→",
     "plough_clear_to": "▁",
 }
@@ -138,6 +152,10 @@ IMPACT_GUIDANCE = {
     "frames": "Zero leaves duration in control; a positive value stops after an exact rendered-frame count.",
     "columns": "Larger fixed widths increase cell encoding, memory, and terminal output; omit this to follow live resizing.",
     "rows": "Larger fixed heights increase raster memory and cell encoding; omit this to follow live resizing.",
+    "terminal_columns": "Initial WezTerm width saved by S. The console captures its current terminal width so replay starts with the same columns.",
+    "terminal_rows": "Initial WezTerm height saved by S. The console captures its current terminal height so replay starts with the same rows.",
+    "font_size": "Initial WezTerm point size. It is read from launcher metadata and written into the reproducible command.",
+    "window_position": "Initial macOS WezTerm X,Y placement. Supply it when launching the console; terminal APIs do not report a reliably moved window position.",
     "seed": "Changing it produces a different but repeatable layout and event sequence with no material runtime cost.",
     "snapshot": "ON renders exactly one frame and exits; in a macOS spawned window that frame is held for inspection.",
     "detailed_dashboard": "ON reserves six rows; press Tab in the viewer to cycle font, snow, tree, animal, flight and process pages.",
@@ -154,6 +172,10 @@ IMPACT_GUIDANCE = {
     "gust_period": "Lower values cycle gusts more rapidly; higher values create slower weather changes.",
     "drift": "Higher values give individual flakes a wider persistent horizontal bias.",
     "wobble": "Higher values increase side-to-side flutter and visible particle movement.",
+    "sky": "ON paints the most distant full-scene layer; OFF restores a transparent black terminal background.",
+    "sky_colours": "Two to eight top-to-bottom RRGGBB colours, for example 07152F,315A82,B9D8E8.",
+    "sky_stops": "Matching increasing vertical fractions beginning at 0 and ending at 1; stops control where each colour is reached.",
+    "sky_blend": "LINEAR changes evenly; SMOOTH eases both ends; COSINE gives the gentlest merge between colour stops.",
     "initial_snow": "Higher fractions start with a deeper bank and may approach the shedding threshold immediately.",
     "accumulation": "Higher values add more bank depth per settling flake and create towers or sheds sooner.",
     "snow_repose_slope": "Sets the stable neighbouring height difference; lower values make a smoother, flatter bank.",
@@ -193,6 +215,7 @@ IMPACT_GUIDANCE = {
     "santa_scale": "0.50 is half the original linear size, keeping the formation smaller than foreground houses.",
     "santa_arc_height": "Sets the mid-flight rise as a scene-height fraction; zero restores a straight crossing.",
     "santa_trail_seconds": "Controls how long emitted sparks remain and fade; long trails increase active particle work.",
+    "santa_trail_length": "Spatial multiplier behind the sleigh; 3 is three times the original length and also emits enough sparks to avoid gaps.",
     "snow_plough": "ON schedules complete terrain-following clearing passes; rabbits react when it approaches.",
     "plough_interval": "Lower values schedule bank-clearing passes more often.",
     "plough_speed": "Higher values clear the scene faster and leave less time to inspect the vehicle.",
@@ -200,7 +223,8 @@ IMPACT_GUIDANCE = {
 }
 
 HIGH_COST = frozenset({
-    "fps", "columns", "rows", "snow_rate", "max_flakes", "preload_seconds",
+    "fps", "columns", "rows", "terminal_columns", "terminal_rows",
+    "snow_rate", "max_flakes", "preload_seconds",
     "tree_density", "max_trees", "lights", "cabin_count", "max_cabins",
     "tree_branch_levels", "tree_branches", "tree_segment_budget",
     "object_snow_max", "object_snow_capture", "snow_relaxation",
@@ -208,8 +232,55 @@ HIGH_COST = frozenset({
 })
 MEDIUM_COST = frozenset({
     "physics", "flake_sizes", "detailed_dashboard", "ambient", "ambient_speed",
-    "sky_events", "flyby_interval", "snow_plough",
+    "sky", "sky_events", "flyby_interval", "santa_trail_length",
+    "santa_trail_seconds", "snow_plough",
 })
+
+CONTROL_TAB_SPECS = (
+    ("DISPLAY", "▣", frozenset({
+        "mode", "fps", "duration", "frames", "columns", "rows", "seed",
+        "snapshot", "no_dashboard", "detailed_dashboard", "physics",
+    })),
+    ("WINDOW", "▤", frozenset({
+        "terminal_columns", "terminal_rows", "font_size", "window_position",
+    })),
+    ("LIVE", "◎", frozenset({"control_poll"})),
+    ("SNOW", "❄", frozenset({
+        "snow_rate", "max_flakes", "preload_seconds", "flake_sizes",
+        "size_weights", "fall_speed", "speed_variation", "wind",
+        "gust_strength", "gust_period", "drift", "wobble", "palette",
+    })),
+    ("SKY", "◒", frozenset({"sky", "sky_colours", "sky_stops", "sky_blend"})),
+    ("GROUND", "▂", frozenset({
+        "initial_snow", "bank_drift", "accumulation", "accumulate",
+        "snow_repose_slope", "snow_relaxation", "shed_threshold", "shed_to",
+        "shed_width", "shed_rate", "tower_collapse", "tower_age",
+        "tower_age_jitter", "tower_prominence", "tower_collapse_rate",
+        "tower_cascade_chance", "tower_cascade_radius",
+    })),
+    ("SCENE", "⌂", frozenset({
+        "scenery", "cabin", "reindeer", "cabin_count", "max_cabins",
+        "cabin_scale", "cabin_types", "cabin_size_variation",
+    })),
+    ("TREES", "♠", frozenset({
+        "no_trees", "tree_density", "max_trees", "tree_sway", "tree_types", "tree_branches",
+        "tree_branch_levels", "tree_branch_angle", "tree_length_ratio",
+        "tree_trunk_thickness", "tree_thickness_exponent",
+        "tree_segment_budget", "lights", "object_snow",
+        "object_snow_capture", "object_snow_max", "object_snow_hold",
+        "object_snow_hold_jitter", "object_snow_adhesion",
+    })),
+    ("ANIMALS", "♙", frozenset({
+        "ambient", "leaf_count", "tumbleweed_count", "ambient_speed",
+        "tumbleweed_climb", "tumbleweed_collapse_pressure", "rabbit_count",
+        "rabbit_interval", "rabbit_speed",
+    })),
+    ("FLIGHTS", "✈", frozenset({
+        "sky_events", "flyby_interval", "flyby_speed", "santa_scale",
+        "santa_arc_height", "santa_trail_seconds", "santa_trail_length",
+        "snow_plough", "plough_interval", "plough_speed", "plough_clear_to",
+    })),
+)
 
 
 def tui_parser():
@@ -240,6 +311,10 @@ def value_text(value):
     if isinstance(value, tuple):
         if not value:
             return "none"
+        if isinstance(value[0], tuple) and len(value[0]) == 3:
+            return ",".join(
+                f"{red:02X}{green:02X}{blue:02X}"
+                for red, green, blue in value)
         return ",".join(str(item) for item in value)
     if isinstance(value, bool):
         return "ON" if value else "OFF"
@@ -275,13 +350,103 @@ class Controller:
         self.snow_parser = build_parser()
         self.actions = [action for action in self.snow_parser._actions
                         if action.dest not in ("help", "listen")]
+        assigned = set()
+        self.tabs = []
+        for label, icon, destinations in CONTROL_TAB_SPECS:
+            actions = [action for action in self.actions
+                       if action.dest in destinations]
+            if actions:
+                self.tabs.append((label, icon, actions))
+                assigned.update(action.dest for action in actions)
+        remaining = [action for action in self.actions
+                     if action.dest not in assigned]
+        if remaining:
+            self.tabs.append(("OTHER", "◇", remaining))
+        self.tab_index = 0
         self.index = 0
         self.scroll = 0
         self.revision = 0
         self.status = "Ready"
         self.command_message = ""
         self.values = self.load_initial()
+        self.apply_launcher_defaults()
         self.publish("Initial settings published")
+
+    @property
+    def page_actions(self):
+        return self.tabs[self.tab_index][2]
+
+    @property
+    def selected_action(self):
+        return self.page_actions[self.index]
+
+    def cycle_tab(self, direction=1):
+        self.tab_index = (self.tab_index + direction) % len(self.tabs)
+        self.index = 0
+        self.scroll = 0
+        self.status = f"Page {self.tabs[self.tab_index][0]}"
+
+    def launcher_metadata(self):
+        path = os.environ.get("FONT_DEMO_GEOMETRY_FILE", "")
+        if not path:
+            return {}
+        try:
+            value = json.loads(Path(path).read_text(encoding="utf-8"))
+            return value if isinstance(value, dict) else {}
+        except (OSError, ValueError, TypeError):
+            return {}
+
+    def apply_launcher_defaults(self):
+        metadata = self.launcher_metadata()
+        columns = metadata.get("columns") or os.environ.get("FONT_DEMO_COLUMNS")
+        rows = metadata.get("rows") or os.environ.get("FONT_DEMO_ROWS")
+        font_size = metadata.get("font_size") or os.environ.get("FONT_DEMO_SIZE")
+        position = metadata.get("window_position") or os.environ.get("FONT_DEMO_POSITION")
+        try:
+            if self.values.terminal_columns is None and columns is not None:
+                self.values.terminal_columns = int(columns)
+            if self.values.terminal_rows is None and rows is not None:
+                self.values.terminal_rows = int(rows)
+            if self.values.font_size is None and font_size is not None:
+                self.values.font_size = float(font_size)
+            if self.values.window_position is None and position:
+                self.values.window_position = str(position)
+            self.values = self.parse_safely(
+                namespace_to_argv(self.values, self.actions))
+        except (ValueError, TypeError, SystemExit):
+            self.status = "Launcher geometry metadata was invalid; using preset values"
+
+    def capture_window_state(self):
+        """Capture the live PTY size plus launcher-reported font/position."""
+        size = shutil.get_terminal_size((120, 36))
+        self.values.terminal_columns = max(24, size.columns)
+        self.values.terminal_rows = max(8, size.lines)
+        metadata = self.launcher_metadata()
+        font_size = metadata.get("font_size") or os.environ.get("FONT_DEMO_SIZE")
+        position = metadata.get("window_position") or os.environ.get("FONT_DEMO_POSITION")
+        if (sys.platform == "darwin" and
+                os.environ.get("FONT_DEMO_WEZTERM_WINDOW") == "1" and
+                shutil.which("osascript")):
+            script = (
+                'tell application "System Events"\n'
+                'set appProcess to first application process whose frontmost is true\n'
+                'set windowPosition to position of front window of appProcess\n'
+                'return (item 1 of windowPosition as text) & "," & '
+                '(item 2 of windowPosition as text)\nend tell'
+            )
+            try:
+                completed = subprocess.run(
+                    ["osascript", "-e", script], capture_output=True,
+                    text=True, timeout=2.0, check=False)
+                detected = completed.stdout.strip()
+                if completed.returncode == 0 and detected:
+                    position = detected
+            except (OSError, subprocess.TimeoutExpired):
+                pass
+        self.values.font_size = float(font_size or self.values.font_size or 12.0)
+        if position:
+            self.values.window_position = str(position)
+        self.values = self.parse_safely(namespace_to_argv(self.values, self.actions))
 
     def parse_safely(self, argv):
         with contextlib.redirect_stderr(io.StringIO()):
@@ -359,6 +524,7 @@ class Controller:
         return rendered
 
     def save(self):
+        self.capture_window_state()
         destination = Path(self.cli.save_file).expanduser()
         self.atomic_json(destination, self.payload())
         command_path = destination.with_suffix(".command.txt")
@@ -371,33 +537,43 @@ class Controller:
         if os.name != "nt":
             command_path.chmod(0o755)
         suffix = " · SNAPSHOT: one frame only" if self.values.snapshot else ""
-        self.status = f"Saved {destination} and {command_path}{suffix}"
+        geometry = (f" · {self.values.terminal_columns}×{self.values.terminal_rows}"
+                    f" @ {self.values.font_size:g}pt")
+        if self.values.window_position:
+            geometry += f" · position {self.values.window_position}"
+        self.status = f"Saved {destination} and {command_path}{geometry}{suffix}"
 
     def reset(self):
         self.values = self.parse_safely(["--mode", self.values.mode])
+        self.apply_launcher_defaults()
         self.publish("Defaults restored")
 
     def validate_and_publish(self, action, candidate):
         old = getattr(self.values, action.dest)
         old_weights = self.values.size_weights
+        old_stops = self.values.sky_stops
         setattr(self.values, action.dest, candidate)
         if action.dest == "flake_sizes":
             existing = dict(zip(old, old_weights))
             self.values.size_weights = tuple(
                 existing.get(name, DEFAULT_FLAKE_WEIGHTS[name])
                 for name in candidate)
+        if action.dest == "sky_colours" and len(candidate) != len(old_stops):
+            self.values.sky_stops = tuple(
+                index / (len(candidate) - 1) for index in range(len(candidate)))
         try:
             self.values = self.parse_safely(namespace_to_argv(self.values, self.actions))
         except SystemExit:
             setattr(self.values, action.dest, old)
             self.values.size_weights = old_weights
+            self.values.sky_stops = old_stops
             self.status = "Rejected: setting conflicts with another option"
             return
         scope = "viewer restart required" if action.dest in RESTART_ONLY else "applied live"
         self.publish(f"{option_for(action)} {scope}")
 
     def adjust(self, direction):
-        action = self.actions[self.index]
+        action = self.selected_action
         current = getattr(self.values, action.dest)
         if isinstance(current, bool):
             self.validate_and_publish(action, not current)
@@ -420,7 +596,7 @@ class Controller:
         self.status = "Press Enter for direct input on this option"
 
     def direct_input(self, screen):
-        action = self.actions[self.index]
+        action = self.selected_action
         height, width = screen.getmaxyx()
         prompt = f"Set {option_for(action)} (AUTO allowed where shown): "
         curses.echo()
@@ -539,14 +715,21 @@ class Controller:
         self.put(screen, 3, 0, "│" + summary.ljust(width - 2) + "│", curses.color_pair(2))
         self.put(screen, 4, 0, "├" + "─" * (width - 2) + "┤", curses.color_pair(1))
 
+        tabs = []
+        for index, (label, icon, _) in enumerate(self.tabs):
+            text = f"{icon}{label}"
+            tabs.append(f"[{text}]" if index == self.tab_index else text)
+        self.put(screen, 5, 1, "  ".join(tabs), curses.color_pair(6) | curses.A_BOLD)
+
         panel_width = max(46, int(width * 0.64)) if width >= 92 else width - 2
-        visible = height - 9
+        actions = self.page_actions
+        visible = height - 10
         if self.index < self.scroll:
             self.scroll = self.index
         if self.index >= self.scroll + visible:
             self.scroll = self.index - visible + 1
-        for row, action in enumerate(self.actions[self.scroll:self.scroll + visible], 5):
-            absolute = self.scroll + row - 5
+        for row, action in enumerate(actions[self.scroll:self.scroll + visible], 6):
+            absolute = self.scroll + row - 6
             selected = absolute == self.index
             marker = "▶" if selected else " "
             icon = self.icon(action)
@@ -561,9 +744,9 @@ class Controller:
 
         if width >= 92:
             split = panel_width + 1
-            for row in range(5, height - 3):
+            for row in range(6, height - 3):
                 self.put(screen, row, split, "│", curses.color_pair(1))
-            action = self.actions[self.index]
+            action = self.selected_action
             details = [
                 f"◆ {self.icon(action)} SELECTED OPTION ◆", "",
                 f"{self.icon(action)}  {option_for(action)}",
@@ -577,12 +760,12 @@ class Controller:
             for guidance in self.guidance(action):
                 details.extend(textwrap.wrap(guidance, max(24, width - split - 5)))
             details.extend(["", "←/→ adjust or cycle", "Enter direct input", "Space toggle"])
-            for row, line in enumerate(details, 6):
+            for row, line in enumerate(details, 7):
                 self.put(screen, row, split + 2, line,
                          curses.color_pair(4) if row > 7 else curses.color_pair(3))
 
         self.put(screen, height - 3, 0, "├" + "─" * (width - 2) + "┤", curses.color_pair(1))
-        keys = " ↑↓ SELECT  ←→ ADJUST  ⏎ TYPE  ␠ TOGGLE  S SAVE  P COMMAND  R RESET  Q QUIT "
+        keys = " ⇥ TAB PAGE  ↑↓ SELECT  ←→ ADJUST  ⏎ TYPE  ␠ TOGGLE  S SAVE  P COMMAND  R RESET  Q QUIT "
         self.put(screen, height - 2, 0, "│" + keys.ljust(width - 2) + "│", curses.color_pair(4))
         self.put(screen, height - 1, 0, ("└─ " + self.status + " ").ljust(width - 1, "─") + "┘",
                  curses.color_pair(1))
@@ -613,25 +796,29 @@ class Controller:
             key = screen.getch()
             if key in (ord("q"), ord("Q")):
                 break
+            if key == 9:
+                self.cycle_tab(1)
+            elif key == getattr(curses, "KEY_BTAB", -1):
+                self.cycle_tab(-1)
             if key == curses.KEY_UP:
-                self.index = (self.index - 1) % len(self.actions)
+                self.index = (self.index - 1) % len(self.page_actions)
             elif key == curses.KEY_DOWN:
-                self.index = (self.index + 1) % len(self.actions)
+                self.index = (self.index + 1) % len(self.page_actions)
             elif key == curses.KEY_PPAGE:
                 self.index = max(0, self.index - max(1, screen.getmaxyx()[0] - 9))
             elif key == curses.KEY_NPAGE:
-                self.index = min(len(self.actions) - 1,
+                self.index = min(len(self.page_actions) - 1,
                                  self.index + max(1, screen.getmaxyx()[0] - 9))
             elif key == curses.KEY_HOME:
                 self.index = 0
             elif key == curses.KEY_END:
-                self.index = len(self.actions) - 1
+                self.index = len(self.page_actions) - 1
             elif key == curses.KEY_LEFT:
                 self.adjust(-1)
             elif key == curses.KEY_RIGHT:
                 self.adjust(1)
             elif key in (ord(" "),):
-                action = self.actions[self.index]
+                action = self.selected_action
                 if isinstance(getattr(self.values, action.dest), bool):
                     self.adjust(1)
                 else:

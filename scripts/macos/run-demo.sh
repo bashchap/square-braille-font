@@ -7,6 +7,7 @@ ROOT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 columns=120
 rows=36
 font_size=12
+window_position=""
 
 usage() {
     cat <<'EOF'
@@ -18,6 +19,7 @@ Window options (may precede MODE or follow NAME):
   --terminal-columns N   initial WezTerm columns (default 120)
   --terminal-rows N      initial WezTerm rows (default 36)
   --font-size POINTS     initial font size (default 12)
+  --window-position X,Y  initial WezTerm pixel position; also accepts active:X,Y
 
 MODE is square or pua4. NAME may be shell, catalog, aliases, catalog-all, or a
 demo name.
@@ -60,6 +62,7 @@ while [[ $# -gt 0 ]]; do
         --terminal-columns) columns="${2:?missing column count}"; shift 2 ;;
         --terminal-rows) rows="${2:?missing row count}"; shift 2 ;;
         --font-size) font_size="${2:?missing font size}"; shift 2 ;;
+        --window-position) window_position="${2:?missing window position}"; shift 2 ;;
         --list) list_demos; exit 0 ;;
         -h|--help) usage; echo; list_demos; exit 0 ;;
         --) shift; break ;;
@@ -83,6 +86,7 @@ while [[ $# -gt 0 ]]; do
         --terminal-columns) columns="${2:?missing column count}"; shift 2 ;;
         --terminal-rows) rows="${2:?missing row count}"; shift 2 ;;
         --font-size) font_size="${2:?missing font size}"; shift 2 ;;
+        --window-position) window_position="${2:?missing window position}"; shift 2 ;;
         -h|--help)
             demo_arguments+=("$1")
             hold_on_success=(--hold-on-success)
@@ -108,6 +112,9 @@ set -- "${demo_arguments[@]}"
 }
 [[ "$font_size" =~ ^[0-9]+([.][0-9]+)?$ ]] || {
     echo '--font-size must be a positive number.' >&2; exit 2;
+}
+[[ -z "$window_position" || "$window_position" =~ ^((screen|main|active):)?-?[0-9]+,-?[0-9]+$ ]] || {
+    echo '--window-position must look like 80,40 or active:80,40.' >&2; exit 2;
 }
 
 case "$mode" in
@@ -158,6 +165,9 @@ export FONT_DEMO_ROOT="$ROOT_DIR"
 export FONT_DEMO_COLUMNS="$columns"
 export FONT_DEMO_ROWS="$rows"
 export FONT_DEMO_SIZE="$font_size"
+export FONT_DEMO_POSITION="$window_position"
+export FONT_DEMO_GEOMETRY_FILE="${TMPDIR:-/tmp}/fontcolour-demo-geometry-$$.json"
+export FONT_DEMO_WEZTERM_WINDOW=1
 
 font_resolution="$($wezterm_bin --config-file "$config" ls-fonts \
     --codepoints 41,2801,28ff 2>&1 | tr -d '\000')" || {
@@ -323,6 +333,12 @@ case "$name" in
     *) echo "Unknown demo: $name" >&2; list_demos >&2; exit 2 ;;
 esac
 
+position_arguments=()
+if [[ -n "$window_position" ]]; then
+    position_arguments=(--position "$window_position")
+fi
+
 exec "$wezterm_bin" --config-file "$config" start --always-new-process \
+    "${position_arguments[@]}" \
     --cwd "$demo_dir" -- "$ROOT_DIR/scripts/macos/run-command-and-hold.sh" \
     "${hold_on_success[@]}" "${command[@]}"

@@ -2,6 +2,7 @@
 """Deterministic structural checks for the Christmas snow demo."""
 
 import json
+import os
 import random
 import tempfile
 from pathlib import Path
@@ -22,6 +23,7 @@ from christmas_snow import (
     draw_rabbit,
     draw_reindeer,
     draw_sky_event,
+    draw_sky_gradient,
     draw_tree,
     encode_surface,
     make_runtime,
@@ -69,6 +71,20 @@ def main():
     check(large_only.flake_sizes == ("large",) and
           len(large_only.size_weights) == 1,
           "a flake-size-only CLI change did not derive matching weights")
+    sky_args = parse_args([
+        "--sky-colours", "000000,808080,FFFFFF",
+        "--sky-stops", "0,0.5,1", "--sky-blend", "linear",
+    ])
+    sky_surface = Surface(2, 5)
+    draw_sky_gradient(sky_surface, sky_args)
+    sky_rows = [sky_surface.pixels[row * 2][0] for row in range(5)]
+    check(sky_rows == [(0, 0, 0), (64, 64, 64), (128, 128, 128),
+                       (192, 192, 192), (255, 255, 255)],
+          "configurable linear sky did not honour colours and stops")
+    defaults = parse_args([])
+    check(defaults.santa_trail_length == 3.0 and
+          defaults.santa_trail_seconds == 5.6,
+          "Santa trail defaults are not 3x spatial and 2x persistence")
 
     spruce = Surface(100, 100)
     draw_conifer(spruce, random.Random(4), 50, 90, 80, 4, 0,
@@ -438,14 +454,14 @@ def main():
           "UNIQUE GLYPHS CURRENT FRAME" in detailed_frame and
           "SEEN SINCE START" in detailed_frame and "DEDUP" in detailed_frame,
           "font dashboard tab omitted creation, current or cumulative glyph evidence")
-    detail_engine.dashboard_tab = 5
+    detail_engine.dashboard_tab = 6
     process_frame = complete_frame(
         detailed_args, detail_codec, detail_rows, detail_engine,
         detail_background, 160, 1, 0.1)
     check("[PROCESS]" in process_frame and "PROCESS CPU" in process_frame and
           "MEMORY" in process_frame,
           "process dashboard tab omitted CPU or memory evidence")
-    tab_markers = ("[FONT]", "[SNOW]", "[TREES]", "[ANIMALS]",
+    tab_markers = ("[FONT]", "[SNOW]", "[SKY]", "[TREES]", "[ANIMALS]",
                    "[FLIGHTS]", "[PROCESS]")
     for index, marker in enumerate(tab_markers):
         detail_engine.dashboard_tab = index
@@ -513,12 +529,22 @@ def main():
           "TUI serializer did not preserve effective options")
 
     with tempfile.TemporaryDirectory() as temporary:
+        geometry_path = Path(temporary) / "geometry.json"
+        geometry_path.write_text(json.dumps({
+            "columns": 144, "rows": 44, "font_size": 9.5,
+            "window_position": "77,88",
+        }), encoding="utf-8")
+        old_geometry = os.environ.get("FONT_DEMO_GEOMETRY_FILE")
+        os.environ["FONT_DEMO_GEOMETRY_FILE"] = str(geometry_path)
         cli, cli.initial_argv = tui_parser().parse_known_args([
             "--mode", "pua4", "--control-file", str(Path(temporary) / "live.json"),
             "--save-file", str(Path(temporary) / "christmas-snow-preset.json"),
             "--snow-rate", "45", "--sky-events", "none",
         ])
         controller = Controller(cli)
+        check("OTHER" not in [tab[0] for tab in controller.tabs] and
+              sum(len(tab[2]) for tab in controller.tabs) == len(controller.actions),
+              "control-console pages omitted or duplicated a production option")
         for action in controller.actions:
             guidance = " ".join(controller.guidance(action))
             check(controller.icon(action) and "Predicted effect:" in guidance and
@@ -537,17 +563,34 @@ def main():
               "saved command is not a continuation-safe executable shell script")
         check(command_file.stat().st_mode & 0o111,
               "saved command file is not executable")
+        check("--terminal-columns" in command_text and
+              "--terminal-rows" in command_text and "--font-size 9.5" in command_text and
+              "--window-position 77,88" in command_text,
+              "S did not capture reproducible terminal dimensions and font size")
         controller.values.snapshot = True
         controller.save()
         command_text = command_file.read_text(encoding="utf-8")
         check("snapshot mode renders one frame and exits" in command_text and
               "--snapshot" in command_text,
               "snapshot command export does not explain its finite behaviour")
+        if old_geometry is None:
+            os.environ.pop("FONT_DEMO_GEOMETRY_FILE", None)
+        else:
+            os.environ["FONT_DEMO_GEOMETRY_FILE"] = old_geometry
 
     launcher_text = (Path(__file__).resolve().parents[2] /
                      "scripts/macos/run-demo.sh").read_text(encoding="utf-8")
     check("--snapshot)" in launcher_text and "hold-on-success" in launcher_text,
           "macOS launcher does not hold a successful one-frame snapshot")
+    check("--window-position" in launcher_text and
+          "FONT_DEMO_GEOMETRY_FILE" in launcher_text,
+          "macOS launcher does not pass position or geometry metadata")
+    for config_name in ("pua4.lua", "square-braille.lua"):
+        config_text = (Path(__file__).resolve().parents[2] /
+                       "config/wezterm" / config_name).read_text(encoding="utf-8")
+        check("pane:get_dimensions()" in config_text and
+              "window:effective_config()" in config_text,
+              f"{config_name} does not report live terminal/font geometry")
 
     print("PASS: Christmas snow Square/PUA4 mappings, scenery and cell ownership")
     print("PASS: 50% accumulation triggers shedding; dense rear layers use ANSI background")
@@ -556,8 +599,8 @@ def main():
     print("PASS: tumbleweed rolls physically, stops at high snow and promotes collapse")
     print("PASS: illustrated help covers every program and launcher control")
     print("PASS: aged tower collapses can cascade; live JSON and TUI argv round-trip")
-    print("PASS: compact flybys, half-scale arcing Santa and fading comet trail")
-    print("PASS: six dashboard tabs, cumulative glyph count, CPU/memory and safe export")
+    print("PASS: gradient sky, compact flybys, arcing Santa and extended fading comet trail")
+    print("PASS: paged control console, seven dashboard tabs, CPU/memory and geometry-safe export")
 
 
 if __name__ == "__main__":

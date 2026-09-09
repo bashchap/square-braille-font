@@ -1936,17 +1936,19 @@ class SnowEngine:
         _, x, y, direction, event_index = event
         unit = santa_flyby_unit(self)
         sleigh_x = x - direction * 29 * unit
-        self.santa_trail_credit += dt * 18.0
-        count = min(4, int(self.santa_trail_credit))
+        trail_length = max(0.1, self.args.santa_trail_length)
+        self.santa_trail_credit += dt * 18.0 * min(4.0, trail_length)
+        count = min(12, int(self.santa_trail_credit))
         self.santa_trail_credit -= count
         for index in range(count):
             ttl = self.args.santa_trail_seconds * self.rng.uniform(0.65, 1.0)
             self.santa_trail.append(CometParticle(
-                x=sleigh_x - direction * self.rng.uniform(13, 19) * unit,
+                x=sleigh_x - direction * self.rng.uniform(
+                    13, 19 * trail_length) * unit,
                 y=y + self.rng.uniform(-2.0, 3.0) * unit,
                 ttl=ttl, maximum_ttl=ttl,
                 colour_index=(event_index + index + len(self.santa_trail)) % 4))
-        self.santa_trail = self.santa_trail[-240:]
+        self.santa_trail = self.santa_trail[-int(240 * max(1.0, trail_length)):]
 
     def sync_rabbits(self, initial=False):
         while len(self.rabbits) < self.args.rabbit_count:
@@ -2118,7 +2120,8 @@ class SnowEngine:
 LIVE_OPTION_DESTS = frozenset({
     "fps", "physics", "snow_rate", "max_flakes", "flake_sizes", "size_weights",
     "fall_speed", "speed_variation", "wind", "gust_strength", "gust_period",
-    "drift", "wobble", "palette", "accumulation", "accumulate",
+    "drift", "wobble", "palette", "sky", "sky_colours", "sky_stops",
+    "sky_blend", "accumulation", "accumulate",
     "snow_repose_slope", "snow_relaxation",
     "shed_threshold", "shed_to", "shed_width", "shed_rate",
     "tower_collapse", "tower_age", "tower_age_jitter", "tower_prominence",
@@ -2136,6 +2139,7 @@ LIVE_OPTION_DESTS = frozenset({
     "rabbit_count", "rabbit_interval", "rabbit_speed", "sky_events",
     "flyby_interval", "flyby_speed", "snow_plough", "plough_interval",
     "santa_scale", "santa_arc_height", "santa_trail_seconds",
+    "santa_trail_length",
     "plough_speed", "plough_clear_to",
     "scenery_set", "ambient_set",
 })
@@ -2193,6 +2197,38 @@ def draw_shape(surface, shape, x, y, colour, priority):
         surface.pixel(x + dx, y + dy, colour, priority)
 
 
+def gradient_fraction(value, method):
+    value = max(0.0, min(1.0, value))
+    if method == "smooth":
+        return value * value * (3.0 - 2.0 * value)
+    if method == "cosine":
+        return (1.0 - math.cos(math.pi * value)) * 0.5
+    return value
+
+
+def draw_sky_gradient(surface, args):
+    """Fill the distant background with a configurable vertical RGB gradient."""
+    if not args.sky:
+        return
+    colours = args.sky_colours
+    stops = args.sky_stops
+    for y in range(surface.height):
+        position = y / max(1, surface.height - 1)
+        interval = next(
+            (index for index, stop in enumerate(stops[1:]) if position <= stop),
+            len(stops) - 2)
+        interval = min(interval, len(stops) - 2)
+        left_stop, right_stop = stops[interval], stops[interval + 1]
+        amount = gradient_fraction(
+            (position - left_stop) / max(1e-9, right_stop - left_stop),
+            args.sky_blend)
+        left, right = colours[interval], colours[interval + 1]
+        colour = tuple(int(round(a + (b - a) * amount))
+                       for a, b in zip(left, right))
+        start = y * surface.width
+        surface.pixels[start:start + surface.width] = [(colour, 1)] * surface.width
+
+
 def draw_accumulation(surface, engine):
     bank = engine.palette["bank"]
     for x, depth_value in enumerate(engine.depths):
@@ -2220,6 +2256,7 @@ def render_surface(background, engine):
     # lowest depth. Scenery then replaces them pixel-for-pixel, so trees,
     # cabins, animals, banks and falling snow always occlude the sky objects.
     surface = Surface(background.width, background.height)
+    draw_sky_gradient(surface, engine.args)
     draw_sky_event(surface, engine, getattr(engine, "elapsed", 0.0))
     surface.pixels = [(pixel[0], 3) if pixel is not None else None
                       for pixel in surface.pixels]
@@ -2412,7 +2449,7 @@ def process_telemetry(engine):
     return engine.cpu_percent, peak_mib
 
 
-DASHBOARD_TABS = ("font", "snow", "trees", "animals", "flights", "process")
+DASHBOARD_TABS = ("font", "snow", "sky", "trees", "animals", "flights", "process")
 
 
 def dashboard_tab_strip(engine):
@@ -2460,6 +2497,17 @@ def detailed_dashboard_lines(args, engine, codec, stats, columns):
              f"CAUGHT {engine.object_snow_caught:,} SHED {engine.object_snow_shed:,} | "
              f"CAPTURE {args.object_snow_capture:.0%} ADHESION {args.object_snow_adhesion:.2f}"),
         ]
+    elif tab == "sky":
+        colours = " → ".join(
+            f"#{red:02X}{green:02X}{blue:02X}"
+            for red, green, blue in args.sky_colours)
+        stops = " → ".join(f"{stop:.0%}" for stop in args.sky_stops)
+        page = [
+            f" ◒ SKY {'ON' if args.sky else 'OFF'} | BLEND {args.sky_blend.upper()} | FULL-SCENE DISTANT LAYER",
+            f" ◈ COLOURS {colours}",
+            f" ↕ STOPS {stops}",
+            " ◇ ORDER SKY → FLIGHTS → TREES/CABINS → BANK/ANIMALS → FALLING SNOW",
+        ]
     elif tab == "trees":
         page = [
             f" ♣ TYPES {','.join(args.tree_types).upper()} | DENSITY {args.tree_density:.2f} MAX TREES {args.max_trees}",
@@ -2488,7 +2536,8 @@ def detailed_dashboard_lines(args, engine, codec, stats, columns):
             f" ✈ ROTATION {','.join(args.sky_events).upper() or 'NONE'} | CURRENT {current}",
             f" → FLYBY SPEED {args.flyby_speed:.1f} VPX/s | QUIET INTERVAL {args.flyby_interval:.1f}s",
             (f" ☄ SANTA SCALE {args.santa_scale:.2f} | ARC {args.santa_arc_height:.0%} HEIGHT | "
-             f"TRAIL {args.santa_trail_seconds:.1f}s / {len(engine.santa_trail)} SPARKS"),
+             f"TRAIL ×{args.santa_trail_length:.1f}, {args.santa_trail_seconds:.1f}s / "
+             f"{len(engine.santa_trail)} SPARKS"),
             (f" ◇ DISTANT/OCCLUDED BY SCENERY AND SNOW | PLOUGH "
              f"{'ACTIVE' if engine.plough.active else 'WAITING'} / {engine.plough_count} COMPLETE"),
         ]
@@ -2698,6 +2747,39 @@ def weight_list(value):
     return weights
 
 
+def rgb_colour(value):
+    """Parse RRGGBB or #RRGGBB into one immutable RGB triplet."""
+    cleaned = value.strip().lstrip("#")
+    if not re.fullmatch(r"[0-9a-fA-F]{6}", cleaned):
+        raise argparse.ArgumentTypeError("colour must be six hexadecimal digits (RRGGBB)")
+    return tuple(int(cleaned[index:index + 2], 16) for index in (0, 2, 4))
+
+
+def colour_list(value):
+    colours = tuple(rgb_colour(item) for item in value.split(",") if item.strip())
+    if not 2 <= len(colours) <= 8:
+        raise argparse.ArgumentTypeError("sky colours need 2 to 8 comma-separated RRGGBB values")
+    return colours
+
+
+def fraction_list(value):
+    try:
+        fractions = tuple(float(item) for item in value.split(","))
+    except ValueError as error:
+        raise argparse.ArgumentTypeError("sky stops must be comma-separated fractions") from error
+    if (not 2 <= len(fractions) <= 8 or
+            any(not 0.0 <= item <= 1.0 for item in fractions) or
+            any(left >= right for left, right in zip(fractions, fractions[1:]))):
+        raise argparse.ArgumentTypeError("sky stops need 2 to 8 increasing fractions in [0,1]")
+    return fractions
+
+
+def window_position(value):
+    if not re.fullmatch(r"(?:(?:screen|main|active):)?-?\d+,-?\d+", value):
+        raise argparse.ArgumentTypeError("window position must look like 80,40 or active:80,40")
+    return value
+
+
 def count_or_auto(value):
     if value.lower() == "auto":
         return None
@@ -2743,6 +2825,16 @@ def build_parser():
                          default="full",
                          help="none: legacy simple snow; ground: bank slumping and terrain bodies; full: also retain snow on scenery")
 
+    window = parser.add_argument_group("launcher window reproduction")
+    window.add_argument("--terminal-columns", type=int,
+                        help="saved launcher width; the launcher consumes this before Python")
+    window.add_argument("--terminal-rows", type=int,
+                        help="saved launcher height; the launcher consumes this before Python")
+    window.add_argument("--font-size", type=float,
+                        help="saved terminal font size in points; consumed by the launcher")
+    window.add_argument("--window-position", type=window_position,
+                        help="saved initial window position X,Y or active:X,Y; consumed by the launcher")
+
     live = parser.add_argument_group("live control")
     live.add_argument("--listen", nargs="?", const=str(DEFAULT_CONTROL_PATH),
                       metavar="JSON_PATH",
@@ -2778,6 +2870,19 @@ def build_parser():
                       help="per-flake sideways flutter amplitude")
     snow.add_argument("--palette", choices=tuple(PALETTES), default="christmas",
                       help="true-colour snow and accumulated-bank colour family")
+
+    sky = parser.add_argument_group("sky and atmosphere")
+    sky.add_argument("--sky", action=argparse.BooleanOptionalAction, default=True,
+                     help="paint a full-scene gradient behind distant flights and foreground scenery")
+    sky.add_argument("--sky-colours", type=colour_list,
+                     default=colour_list("07152F,315A82,B9D8E8"),
+                     help="top-to-bottom comma list of 2 to 8 hexadecimal RGB colours")
+    sky.add_argument("--sky-stops", type=fraction_list,
+                     default=fraction_list("0,0.58,1"),
+                     help="increasing 0..1 vertical positions corresponding to --sky-colours")
+    sky.add_argument("--sky-blend", choices=("linear", "smooth", "cosine"),
+                     default="smooth",
+                     help="method used to merge each adjacent pair of gradient colours")
 
     banks = parser.add_argument_group("accumulation and shedding")
     banks.add_argument("--initial-snow", type=float, default=0.12,
@@ -2908,8 +3013,10 @@ def build_parser():
                         help="Santa formation scale relative to its original design")
     events.add_argument("--santa-arc-height", type=float, default=0.16,
                         help="Santa arc rise as a fraction of scene height")
-    events.add_argument("--santa-trail-seconds", type=float, default=2.8,
+    events.add_argument("--santa-trail-seconds", type=float, default=5.6,
                         help="seconds before each Santa comet-trail spark fades")
+    events.add_argument("--santa-trail-length", type=float, default=3.0,
+                        help="spatial trail multiplier; 3 is three times the original length")
     events.add_argument("--snow-plough", action=argparse.BooleanOptionalAction,
                         default=True,
                         help="occasionally drive across and clear the accumulated bank")
@@ -3017,6 +3124,7 @@ def pretty_help(parser, mode, colour=True):
         "  --terminal-columns N   initial window width in cursor cells",
         "  --terminal-rows N      initial window height in cursor cells",
         "  --font-size POINTS     font size for the isolated demo terminal",
+        "  --window-position X,Y  initial macOS WezTerm pixel position",
         "  These select the initial window; unlike --columns/--rows they do not disable live resizing.",
         "",
         paint("pink", f"LIVE {mode.upper()} RENDER · EXACT PARTICLE COUNTS"),
@@ -3088,14 +3196,16 @@ def pretty_help(parser, mode, colour=True):
         "  --rabbit-count 2 --rabbit-interval 18 --ambient tumbleweed",
         paint("amber", "  Sky parade     ") +
         "  --sky-events aeroplane,ufo,santa --flyby-interval 12 --flyby-speed 40",
+        paint("amber", "  Twilight sky   ") +
+        "  --sky-colours 07152F,315A82,B9D8E8 --sky-stops 0,.58,1 --sky-blend smooth",
         paint("amber", "  Santa arc      ") +
-        "  --sky-events santa --santa-scale .5 --santa-arc-height .16 --santa-trail-seconds 2.8",
+        "  --sky-events santa --santa-scale .5 --santa-arc-height .16 --santa-trail-length 3 --santa-trail-seconds 5.6",
         paint("amber", "  Plough test    ") +
         "  --plough-interval 5 --plough-speed 60 --plough-clear-to .02",
         paint("amber", "  Font telemetry ") +
         "  --detailed-dashboard",
         paint("amber", "  Fast buildup   ") +
-        "  --initial-snow 0.40 --accumulation-rate 5 --shed-threshold 0.50",
+        "  --initial-snow 0.40 --accumulation 5 --shed-threshold 0.50",
         paint("amber", "  Stable capture ") +
         "  --snapshot --columns 120 --rows 36 --seed 1225",
         paint("amber", "  Live tuning    ") +
@@ -3172,6 +3282,7 @@ def parse_args(argv=None):
         args.object_snow_adhesion,
         args.tumbleweed_climb, args.tumbleweed_collapse_pressure,
         args.santa_scale, args.santa_arc_height, args.santa_trail_seconds,
+        args.santa_trail_length,
     )
     if any(value < 0 for value in nonnegative):
         parser.error("duration, frames, rates, drift, scenery density and lights cannot be negative")
@@ -3209,6 +3320,18 @@ def parse_args(argv=None):
         parser.error("santa-scale must be in [0.2, 2]")
     if not 0 <= args.santa_arc_height <= 0.5:
         parser.error("santa-arc-height must be in [0, 0.5]")
+    if args.terminal_columns is not None and args.terminal_columns < 24:
+        parser.error("terminal-columns must be at least 24")
+    if args.terminal_rows is not None and args.terminal_rows < 8:
+        parser.error("terminal-rows must be at least 8")
+    if (args.terminal_columns is None) != (args.terminal_rows is None):
+        parser.error("terminal-columns and terminal-rows must be supplied together")
+    if args.font_size is not None and args.font_size <= 0:
+        parser.error("font-size must be positive")
+    if len(args.sky_colours) != len(args.sky_stops):
+        parser.error("sky-colours and sky-stops must contain the same number of values")
+    if args.sky_stops[0] != 0.0 or args.sky_stops[-1] != 1.0:
+        parser.error("sky-stops must begin at 0 and end at 1")
     if not 0 <= args.cabin_size_variation <= 0.75:
         parser.error("cabin-size-variation must be in [0, 0.75]")
     if not 0 <= args.object_snow_capture <= 1:
