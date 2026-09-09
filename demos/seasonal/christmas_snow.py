@@ -83,6 +83,13 @@ PALETTES = {
     },
 }
 
+DEFAULT_FLAKE_WEIGHTS = {
+    "tiny": 55.0,
+    "small": 28.0,
+    "medium": 13.0,
+    "large": 4.0,
+}
+
 
 @dataclass(frozen=True)
 class CellCodec:
@@ -526,7 +533,9 @@ def draw_conifer(surface, rng, centre_x, base_y, height, layer, lights,
     colour = colours[min(len(colours) - 1, layer)]
     priority = 10 + layer * 4
     trunk_half = max(1, int(round(trunk_thickness * (0.45 + layer * 0.10))))
-    surface.rectangle(centre_x - trunk_half, base_y - height * 0.82,
+    # Only the naturally exposed foot is brown. The old full-height stationary
+    # rectangle became visible behind a wind-bent narrow spruce crown.
+    surface.rectangle(centre_x - trunk_half, base_y - height * 0.16,
                       centre_x + trunk_half + 1, base_y,
                       (82, 61, 45), priority - 1)
     tiers_by_type = {
@@ -1425,6 +1434,9 @@ def draw_ambient(surface, engine, elapsed):
 class SnowEngine:
     def __init__(self, args, width, height):
         self.args = args
+        if args.size_weights is None:
+            args.size_weights = tuple(DEFAULT_FLAKE_WEIGHTS[name]
+                                      for name in args.flake_sizes)
         self.physics = SeasonalPhysics(args)
         self.width = width
         self.height = height
@@ -1443,6 +1455,8 @@ class SnowEngine:
         self.snow_rate = args.snow_rate if args.snow_rate is not None else max(24.0, width / 5.0)
         preload = min(self.max_flakes, int(self.snow_rate * args.preload_seconds))
         self.flakes = [self.new_flake(initial=True) for _ in range(preload)]
+        self.flake_distribution = (tuple(args.flake_sizes),
+                                   tuple(args.size_weights))
         self.chunks = []
         self.resting_snow = []
         self.scenery_surfaces = [[] for _ in range(width)]
@@ -1798,6 +1812,15 @@ class SnowEngine:
                           else max(24.0, self.width / 5.0))
         if len(self.flakes) > self.max_flakes:
             self.flakes = self.flakes[:self.max_flakes]
+        distribution = (tuple(self.args.flake_sizes),
+                        tuple(self.args.size_weights))
+        if distribution != self.flake_distribution:
+            # A saturated storm may otherwise spawn no replacement flakes for
+            # several seconds, making a successful live size change invisible.
+            for flake in self.flakes:
+                flake.shape = weighted_choice(
+                    self.rng, self.args.flake_sizes, self.args.size_weights)
+            self.flake_distribution = distribution
         if len(self.resting_snow) > self.args.object_snow_max:
             self.resting_snow = self.resting_snow[-self.args.object_snow_max:]
         if not self.physics.object_enabled:
@@ -2422,10 +2445,14 @@ def detailed_dashboard_lines(args, engine, codec, stats, columns):
              f"COLOURED COMBINATIONS {stats['unique_coloured_cells']:,}"),
         ]
     elif tab == "snow":
+        flake_mix = ",".join(
+            f"{name.upper()}:{weight:g}"
+            for name, weight in zip(args.flake_sizes, args.size_weights))
         page = [
-            (f" ⚙ PHYSICS {args.physics.upper()} | ❄ AIRBORNE {len(engine.flakes):,}/{engine.max_flakes:,} | RATE {engine.snow_rate:.1f}/s | "
-             f"FALL {args.fall_speed:.1f} VPX/s | WIND {args.wind:+.1f} GUST {args.gust_strength:.1f}"),
-            (f" ▂ GROUND MAX {engine.maximum_depth_fraction:.1%} AVG {engine.average_depth_fraction:.1%} | "
+            (f" ❄ AIRBORNE {len(engine.flakes):,}/{engine.max_flakes:,} | RATE {engine.snow_rate:.1f}/s | "
+             f"FALL {args.fall_speed:.1f} VPX/s | MIX {flake_mix}"),
+            (f" ⚙ PHYSICS {args.physics.upper()} | WIND {args.wind:+.1f} GUST {args.gust_strength:.1f} | "
+             f"GROUND MAX {engine.maximum_depth_fraction:.1%} AVG {engine.average_depth_fraction:.1%} | "
              f"ACCUMULATION {args.accumulation:.2f} | REPOSE {args.snow_repose_slope:.2f} RELAX {args.snow_relaxation:.1f}"),
             (f" ⇣ BROAD SHEDS {engine.shed_count} | LOCAL TOWERS {engine.tower_collapse_count} | "
              f"ACTIVE SLUMPS {len(engine.tower_collapses)} | FALLING CHUNKS {len(engine.chunks)}"),
@@ -2734,8 +2761,7 @@ def build_parser():
                       default=comma_list("tiny,small,medium,large"),
                       help="comma list of geometric flake shapes to use")
     snow.add_argument("--size-weights", type=weight_list,
-                      default=weight_list("55,28,13,4"),
-                      help="relative weights corresponding to --flake-sizes")
+                      help="relative weights corresponding to --flake-sizes; omitted values use the built-in profile")
     snow.add_argument("--fall-speed", type=float, default=18.0,
                       help="mean vertical virtual pixels per second")
     snow.add_argument("--speed-variation", type=float, default=0.35,
@@ -3119,6 +3145,9 @@ def parse_args(argv=None):
         use_colour = "NO_COLOR" not in os.environ
         sys.stdout.write(pretty_help(parser, args.mode, use_colour))
         raise SystemExit(0)
+    if args.size_weights is None:
+        args.size_weights = tuple(DEFAULT_FLAKE_WEIGHTS[name]
+                                  for name in args.flake_sizes)
     if len(args.flake_sizes) != len(args.size_weights):
         parser.error("--flake-sizes and --size-weights must contain the same number of values")
     positive = (("fps", args.fps), ("fall-speed", args.fall_speed),

@@ -15,6 +15,7 @@ from pathlib import Path
 
 from christmas_snow import (
     CONTROL_FORMAT,
+    DEFAULT_FLAKE_WEIGHTS,
     DEFAULT_CONTROL_PATH,
     LIVE_OPTION_DESTS,
     build_parser,
@@ -378,11 +379,18 @@ class Controller:
 
     def validate_and_publish(self, action, candidate):
         old = getattr(self.values, action.dest)
+        old_weights = self.values.size_weights
         setattr(self.values, action.dest, candidate)
+        if action.dest == "flake_sizes":
+            existing = dict(zip(old, old_weights))
+            self.values.size_weights = tuple(
+                existing.get(name, DEFAULT_FLAKE_WEIGHTS[name])
+                for name in candidate)
         try:
             self.values = self.parse_safely(namespace_to_argv(self.values, self.actions))
         except SystemExit:
             setattr(self.values, action.dest, old)
+            self.values.size_weights = old_weights
             self.status = "Rejected: setting conflicts with another option"
             return
         scope = "viewer restart required" if action.dest in RESTART_ONLY else "applied live"

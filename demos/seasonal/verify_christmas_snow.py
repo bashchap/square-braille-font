@@ -18,6 +18,7 @@ from christmas_snow import (
     current_sky_event,
     dashboard_rows,
     draw_ambient,
+    draw_conifer,
     draw_rabbit,
     draw_reindeer,
     draw_sky_event,
@@ -64,6 +65,19 @@ def main():
           "the additive reindeer flag is not honoured")
     check(parse_ambient("all") == frozenset(("leaves", "tumbleweed")),
           "the all-ambient preset is incomplete")
+    large_only = parse_args(["--flake-sizes", "large"])
+    check(large_only.flake_sizes == ("large",) and
+          len(large_only.size_weights) == 1,
+          "a flake-size-only CLI change did not derive matching weights")
+
+    spruce = Surface(100, 100)
+    draw_conifer(spruce, random.Random(4), 50, 90, 80, 4, 0,
+                 "spruce", 5, 27, 2.2, sway=8)
+    trunk_pixels = [index // spruce.width
+                    for index, pixel in enumerate(spruce.pixels)
+                    if pixel is not None and pixel[0] == (82, 61, 45)]
+    check(trunk_pixels and min(trunk_pixels) >= 77,
+          "spruce still paints a full-height stationary trunk behind its crown")
 
     square = CODECS["square"]
     pua4 = CODECS["pua4"]
@@ -475,17 +489,20 @@ def main():
         "--preload-seconds", "0",
     ])
     live_engine = SnowEngine(live_args, 80, 40)
+    live_engine.flakes = [live_engine.new_flake() for _ in range(12)]
     with tempfile.TemporaryDirectory() as temporary:
         control_path = Path(temporary) / "control.json"
         control_path.write_text(json.dumps({
             "format": CONTROL_FORMAT, "revision": 7,
-            "argv": ["--mode", "pua4", "--wind", "9", "--no-tower-collapse"],
+            "argv": ["--mode", "pua4", "--wind", "9", "--no-tower-collapse",
+                     "--flake-sizes", "large"],
         }), encoding="utf-8")
         listener = ControlListener(control_path, 0.01)
         check(listener.poll(live_args, live_engine, force=True),
               "valid live-control JSON was not applied")
-        check(live_args.wind == 9 and not live_args.tower_collapse,
-              "live control did not update both numeric and Boolean settings")
+        check(live_args.wind == 9 and not live_args.tower_collapse and
+              all(flake.shape == "large" for flake in live_engine.flakes),
+              "live control did not immediately update numeric, Boolean and flake-size settings")
 
     control_parser = build_parser()
     control_actions = [action for action in control_parser._actions
@@ -507,6 +524,12 @@ def main():
             check(controller.icon(action) and "Predicted effect:" in guidance and
                   "Performance:" in guidance,
                   f"TUI option {action.dest} lacks an icon or operational guidance")
+        flake_action = next(action for action in controller.actions
+                            if action.dest == "flake_sizes")
+        controller.validate_and_publish(flake_action, ("large",))
+        check(controller.values.flake_sizes == ("large",) and
+              controller.values.size_weights == (4.0,),
+              "TUI flake-size change did not align its weight or publish")
         controller.save()
         command_file = Path(temporary) / "christmas-snow-preset.command.txt"
         command_text = command_file.read_text(encoding="utf-8")

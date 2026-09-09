@@ -298,6 +298,15 @@ viewer with only `--listen`:
 ./scripts/macos/run-demo.sh pua4 christmas-snow --listen
 ```
 
+The viewer performs a forced read of the shared control JSON before its first
+animated frame whenever `--listen` is present. It therefore starts with the
+last state published to that exact control path. Without `--listen`, it uses
+CLI/default values and deliberately does **not** search for
+`christmas-snow-preset.json`; this avoids a hidden file silently changing a
+reproducible command. Pressing `S` creates a separate durable preset, which is
+used by launching its `.command.txt` file or explicitly loading the JSON into
+the controller as described below.
+
 An explicit `--preset FILE` takes precedence over these initial values; without
 either, the controller reconnects to the current control file when one exists,
 or starts from defaults.
@@ -440,6 +449,13 @@ separate design with the same anatomical and seasonal cues at its reduced size.
 
 The deterministic `--seed` makes the same dimensions and settings reproduce
 the same initial scene and snow population.
+
+`--flake-sizes` may be changed on its own. When `--size-weights` is omitted,
+the selected names inherit the built-in `tiny=55, small=28, medium=13,
+large=4` profile. In live-control mode, changing either the selected sizes or
+their weights immediately redistributes the shapes of existing airborne
+flakes; it does not wait for the current particles to land. The SNOW dashboard
+tab prints the effective `MIX`, making the applied names and weights visible.
 
 ## Accumulation and fall-away controls
 
