@@ -3,6 +3,7 @@
 
 import importlib
 import sys
+from pathlib import Path
 
 import numpy as np
 
@@ -15,6 +16,25 @@ def check(condition, message):
 
 
 def main():
+    demo_dir = Path(__file__).resolve().parent
+    pua_dir = demo_dir.parent
+    run_launcher = (demo_dir / "run-demo.sh").read_text()
+    default_launcher = (pua_dir / "launch-linux.sh").read_text()
+    rc1_launcher = (pua_dir / "launch-linux-v06-candidate6.sh").read_text()
+    check('PROFILE_NAME="PUA 4x4 v0.6 Candidate 6"' in run_launcher,
+          "demo launcher does not select the v0.6 RC1 profile")
+    check('christmas-snow' in run_launcher and 'christmas_snow.py' in run_launcher,
+          "demo launcher does not expose the seasonal snow renderer")
+    check('launch-linux-v06-candidate6.sh' in default_launcher,
+          "default launcher does not delegate to v0.6 RC1")
+    check('PUA4X4_USE_V04_RC1' in default_launcher and
+          'launch-linux-v04-candidate3.sh' in default_launcher,
+          "default launcher does not preserve an explicit v0.4 RC1 route")
+    check('PUA4X4_USE_V03' in default_launcher and 'launch-linux-v03.sh' in default_launcher,
+          "default launcher does not preserve an explicit v0.3 route")
+    check('fonts/candidates/pua-4x4-v0.6-rc1' in rc1_launcher,
+          "RC1 launcher does not select the checked-in font package")
+
     boundaries = (0x0000, 0x0001, 0x7FFF, 0x8000, 0xFFFF)
     for mask in boundaries:
         check(codepoint_to_mask(mask_to_codepoint(mask)) == mask,
@@ -67,6 +87,7 @@ def main():
               f"{renderer.__name__} did not pack a full 4x4 Part 1 cell")
 
     print("PASS: all PUA 4x4 demo modules, mappings and packers verified")
+    print("PASS: demo launcher selects packaged v0.6 RC1; explicit v0.5/v0.4/v0.3 routes preserved")
 
 
 if __name__ == "__main__":

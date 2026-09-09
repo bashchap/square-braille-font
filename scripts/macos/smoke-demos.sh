@@ -12,12 +12,17 @@ test "$(uname -s)" = Darwin || {
 
 cd "$ROOT_DIR"
 "$PYTHON" -c 'import fontTools, numpy, PIL'
-"$PYTHON" -m py_compile demos/basic/*.py demos/vector/*.py demos/3d/*.py
+"$PYTHON" -m py_compile demos/basic/*.py demos/vector/*.py demos/3d/*.py demos/seasonal/*.py
 
 "$PYTHON" demos/basic/unicode_braille_probe.py >/dev/null
 "$PYTHON" demos/basic/geometry_test.py --stage solid --seconds 0.02 >/dev/null
 "$PYTHON" demos/basic/snow.py --frames 1 --columns 40 --rows 12 >/dev/null
 "$PYTHON" demos/basic/starfield.py --frames 1 >/dev/null
+"$PYTHON" demos/seasonal/verify_christmas_snow.py
+"$PYTHON" demos/seasonal/christmas_snow.py \
+    --mode square --snapshot --columns 40 --rows 12 --scenery all >/dev/null
+"$PYTHON" demos/seasonal/christmas_snow.py \
+    --mode pua4 --snapshot --columns 40 --rows 12 --scenery all >/dev/null
 
 "$PYTHON" demos/vector/vertical_probe.py --hold 0 >/dev/null
 "$PYTHON" demos/vector/vector_tunnel.py --frames 1 >/dev/null

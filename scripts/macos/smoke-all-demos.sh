@@ -54,6 +54,7 @@ fi
 "$PYTHON" -m py_compile \
     scripts/show-graphics-font-characters.py \
     scripts/macos/verify-install.py \
+    demos/seasonal/*.py \
     experiments/pua-4x4/pua4x4_motion_demo.py \
     experiments/pua-4x4/verify_vortex_motion.py \
     experiments/pua-4x4/demos4x4/*.py \

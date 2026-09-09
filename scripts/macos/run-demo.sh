@@ -14,7 +14,7 @@ Usage:
   ./scripts/macos/run-demo.sh [window options] MODE NAME [demo arguments...]
   ./scripts/macos/run-demo.sh --list
 
-Window options (must precede MODE):
+Window options (may precede MODE or follow NAME):
   --terminal-columns N   initial WezTerm columns (default 120)
   --terminal-rows N      initial WezTerm rows (default 36)
   --font-size POINTS     initial font size (default 12)
@@ -29,11 +29,11 @@ EOF
 list_demos() {
     cat <<'EOF'
 Square Braille 2x4:
-  geometry snow starfield trail triangle vertical vector elite doom
+  geometry snow christmas-snow christmas-snow-control starfield trail triangle vertical vector elite doom
   enterprise enterprise-hlr spaceship unicode font-probe voyager
 
 PUA 4x4:
-  geometry snow starfield trail editor triangle vertical vector elite doom
+  geometry snow christmas-snow christmas-snow-control starfield trail editor triangle vertical vector elite doom
   vortex enterprise enterprise-hlr spaceship defender voyager model-viewer
 
 Both modes also provide:
@@ -48,6 +48,10 @@ enterprise-hlr and spaceship require a separately licensed local mesh cache.
 Pass it after the demo name with --mesh /absolute/path/to/cache.npz. The
 launcher checks this before opening a window and prints an exact diagnostic.
 The procedural enterprise and NASA Voyager demos include their required data.
+For the seasonal demo's illustrated option guide and live render examples, run:
+  ./scripts/macos/run-demo.sh pua4 christmas-snow --help
+For its separate live-control console, run this in a second shell:
+  ./scripts/macos/run-demo.sh pua4 christmas-snow-control
 EOF
 }
 
@@ -67,6 +71,44 @@ done
 mode="$1"
 name="$2"
 shift 2
+
+# Keep window controls out of the demo program's argument list.  Accepting them
+# here as well as before MODE makes the natural
+#   run-demo.sh pua4 christmas-snow --terminal-columns 240 ...
+# spelling work without changing the individual demos.
+demo_arguments=()
+hold_on_success=()
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --terminal-columns) columns="${2:?missing column count}"; shift 2 ;;
+        --terminal-rows) rows="${2:?missing row count}"; shift 2 ;;
+        --font-size) font_size="${2:?missing font size}"; shift 2 ;;
+        -h|--help)
+            demo_arguments+=("$1")
+            hold_on_success=(--hold-on-success)
+            shift
+            ;;
+        --snapshot)
+            demo_arguments+=("$1")
+            # A snapshot intentionally succeeds after one frame. Keep the
+            # spawned window open so that success is not mistaken for a crash.
+            hold_on_success=(--hold-on-success)
+            shift
+            ;;
+        *) demo_arguments+=("$1"); shift ;;
+    esac
+done
+set -- "${demo_arguments[@]}"
+
+[[ "$columns" =~ ^[0-9]+$ && "$columns" -ge 24 ]] || {
+    echo '--terminal-columns must be an integer of at least 24.' >&2; exit 2;
+}
+[[ "$rows" =~ ^[0-9]+$ && "$rows" -ge 8 ]] || {
+    echo '--terminal-rows must be an integer of at least 8.' >&2; exit 2;
+}
+[[ "$font_size" =~ ^[0-9]+([.][0-9]+)?$ ]] || {
+    echo '--font-size must be a positive number.' >&2; exit 2;
+}
 
 case "$mode" in
     square) config="$ROOT_DIR/config/wezterm/square-braille.lua" ;;
@@ -175,6 +217,14 @@ case "$name" in
         fi
         command=("$python_bin" "$demo_dir/$script" "$@")
         ;;
+    christmas-snow|seasonal-snow)
+        demo_dir="$ROOT_DIR/demos/seasonal"
+        command=("$python_bin" "$demo_dir/christmas_snow.py" --mode "$mode" "$@")
+        ;;
+    christmas-snow-control|seasonal-control)
+        demo_dir="$ROOT_DIR"
+        command=("$python_bin" "$ROOT_DIR/demos/seasonal/christmas_snow_control.py" --mode "$mode" "$@")
+        ;;
     vertical|vector|elite|doom)
         case "$name" in
             vertical) script=vertical_probe.py ;;
@@ -275,4 +325,4 @@ esac
 
 exec "$wezterm_bin" --config-file "$config" start --always-new-process \
     --cwd "$demo_dir" -- "$ROOT_DIR/scripts/macos/run-command-and-hold.sh" \
-    "${command[@]}"
+    "${hold_on_success[@]}" "${command[@]}"

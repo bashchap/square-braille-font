@@ -21,6 +21,9 @@ cd experiments/pua-4x4/demos4x4
 chmod +x run-demo.sh
 ./run-demo.sh starfield
 ./run-demo.sh snow
+./run-demo.sh christmas-snow --scenery all
+./run-demo.sh christmas-snow --terminal-columns 300 --terminal-rows 90 \
+  --font-size 7 --ambient all --accumulation-rate 1.4 --fps 4
 ./run-demo.sh defender --once
 ```
 
@@ -75,6 +78,7 @@ in [the complete macOS guide](../../../docs/QUICKSTART-MACOS-ALL-FONTS.md).
 |---|---|---|
 | `geometry` | `geometry_test.py` | solid, checker and moving subpixel proof |
 | `snow` | `snow.py` | snow animation |
+| `christmas-snow` | `demos/seasonal/christmas_snow.py` | layered seasonal snow, optional scenery, accumulation and shedding |
 | `starfield` | `starfield.py` | forward starfield flight |
 | `trail` | `trail.py` | interactive cursor-key drawing |
 | `triangle` | `triangle.py` | progressive RGB filled triangle |
