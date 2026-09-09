@@ -77,6 +77,33 @@ def main():
     check(chr(0xF0008) in encode_surface(single, pua4, 1, 1),
           "PUA 4x4 top-left pixel did not use MSB-left mask 0x0008")
 
+    indexed = Surface(3, 6)
+    indexed.rectangle(0, 1, 1, 4, (1, 2, 3), 1)
+    indexed.pixel(0, 5, (1, 2, 3), 1)
+    indexed.rectangle(2, 0, 3, 6, (1, 2, 3), 1)
+    check(indexed.exposed_top_edges() == [[1, 5], [], [0]],
+          "draw-time scenery occupancy index disagrees with exposed runs")
+
+    no_physics_args = parse_args([
+        "--physics", "none", "--columns", "24", "--rows", "8",
+        "--object-snow", "--snow-rate", "0", "--max-flakes", "0",
+    ])
+    _, _, no_physics_engine, no_physics_background = make_runtime(
+        no_physics_args, 24, 8)
+    check(not no_physics_engine.scenery_surfaces and
+          not no_physics_engine.physics.ground_enabled and
+          not no_physics_engine.physics.object_enabled,
+          "physics=none retained a collision index or physical subsystem")
+
+    ground_args = parse_args([
+        "--physics", "ground", "--columns", "24", "--rows", "8",
+        "--object-snow", "--snow-rate", "0", "--max-flakes", "0",
+    ])
+    _, _, ground_engine, _ = make_runtime(ground_args, 24, 8)
+    check(ground_engine.physics.ground_enabled and
+          not ground_engine.physics.object_enabled,
+          "physics=ground did not isolate bank/body physics from object snow")
+
     ownership = Surface(4, 4)
     for y in range(4):
         for x in range(4):

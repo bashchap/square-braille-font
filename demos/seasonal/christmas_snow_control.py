@@ -94,6 +94,7 @@ GROUP_ICONS = {
 
 OPTION_ICONS = {
     "mode": "▦", "fps": "◷", "duration": "◴", "frames": "≡",
+    "physics": "⚙",
     "columns": "↔", "rows": "↕", "seed": "※", "snapshot": "▣",
     "no_dashboard": "▤", "detailed_dashboard": "▥", "listen": "◎",
     "control_poll": "↻", "snow_rate": "❄", "max_flakes": "⁙",
@@ -130,6 +131,7 @@ OPTION_ICONS = {
 }
 
 IMPACT_GUIDANCE = {
+    "physics": "NONE provides the cheapest legacy-style fall/deposit path; GROUND adds bank slumping and terrain-aware bodies; FULL also indexes scenery so snow can rest and shed from objects.",
     "fps": "Higher values make motion smoother but raise CPU and terminal-output work almost linearly.",
     "duration": "Zero runs until stopped; a positive value ends the viewer after that many seconds.",
     "frames": "Zero leaves duration in control; a positive value stops after an exact rendered-frame count.",
@@ -204,7 +206,7 @@ HIGH_COST = frozenset({
     "cabin_scale", "leaf_count", "tumbleweed_count", "rabbit_count",
 })
 MEDIUM_COST = frozenset({
-    "flake_sizes", "detailed_dashboard", "ambient", "ambient_speed",
+    "physics", "flake_sizes", "detailed_dashboard", "ambient", "ambient_speed",
     "sky_events", "flyby_interval", "snow_plough",
 })
 

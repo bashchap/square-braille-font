@@ -175,7 +175,7 @@ virtual pixels wide, tumbleweed. Use `--ambient all` to force both at any size,
 or `--ambient none`, `leaves`, or `tumbleweed`. `--leaf-count`,
 `--tumbleweed-count`, and `--ambient-speed` provide explicit control.
 Tumbleweed follow the uneven snow surface, accelerate through gust cycles,
-bounce, cast a contact shadow, and rotate stable asymmetrical branches according
+bounce without an artificial contact shadow, and rotate stable asymmetrical branches according
 to distance actually travelled. A rise higher than `--tumbleweed-climb` times
 the weed radius now blocks horizontal progress; the weed presses against that
 snow face and multiplies its tower age by
@@ -503,7 +503,8 @@ depth from any neighbouring pair steeper than `--snow-repose-slope`, bounded by
 `--snow-relaxation`. This conserves the transferred snow mass while rounding
 the implausible spikes seen in earlier builds.
 
-Scenery is scanned for exposed top edges after each wind-driven redraw. A flake
+Scenery records occupied vertical runs while it is drawn. The resulting bitset
+index exposes object top edges without a second full-raster collision scan. A flake
 crossing one of those edges has only `--object-snow-capture` probability of
 sticking, so roofs, branches and figures receive sparse, non-uniform patches
 rather than a second ground-sized bank. Use `--object-snow-max` as the hard
@@ -512,6 +513,27 @@ and `--object-snow-adhesion` for supported flake-equivalent mass. Each impact
 adds mass; when `mass × 9.81` exceeds that patch's seeded adhesion—or its hold
 time expires—the patch becomes one or more falling chunks. `--no-object-snow`
 disables this collision path without changing ground accumulation.
+
+`--physics` makes the cost and behaviour explicit and supports repeatable A/B
+comparison:
+
+| Mode | Ground slumping and terrain bodies | Object-surface snow |
+|---|---:|---:|
+| `none` | No | No |
+| `ground` | Yes | No |
+| `full` (default) | Yes | Yes |
+
+`none` retains the smooth deposit shape, broad threshold shedding and the same
+renderer, but bypasses the newer repose, terrain-body and object-snow systems.
+`ground` keeps realistic bank and tumbleweed behaviour while avoiding scenery
+collision indexing. `full` adds sparse snow capture, mass and gravity on scenery.
+The setting is live: the companion console can switch it while the demo runs.
+
+Procedural trees are rasterized once for each deterministic size, species and
+formula setting. Frames reuse that immutable geometry and apply a cheap
+height-weighted sway while compositing it. The cache is bounded, invalidates
+naturally when a relevant tree option changes, and is reported on the PROCESS
+dashboard tab as hits and misses.
 
 This engine also owns stateful tumbleweed contact, vertical velocity, gravity,
 terrain climb limits, pressure-assisted bank collapse, and Santa's fading
@@ -606,6 +628,18 @@ Press `Control-C` to leave the continuous animation.
 python3 demos/seasonal/verify_christmas_snow.py
 ```
 
+For a repeatable phase-by-phase comparison of all three physics levels:
+
+```sh
+python3 demos/seasonal/benchmark_christmas_snow.py
+python3 demos/seasonal/benchmark_christmas_snow.py --viewport 168x60 --runs 5
+python3 demos/seasonal/benchmark_christmas_snow.py --viewport 279x43 --json
+```
+
+The report separates simulation, scenery, collision-index extraction, moving
+object rasterization and glyph encoding. Timings are medians after two warm-up
+frames; compare results only on the same host and terminal-independent workload.
+
 The verifier checks both full-mask mappings, the PUA4 MSB-left top-left bit,
 two-colour depth ownership, scenery generation, the 50% shedding trigger, live
 resize preservation, animated tree movement, frame dimensions, and the absence
@@ -616,4 +650,5 @@ cabin types, tumbleweed-aware rabbits, all three sky events, complete plough
 clearing, detailed reindeer and flyby pixel complexity, dashboard dimensions
 and CPU/memory labels, per-option TUI icons and guidance, snapshot-window hold
 behaviour, and an executable saved command containing literal shell
-continuation backslashes.
+continuation backslashes. It also cross-checks draw-time exposed-surface indexing
+and confirms that `none`, `ground` and `full` isolate their intended subsystems.

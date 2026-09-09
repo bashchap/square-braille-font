@@ -9,6 +9,7 @@ Complete-frame rendering restores lower-priority scenery after moving objects.
 
 import argparse
 import contextlib
+import functools
 import io
 import json
 import math
@@ -104,6 +105,16 @@ CODECS = {
 }
 
 
+@dataclass(frozen=True)
+class TreeSettings:
+    branches: int
+    branch_levels: int
+    branch_angle: float
+    length_ratio: float
+    trunk_thickness: float
+    thickness_exponent: float
+
+
 class Surface:
     """A small virtual-pixel surface with explicit painter priority."""
 
@@ -111,9 +122,34 @@ class Surface:
         self.width = width
         self.height = height
         self.pixels = pixels if pixels is not None else [None] * (width * height)
+        # Each integer is a vertical occupancy bitset for one x coordinate.
+        # Scenery collision can therefore find exposed surfaces without a
+        # second width*height raster scan after drawing.
+        self._column_bits = [0] * width
+        if pixels is not None:
+            for index, value in enumerate(pixels):
+                if value is not None:
+                    y, x = divmod(index, width)
+                    self._column_bits[x] |= 1 << y
 
     def copy(self):
-        return Surface(self.width, self.height, self.pixels.copy())
+        duplicate = Surface(self.width, self.height)
+        duplicate.pixels = self.pixels.copy()
+        duplicate._column_bits = self._column_bits.copy()
+        return duplicate
+
+    def exposed_top_edges(self):
+        """Return occupied runs' top edges using draw-time occupancy bits."""
+        columns = []
+        for bits in self._column_bits:
+            starts = bits & ~(bits << 1)
+            edges = []
+            while starts:
+                lowest = starts & -starts
+                edges.append(lowest.bit_length() - 1)
+                starts ^= lowest
+            columns.append(edges)
+        return columns
 
     def pixel(self, x, y, colour, priority):
         x, y = int(round(x)), int(round(y))
@@ -123,6 +159,7 @@ class Surface:
         current = self.pixels[index]
         if current is None or priority >= current[1]:
             self.pixels[index] = (colour, priority)
+            self._column_bits[x] |= 1 << y
 
     def rectangle(self, left, top, right, bottom, colour, priority):
         left = max(0, int(left))
@@ -136,6 +173,7 @@ class Surface:
                 current = self.pixels[index]
                 if current is None or priority >= current[1]:
                     self.pixels[index] = (colour, priority)
+                    self._column_bits[x] |= 1 << y
 
     def line(self, x0, y0, x1, y1, colour, priority):
         x0, y0, x1, y1 = map(lambda value: int(round(value)), (x0, y0, x1, y1))
@@ -302,12 +340,21 @@ class SeasonalPhysics:
     def __init__(self, args):
         self.args = args
 
+    @property
+    def ground_enabled(self):
+        return self.args.physics in ("ground", "full")
+
+    @property
+    def object_enabled(self):
+        return self.args.physics == "full" and self.args.object_snow
+
     def object_is_stable(self, patch):
         return patch.mass * self.GRAVITY < patch.adhesion
 
     def relax_bank(self, depths, dt):
         """Move excess adjacent depth downhill toward an angle of repose."""
-        if len(depths) < 2 or self.args.snow_relaxation <= 0:
+        if (not self.ground_enabled or len(depths) < 2 or
+                self.args.snow_relaxation <= 0):
             return
         maximum_transfer = self.args.snow_relaxation * dt
         slope = self.args.snow_repose_slope
@@ -604,6 +651,55 @@ def draw_tree(surface, rng, centre_x, base_y, height, layer, lights,
             sway, segment_budget)
 
 
+@functools.lru_cache(maxsize=384)
+def cached_tree_pixels(tree_seed, height, layer, lights, tree_type, settings,
+                       segment_allowance):
+    """Rasterize immutable procedural tree geometry once per layout/species."""
+    height = max(10, int(round(height)))
+    width = max(40, height * 3 + 24)
+    local_height = height + 28
+    centre = width // 2
+    base = local_height - 8
+    surface = Surface(width, local_height)
+    rng = random.Random(tree_seed)
+    tree_args = argparse.Namespace(
+        tree_branches=settings.branches,
+        tree_branch_levels=settings.branch_levels,
+        tree_branch_angle=settings.branch_angle,
+        tree_length_ratio=settings.length_ratio,
+        tree_trunk_thickness=settings.trunk_thickness,
+        tree_thickness_exponent=settings.thickness_exponent,
+    )
+    draw_tree(surface, rng, centre, base, height, layer, lights, tree_type,
+              tree_args, sway=0.0, segment_budget=[segment_allowance])
+    return tuple(
+        (index % width - centre, index // width - base, pixel)
+        for index, pixel in enumerate(surface.pixels) if pixel is not None
+    )
+
+
+def draw_cached_tree(surface, centre, base, height, sway, pixels):
+    """Apply cheap height-weighted sway while compositing cached geometry."""
+    inverse_height = 1.0 / max(1.0, height)
+    width = surface.width
+    surface_pixels = surface.pixels
+    column_bits = surface._column_bits
+    centre = int(centre)
+    base = int(base)
+    for dx, dy, (colour, priority) in pixels:
+        crown_fraction = max(0.0, min(1.0, -dy * inverse_height))
+        offset = int(round(sway * crown_fraction * crown_fraction))
+        x = centre + dx + offset
+        y = base + dy
+        if not (0 <= x < width and 0 <= y < surface.height):
+            continue
+        index = y * width + x
+        current = surface_pixels[index]
+        if current is None or priority >= current[1]:
+            surface_pixels[index] = (colour, priority)
+            column_bits[x] |= 1 << y
+
+
 def cabin_layout(args, width, height, snow_line):
     """Return fixed-aspect cabins whose count, not width, grows with viewport."""
     scale = args.cabin_scale
@@ -818,7 +914,7 @@ def build_scenery(args, width, height, ground_y, elapsed=0.0):
         # Formula branches share a frame-wide budget. Filled conifer canopies
         # still render after it is exhausted, so extreme inputs degrade in
         # botanical detail rather than frame rate.
-        segment_budget = [args.tree_segment_budget]
+        plans = []
         tree_serial = 0
         for layer, scale in enumerate((0.34, 0.44, 0.59, 0.76), start=1):
             layer_cap = args.max_trees // 4 + (layer <= args.max_trees % 4)
@@ -832,14 +928,25 @@ def build_scenery(args, width, height, ground_y, elapsed=0.0):
                 tree_height = height * scale * rng.uniform(0.62, 1.0)
                 base = snow_line + rng.randint(-2, 3)
                 phase = rng.uniform(0, math.tau)
+                tree_seed = rng.randrange(0, 2 ** 31)
                 wind_bias = (args.wind + gust_at(args, elapsed)) * 0.10
                 sway = args.tree_sway * (math.sin(elapsed * 0.72 + phase) + wind_bias)
                 tree_type = args.tree_types[tree_serial % len(args.tree_types)]
                 tree_serial += 1
-                draw_tree(surface, rng, centre, base, tree_height,
-                          min(4, layer), args.lights if layer >= 3 else 0.0,
-                          tree_type, args, sway=sway,
-                          segment_budget=segment_budget)
+                plans.append((tree_seed, centre, base, tree_height, min(4, layer),
+                              args.lights if layer >= 3 else 0.0,
+                              tree_type, sway))
+        settings = TreeSettings(
+            args.tree_branches, args.tree_branch_levels,
+            args.tree_branch_angle, args.tree_length_ratio,
+            args.tree_trunk_thickness, args.tree_thickness_exponent)
+        per_tree_budget = (args.tree_segment_budget // len(plans)
+                           if plans else 0)
+        for tree_seed, centre, base, tree_height, layer, lights, tree_type, sway in plans:
+            pixels = cached_tree_pixels(
+                tree_seed, int(round(tree_height)), layer, lights, tree_type,
+                settings, per_tree_budget)
+            draw_cached_tree(surface, centre, base, tree_height, sway, pixels)
     if "cabin" in args.scenery_set:
         for centre, base, cabin_height, variant, cabin_type in cabin_layout(
                 args, width, height, snow_line):
@@ -1441,19 +1548,14 @@ class SnowEngine:
 
     def update_scenery_collision(self, surface):
         """Index exposed top edges so flakes may sparsely settle on objects."""
-        surfaces = [[] for _ in range(self.width)]
-        for x in range(self.width):
-            previous = None
-            for y in range(self.height):
-                pixel = surface.pixels[y * self.width + x]
-                if pixel is not None and previous is None:
-                    surfaces[x].append(y)
-                previous = pixel
-        self.scenery_surfaces = surfaces
+        if not self.physics.object_enabled:
+            self.scenery_surfaces = []
+            return
+        self.scenery_surfaces = surface.exposed_top_edges()
 
     def scenery_hit(self, x, old_y, new_y):
         """Return the first crossed scenery top edge, excluding the ground bank."""
-        if not self.args.object_snow or not self.scenery_surfaces:
+        if not self.physics.object_enabled or not self.scenery_surfaces:
             return None
         lower, upper = sorted((old_y, new_y))
         ground = self.surface_y(x)
@@ -1491,6 +1593,9 @@ class SnowEngine:
 
     def step_object_snow(self, dt):
         """Age retained patches and return expired ones to visible snowfall."""
+        if not self.physics.object_enabled:
+            self.resting_snow = []
+            return
         survivors = []
         for patch in self.resting_snow:
             patch.ttl -= dt
@@ -1695,7 +1800,7 @@ class SnowEngine:
             self.flakes = self.flakes[:self.max_flakes]
         if len(self.resting_snow) > self.args.object_snow_max:
             self.resting_snow = self.resting_snow[-self.args.object_snow_max:]
-        if not self.args.object_snow:
+        if not self.physics.object_enabled:
             self.resting_snow = []
         self.sync_rabbits()
         self.sync_tumbleweeds()
@@ -1738,6 +1843,13 @@ class SnowEngine:
             proposed_x = ((proposed_x + weed.radius * 2) % track) - weed.radius * 2
             current_support = self.surface_y(weed.x) - weed.radius
             next_support = self.surface_y(proposed_x) - weed.radius
+            if not self.physics.ground_enabled:
+                weed.x = proposed_x
+                weed.y = next_support
+                weed.rotation += weed.direction * speed * dt / max(1.0, weed.radius)
+                weed.blocked_time = 0.0
+                weed.vertical_speed = 0.0
+                continue
             rise = current_support - next_support
             climb_limit = weed.radius * self.args.tumbleweed_climb
             weed.collapse_cooldown = max(0.0, weed.collapse_cooldown - dt)
@@ -1961,8 +2073,11 @@ class SnowEngine:
         self.step_tumbleweeds(dt, elapsed)
         self.step_santa_trail(dt, elapsed)
         self.step_rabbits(dt, elapsed)
-        self.detect_tower_collapses(dt)
-        self.step_tower_collapses(dt)
+        if self.physics.ground_enabled:
+            self.detect_tower_collapses(dt)
+            self.step_tower_collapses(dt)
+        else:
+            self.tower_collapses = []
         if (self.args.accumulate and self.shedding is None and self.shed_cooldown == 0.0 and
                 max(self.depths) / self.height >= self.args.shed_threshold):
             self.begin_shed()
@@ -1978,7 +2093,7 @@ class SnowEngine:
 
 
 LIVE_OPTION_DESTS = frozenset({
-    "fps", "snow_rate", "max_flakes", "flake_sizes", "size_weights",
+    "fps", "physics", "snow_rate", "max_flakes", "flake_sizes", "size_weights",
     "fall_speed", "speed_variation", "wind", "gust_strength", "gust_period",
     "drift", "wobble", "palette", "accumulation", "accumulate",
     "snow_repose_slope", "snow_relaxation",
@@ -2117,21 +2232,20 @@ def encode_surface(surface, codec, columns, rows, stats=None):
     part0_cells = part1_cells = 0
     active_colour = None
     active_background = None
+    flat_bits = tuple(bit for row in codec.bits for bit in row)
+    cell_sample_count = codec.cell_width * codec.cell_height
+    full_mask = (1 << cell_sample_count) - 1
+    pixels = surface.pixels
+    surface_width = surface.width
     for cell_y in range(rows):
         parts = []
         for cell_x in range(columns):
-            samples = []
-            front_priority = -1
+            cell_pixels = []
             for local_y in range(codec.cell_height):
                 y = cell_y * codec.cell_height + local_y
-                for local_x in range(codec.cell_width):
-                    x = cell_x * codec.cell_width + local_x
-                    pixel = surface.pixels[y * surface.width + x]
-                    bit = codec.bits[local_y][local_x]
-                    samples.append((bit, pixel))
-                    if pixel is not None and pixel[1] > front_priority:
-                        front_priority = pixel[1]
-            if front_priority < 0:
+                start = y * surface_width + cell_x * codec.cell_width
+                cell_pixels.extend(pixels[start:start + codec.cell_width])
+            if not any(cell_pixels):
                 blank_cells += 1
                 if active_colour is not None:
                     parts.append(FG_DEFAULT)
@@ -2142,37 +2256,49 @@ def encode_surface(surface, codec, columns, rows, stats=None):
                 parts.append(" ")
                 continue
 
-            mask = 0
-            front_count = rear_count = 0
-            front_red = front_green = front_blue = 0
-            rear_red = rear_green = rear_blue = 0
-            for bit, pixel in samples:
-                if pixel is None:
-                    continue
-                sample_colour, priority = pixel
-                if priority == front_priority:
-                    mask |= 1 << bit
-                    front_count += 1
-                    front_red += sample_colour[0]
-                    front_green += sample_colour[1]
-                    front_blue += sample_colour[2]
-                else:
-                    rear_count += 1
-                    rear_red += sample_colour[0]
-                    rear_green += sample_colour[1]
-                    rear_blue += sample_colour[2]
-            colour = (round(front_red / front_count),
-                      round(front_green / front_count),
-                      round(front_blue / front_count))
+            first_pixel = cell_pixels[0]
+            uniform = (first_pixel is not None and
+                       all(pixel == first_pixel for pixel in cell_pixels[1:]))
+            if uniform:
+                mask = full_mask
+                front_priority = first_pixel[1]
+                colour = first_pixel[0]
+                front_count = cell_sample_count
+                rear_count = 0
+            else:
+                front_priority = max(pixel[1] for pixel in cell_pixels
+                                     if pixel is not None)
+                mask = 0
+                front_count = rear_count = 0
+                front_red = front_green = front_blue = 0
+                rear_red = rear_green = rear_blue = 0
+                for bit, pixel in zip(flat_bits, cell_pixels):
+                    if pixel is None:
+                        continue
+                    sample_colour, priority = pixel
+                    if priority == front_priority:
+                        mask |= 1 << bit
+                        front_count += 1
+                        front_red += sample_colour[0]
+                        front_green += sample_colour[1]
+                        front_blue += sample_colour[2]
+                    else:
+                        rear_count += 1
+                        rear_red += sample_colour[0]
+                        rear_green += sample_colour[1]
+                        rear_blue += sample_colour[2]
+                colour = (round(front_red / front_count),
+                          round(front_green / front_count),
+                          round(front_blue / front_count))
 
             background = None
-            if rear_count and front_count < len(samples):
+            if rear_count and front_count < cell_sample_count:
                 rear_colour = (round(rear_red / rear_count),
                                round(rear_green / rear_count),
                                round(rear_blue / rear_count))
                 error_without = 0
                 error_with = 0
-                for _, pixel in samples:
+                for pixel in cell_pixels:
                     expected = (0, 0, 0) if pixel is None else pixel[0]
                     if pixel is not None and pixel[1] == front_priority:
                         actual_without = actual_with = colour
@@ -2297,7 +2423,7 @@ def detailed_dashboard_lines(args, engine, codec, stats, columns):
         ]
     elif tab == "snow":
         page = [
-            (f" ❄ AIRBORNE {len(engine.flakes):,}/{engine.max_flakes:,} | RATE {engine.snow_rate:.1f}/s | "
+            (f" ⚙ PHYSICS {args.physics.upper()} | ❄ AIRBORNE {len(engine.flakes):,}/{engine.max_flakes:,} | RATE {engine.snow_rate:.1f}/s | "
              f"FALL {args.fall_speed:.1f} VPX/s | WIND {args.wind:+.1f} GUST {args.gust_strength:.1f}"),
             (f" ▂ GROUND MAX {engine.maximum_depth_fraction:.1%} AVG {engine.average_depth_fraction:.1%} | "
              f"ACCUMULATION {args.accumulation:.2f} | REPOSE {args.snow_repose_slope:.2f} RELAX {args.snow_relaxation:.1f}"),
@@ -2340,13 +2466,14 @@ def detailed_dashboard_lines(args, engine, codec, stats, columns):
              f"{'ACTIVE' if engine.plough.active else 'WAITING'} / {engine.plough_count} COMPLETE"),
         ]
     else:
+        cache = cached_tree_pixels.cache_info()
         page = [
             (f" ◆ PROCESS CPU {cpu_percent:5.1f}% {graph_bar(cpu_percent, 100)} | "
              f"FRAME {engine.render_ms:6.1f} ms / {frame_budget:5.1f} ms "
              f"{graph_bar(engine.render_ms, frame_budget)}"),
             f" ◆ MEMORY {memory} | GRID CELLS {stats['cells']:,} | ACTIVE {populated:,}",
-            (f" ◆ LOAD SOURCES: FLAKES {len(engine.flakes):,} TREES≤{args.max_trees} "
-             f"BRANCH BUDGET {args.tree_segment_budget:,} OBJECT PATCHES {len(engine.resting_snow):,}"),
+            (f" ◆ LOAD: FLAKES {len(engine.flakes):,} TREES≤{args.max_trees} "
+             f"TREE CACHE {cache.hits:,} HIT/{cache.misses:,} MISS | OBJECT PATCHES {len(engine.resting_snow):,}"),
             " ◆ PERFORMANCE: LOWER FPS/PARTICLES/BRANCH DEPTH/BUDGET OR TERMINAL DIMENSIONS IF OVER BUDGET",
         ]
     lines = [dashboard_tab_strip(engine), *page]
@@ -2585,6 +2712,9 @@ def build_parser():
                          help="give the status row back to the rendered scene")
     display.add_argument("--detailed-dashboard", action="store_true",
                          help="reserve six rows for keyboard-tabbed font, snow, tree, animal, flight and process telemetry")
+    display.add_argument("--physics", choices=("none", "ground", "full"),
+                         default="full",
+                         help="none: legacy simple snow; ground: bank slumping and terrain bodies; full: also retain snow on scenery")
 
     live = parser.add_argument_group("live control")
     live.add_argument("--listen", nargs="?", const=str(DEFAULT_CONTROL_PATH),
