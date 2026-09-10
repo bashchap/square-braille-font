@@ -52,15 +52,14 @@ SHAPES = {
     "tiny": ((0, 0),),
     "small": ((0, 0), (-1, 0), (1, 0), (0, -1), (0, 1)),
     "medium": (
-        (0, 0), (-1, 0), (1, 0), (0, -1), (0, 1),
-        (-1, -1), (1, -1), (-1, 1), (1, 1),
-    ),
-    "large": (
         (0, 0), (-1, 0), (1, 0), (-2, 0), (2, 0),
         (0, -1), (0, 1), (0, -2), (0, 2),
-        (-1, -1), (1, -1), (-1, 1), (1, 1),
-        (-2, -1), (2, -1), (-2, 1), (2, 1),
+    ),
+    "large": (
+        (0, 0), (-1, 0), (1, 0), (-2, 0), (2, 0), (-3, 0), (3, 0),
+        (0, -1), (0, 1), (0, -2), (0, 2), (0, -3), (0, 3),
         (-1, -2), (1, -2), (-1, 2), (1, 2),
+        (-2, -1), (2, -1), (-2, 1), (2, 1),
     ),
 }
 
@@ -119,6 +118,7 @@ class TreeSettings:
     branch_angle: float
     length_ratio: float
     trunk_thickness: float
+    branch_thickness_ratio: float
     thickness_exponent: float
 
 
@@ -257,6 +257,8 @@ class Flake:
     wobble: float
     shape: str
     colour: tuple
+    kind: str = "snow"
+    bounces: int = 0
 
 
 @dataclass
@@ -522,7 +524,7 @@ def draw_formula_branch(surface, rng, x, y, length, angle, levels,
 
 def draw_conifer(surface, rng, centre_x, base_y, height, layer, lights,
                   tree_type, branch_count, branch_angle, trunk_thickness,
-                  sway=0.0, segment_budget=None):
+                  branch_thickness_ratio=0.42, sway=0.0, segment_budget=None):
     height = max(8, int(height))
     profile_width = {"pine": 0.28, "fir": 0.34, "spruce": 0.22}[tree_type]
     half = max(3, int(height * profile_width))
@@ -568,7 +570,8 @@ def draw_conifer(surface, rng, centre_x, base_y, height, layer, lights,
                 angle = side * (90.0 + droop)
                 tip_x, tip_y = branch_endpoint(origin_x, origin_y, branch_length, angle)
                 thick_line(surface, origin_x, origin_y, tip_x, tip_y,
-                           max(1.0, trunk_thickness * 0.45), colour, priority + 1)
+                           max(1.0, trunk_thickness * branch_thickness_ratio),
+                           colour, priority + 1)
                 segment_budget[0] -= 1
     if layer >= 3:
         snow = (205, 237, 255)
@@ -591,7 +594,8 @@ def draw_conifer(surface, rng, centre_x, base_y, height, layer, lights,
 
 def draw_broadleaf(surface, rng, centre_x, base_y, height, layer, tree_type,
                    branch_count, branch_levels, branch_angle, length_ratio,
-                   trunk_thickness, thickness_exponent, sway=0.0,
+                   trunk_thickness, branch_thickness_ratio,
+                   thickness_exponent, sway=0.0,
                    segment_budget=None):
     """Draw a bare oak, maple, or birch using bounded parametric branching."""
     height = max(10, int(height))
@@ -641,7 +645,8 @@ def draw_broadleaf(surface, rng, centre_x, base_y, height, layer, tree_type,
             base_length * rng.uniform(0.82, 1.08), angle,
             max(1, min(branch_levels, 2 if layer == 3 else branch_levels)),
             branch_angle, length_ratio,
-            trunk_thickness, thickness_exponent, branch, snow, priority + 1,
+            max(0.5, trunk_thickness * branch_thickness_ratio),
+            thickness_exponent, branch, snow, priority + 1,
             segment_budget)
 
 
@@ -650,13 +655,15 @@ def draw_tree(surface, rng, centre_x, base_y, height, layer, lights,
     if tree_type in ("pine", "fir", "spruce"):
         draw_conifer(surface, rng, centre_x, base_y, height, layer, lights,
                      tree_type, args.tree_branches, args.tree_branch_angle,
-                     args.tree_trunk_thickness, sway, segment_budget)
+                     args.tree_trunk_thickness, args.tree_branch_thickness_ratio,
+                     sway, segment_budget)
     else:
         draw_broadleaf(
             surface, rng, centre_x, base_y, height, layer, tree_type,
             args.tree_branches, args.tree_branch_levels,
             args.tree_branch_angle, args.tree_length_ratio,
-            args.tree_trunk_thickness, args.tree_thickness_exponent,
+            args.tree_trunk_thickness, args.tree_branch_thickness_ratio,
+            args.tree_thickness_exponent,
             sway, segment_budget)
 
 
@@ -677,6 +684,7 @@ def cached_tree_pixels(tree_seed, height, layer, lights, tree_type, settings,
         tree_branch_angle=settings.branch_angle,
         tree_length_ratio=settings.length_ratio,
         tree_trunk_thickness=settings.trunk_thickness,
+        tree_branch_thickness_ratio=settings.branch_thickness_ratio,
         tree_thickness_exponent=settings.thickness_exponent,
     )
     draw_tree(surface, rng, centre, base, height, layer, lights, tree_type,
@@ -948,7 +956,8 @@ def build_scenery(args, width, height, ground_y, elapsed=0.0):
         settings = TreeSettings(
             args.tree_branches, args.tree_branch_levels,
             args.tree_branch_angle, args.tree_length_ratio,
-            args.tree_trunk_thickness, args.tree_thickness_exponent)
+            args.tree_trunk_thickness, args.tree_branch_thickness_ratio,
+            args.tree_thickness_exponent)
         per_tree_budget = (args.tree_segment_budget // len(plans)
                            if plans else 0)
         for tree_seed, centre, base, tree_height, layer, lights, tree_type, sway in plans:
@@ -1085,6 +1094,49 @@ def current_sky_event(args, engine, elapsed):
     else:
         y = rng.uniform(minimum_y, maximum_y)
     return kind, x, y, direction, event_index
+
+
+def draw_lightning(surface, engine):
+    """Paint one deterministic branched bolt and a short-lived sky flash."""
+    if not engine.args.lightning or engine.lightning_remaining <= 0:
+        return
+    fraction = min(1.0, engine.lightning_remaining /
+                   max(0.001, engine.args.lightning_flash))
+    lift = 0.16 + fraction * 0.30
+    for index, pixel in enumerate(surface.pixels):
+        if pixel is None:
+            continue
+        colour, priority = pixel
+        surface.pixels[index] = (
+            tuple(min(255, int(channel + (255 - channel) * lift))
+                  for channel in colour), priority)
+    rng = random.Random(engine.lightning_seed)
+    x = rng.uniform(engine.width * 0.16, engine.width * 0.84)
+    y = -2.0
+    points = [(x, y)]
+    segment_height = max(3.0, engine.height * 0.055)
+    target = engine.height * rng.uniform(0.45, 0.78)
+    while y < target:
+        x += rng.uniform(-segment_height * 0.48, segment_height * 0.48)
+        y += segment_height * rng.uniform(0.72, 1.18)
+        points.append((x, y))
+    bolt_colour = tuple(int(205 + 50 * fraction) for _ in range(3))
+    glow_colour = (145, 190, 255)
+    for left, right in zip(points, points[1:]):
+        thick_line(surface, *left, *right, 2.2, glow_colour, 57)
+        surface.line(*left, *right, bolt_colour, 58)
+    candidates = list(range(1, max(2, len(points) - 2)))
+    rng.shuffle(candidates)
+    for point_index in candidates[:engine.args.lightning_branches]:
+        start_x, start_y = points[point_index]
+        direction = rng.choice((-1, 1))
+        length = segment_height * rng.uniform(1.8, 4.2)
+        end_x = start_x + direction * length
+        end_y = start_y + length * rng.uniform(0.55, 0.95)
+        mid_x = (start_x + end_x) * 0.5 + rng.uniform(-3, 3)
+        mid_y = (start_y + end_y) * 0.5
+        surface.line(start_x, start_y, mid_x, mid_y, glow_colour, 57)
+        surface.line(mid_x, mid_y, end_x, end_y, bolt_colour, 58)
 
 
 def draw_sky_event(surface, engine, elapsed):
@@ -1457,6 +1509,8 @@ class SnowEngine:
         self.flakes = [self.new_flake(initial=True) for _ in range(preload)]
         self.flake_distribution = (tuple(args.flake_sizes),
                                    tuple(args.size_weights))
+        self.weather_distribution = (
+            args.weather, args.rain_share, args.hail_share, args.rain_speed)
         self.chunks = []
         self.resting_snow = []
         self.scenery_surfaces = [[] for _ in range(width)]
@@ -1467,6 +1521,11 @@ class SnowEngine:
         self.tumbleweed_collapses = 0
         self.santa_trail = []
         self.santa_trail_credit = 0.0
+        self.lightning_timer = args.lightning_interval * self.rng.uniform(0.25, 0.85)
+        self.lightning_remaining = 0.0
+        self.lightning_seed = self.rng.randrange(0, 2 ** 31)
+        self.lightning_count = 0
+        self.lightning_interval_setting = args.lightning_interval
         self.spawn_credit = 0.0
         self.shedding = None
         self.shed_count = 0
@@ -1546,6 +1605,30 @@ class SnowEngine:
         shape = weighted_choice(self.rng, self.args.flake_sizes, self.args.size_weights)
         variation = self.args.speed_variation
         speed = self.args.fall_speed * self.rng.uniform(max(0.05, 1.0 - variation), 1.0 + variation)
+        if self.args.weather == "rain":
+            kind = "rain"
+        elif self.args.weather == "hail":
+            kind = "hail"
+        elif self.args.weather == "storm":
+            kind = "hail" if self.rng.random() < self.args.hail_share else "rain"
+        elif self.args.weather == "mixed":
+            choice = self.rng.random()
+            if choice < self.args.hail_share:
+                kind = "hail"
+            elif choice < self.args.hail_share + self.args.rain_share:
+                kind = "rain"
+            else:
+                kind = "snow"
+        else:
+            kind = "snow"
+        if kind == "rain":
+            speed *= self.args.rain_speed
+            colour = self.args.rain_colour
+        elif kind == "hail":
+            speed *= 1.35
+            colour = self.args.hail_colour
+        else:
+            colour = self.rng.choice(self.palette["snow"])
         return Flake(
             x=self.rng.uniform(0, max(0, self.width - 1)),
             y=self.rng.uniform(-self.height * 0.95, -1) if initial else self.rng.uniform(-10, -1),
@@ -1554,8 +1637,20 @@ class SnowEngine:
             phase=self.rng.uniform(0, math.tau),
             wobble=self.rng.uniform(0.55, 2.1),
             shape=shape,
-            colour=self.rng.choice(self.palette["snow"]),
+            colour=colour,
+            kind=kind,
         )
+
+    def step_lightning(self, dt):
+        self.lightning_remaining = max(0.0, self.lightning_remaining - dt)
+        if not self.args.lightning:
+            return
+        self.lightning_timer -= dt
+        if self.lightning_timer <= 0:
+            self.lightning_remaining = self.args.lightning_flash
+            self.lightning_seed = self.rng.randrange(0, 2 ** 31)
+            self.lightning_timer = self.args.lightning_interval * self.rng.uniform(0.65, 1.35)
+            self.lightning_count += 1
 
     def surface_y(self, x):
         return self.height - self.depths[int(x) % self.width]
@@ -1821,6 +1916,24 @@ class SnowEngine:
                 flake.shape = weighted_choice(
                     self.rng, self.args.flake_sizes, self.args.size_weights)
             self.flake_distribution = distribution
+        weather_distribution = (
+            self.args.weather, self.args.rain_share,
+            self.args.hail_share, self.args.rain_speed)
+        if weather_distribution != self.weather_distribution:
+            # Rebuild the current population as well as future spawns. This
+            # makes changes to precipitation mix and rain velocity visible
+            # immediately even when --max-flakes has already been reached.
+            self.flakes = [self.new_flake(initial=True) for _ in self.flakes]
+            self.weather_distribution = weather_distribution
+        if self.args.lightning_interval != self.lightning_interval_setting:
+            self.lightning_timer = min(
+                self.lightning_timer, self.args.lightning_interval)
+            self.lightning_interval_setting = self.args.lightning_interval
+        for particle in self.flakes:
+            if particle.kind == "rain":
+                particle.colour = self.args.rain_colour
+            elif particle.kind == "hail":
+                particle.colour = self.args.hail_colour
         if len(self.resting_snow) > self.args.object_snow_max:
             self.resting_snow = self.resting_snow[-self.args.object_snow_max:]
         if not self.physics.object_enabled:
@@ -2063,17 +2176,36 @@ class SnowEngine:
         survivors = []
         for flake in self.flakes:
             old_y = flake.y
+            if flake.kind == "hail" and flake.speed < self.args.fall_speed * 1.35:
+                flake.speed += SeasonalPhysics.GRAVITY * 2.4 * dt
             flake.y += flake.speed * dt
-            flake.x += (self.args.wind + gust + flake.drift +
-                        math.sin(elapsed * flake.wobble + flake.phase) * self.args.wobble) * dt
+            flutter = (math.sin(elapsed * flake.wobble + flake.phase) *
+                       self.args.wobble)
+            if flake.kind == "rain":
+                flutter *= 0.12
+            flake.x += (self.args.wind + gust + flake.drift + flutter) * dt
             flake.x %= self.width
-            lowest = max(y for _, y in SHAPES[flake.shape])
+            lowest = (max(1, int(round(self.args.hail_size))) if flake.kind == "hail"
+                      else 0 if flake.kind == "rain"
+                      else max(y for _, y in SHAPES[flake.shape]))
             scenery_y = self.scenery_hit(flake.x, old_y + lowest,
                                           flake.y + lowest)
-            if scenery_y is not None and self.catch_object_snow(flake, scenery_y):
+            if (flake.kind == "snow" and scenery_y is not None and
+                    self.catch_object_snow(flake, scenery_y)):
                 continue
-            if flake.y + lowest >= self.surface_y(flake.x):
-                self.deposit(flake)
+            ground_y = self.surface_y(flake.x)
+            collision_y = scenery_y if flake.kind != "snow" else None
+            if collision_y is None and flake.y + lowest >= ground_y:
+                collision_y = ground_y
+            if collision_y is not None:
+                if (flake.kind == "hail" and flake.bounces < 2 and
+                        self.rng.random() < self.args.hail_bounce):
+                    flake.y = collision_y - lowest - 1
+                    flake.speed = -max(5.0, abs(flake.speed) * 0.42)
+                    flake.bounces += 1
+                    survivors.append(flake)
+                elif flake.kind == "snow":
+                    self.deposit(flake)
             elif flake.y < self.height + 5:
                 survivors.append(flake)
         self.flakes = survivors
@@ -2097,6 +2229,7 @@ class SnowEngine:
         self.step_plough(dt)
         self.step_tumbleweeds(dt, elapsed)
         self.step_santa_trail(dt, elapsed)
+        self.step_lightning(dt)
         self.step_rabbits(dt, elapsed)
         if self.physics.ground_enabled:
             self.detect_tower_collapses(dt)
@@ -2121,7 +2254,10 @@ LIVE_OPTION_DESTS = frozenset({
     "fps", "physics", "snow_rate", "max_flakes", "flake_sizes", "size_weights",
     "fall_speed", "speed_variation", "wind", "gust_strength", "gust_period",
     "drift", "wobble", "palette", "sky", "sky_colours", "sky_stops",
-    "sky_blend", "accumulation", "accumulate",
+    "sky_blend", "weather", "rain_share", "hail_share", "rain_speed",
+    "rain_length", "rain_colour", "hail_size", "hail_bounce", "hail_colour",
+    "lightning", "lightning_interval", "lightning_flash",
+    "lightning_branches", "accumulation", "accumulate",
     "snow_repose_slope", "snow_relaxation",
     "shed_threshold", "shed_to", "shed_width", "shed_rate",
     "tower_collapse", "tower_age", "tower_age_jitter", "tower_prominence",
@@ -2129,6 +2265,7 @@ LIVE_OPTION_DESTS = frozenset({
     "scenery", "cabin", "reindeer", "no_trees", "tree_density", "max_trees",
     "tree_sway", "tree_types", "tree_branches", "tree_branch_levels",
     "tree_branch_angle", "tree_length_ratio", "tree_trunk_thickness",
+    "tree_branch_thickness_ratio",
     "tree_thickness_exponent", "tree_segment_budget", "lights",
     "object_snow", "object_snow_capture", "object_snow_max",
     "object_snow_hold", "object_snow_hold_jitter", "object_snow_adhesion",
@@ -2251,12 +2388,31 @@ def draw_object_snow(surface, engine):
         draw_shape(surface, shape, patch.x, patch.y, patch.colour, 78)
 
 
+def draw_precipitation(surface, engine):
+    for particle in engine.flakes:
+        if particle.kind == "rain":
+            length = engine.args.rain_length
+            slant = max(-length * 0.65, min(length * 0.65,
+                        (engine.args.wind + gust_at(
+                            engine.args, getattr(engine, "elapsed", 0.0))) * 0.10))
+            surface.line(particle.x - slant, particle.y - length,
+                         particle.x, particle.y, particle.colour, 90)
+        elif particle.kind == "hail":
+            filled_ellipse(surface, particle.x, particle.y,
+                           engine.args.hail_size, engine.args.hail_size,
+                           particle.colour, 91)
+        else:
+            draw_shape(surface, particle.shape, particle.x, particle.y,
+                       particle.colour, 90)
+
+
 def render_surface(background, engine):
     # Distant flybys are painted first and deliberately normalized to the
     # lowest depth. Scenery then replaces them pixel-for-pixel, so trees,
     # cabins, animals, banks and falling snow always occlude the sky objects.
     surface = Surface(background.width, background.height)
     draw_sky_gradient(surface, engine.args)
+    draw_lightning(surface, engine)
     draw_sky_event(surface, engine, getattr(engine, "elapsed", 0.0))
     surface.pixels = [(pixel[0], 3) if pixel is not None else None
                       for pixel in surface.pixels]
@@ -2270,8 +2426,7 @@ def render_surface(background, engine):
         draw_rabbit(surface, engine, rabbit)
     for chunk in engine.chunks:
         draw_shape(surface, chunk.shape, chunk.x, chunk.y, chunk.colour, 82)
-    for flake in engine.flakes:
-        draw_shape(surface, flake.shape, flake.x, flake.y, flake.colour, 90)
+    draw_precipitation(surface, engine)
     draw_plough(surface, engine)
     return surface
 
@@ -2449,7 +2604,7 @@ def process_telemetry(engine):
     return engine.cpu_percent, peak_mib
 
 
-DASHBOARD_TABS = ("font", "snow", "sky", "trees", "animals", "flights", "process")
+DASHBOARD_TABS = ("font", "snow", "sky", "weather", "trees", "animals", "flights", "process")
 
 
 def dashboard_tab_strip(engine):
@@ -2508,12 +2663,26 @@ def detailed_dashboard_lines(args, engine, codec, stats, columns):
             f" ↕ STOPS {stops}",
             " ◇ ORDER SKY → FLIGHTS → TREES/CABINS → BANK/ANIMALS → FALLING SNOW",
         ]
+    elif tab == "weather":
+        kinds = {kind: sum(particle.kind == kind for particle in engine.flakes)
+                 for kind in ("snow", "rain", "hail")}
+        page = [
+            (f" ☂ MODE {args.weather.upper()} | SNOW {kinds['snow']} RAIN {kinds['rain']} "
+             f"HAIL {kinds['hail']} | PARTICLES {len(engine.flakes)}/{engine.max_flakes}"),
+            (f" ╱ RAIN ×{args.rain_speed:.2f} SPEED / {args.rain_length} VPX | "
+             f"MIX SHARE {args.rain_share:.0%}"),
+            (f" ● HAIL {args.hail_size:.2f} VPX | BOUNCE {args.hail_bounce:.0%} | "
+             f"MIX SHARE {args.hail_share:.0%}"),
+            (f" ϟ LIGHTNING {'ON' if args.lightning else 'OFF'} | STRIKES {engine.lightning_count} | "
+             f"INTERVAL {args.lightning_interval:.1f}s FLASH {args.lightning_flash:.2f}s"),
+        ]
     elif tab == "trees":
         page = [
             f" ♣ TYPES {','.join(args.tree_types).upper()} | DENSITY {args.tree_density:.2f} MAX TREES {args.max_trees}",
             (f" Y PRIMARY/WHORLS {args.tree_branches} | RECURSION {args.tree_branch_levels} | "
              f"ANGLE {args.tree_branch_angle:.1f}° | CHILD LENGTH {args.tree_length_ratio:.2f}"),
-            (f" ┃ TRUNK {args.tree_trunk_thickness:.2f} VPX | TAPER EXPONENT {args.tree_thickness_exponent:.2f} | "
+            (f" ┃ TRUNK {args.tree_trunk_thickness:.2f} VPX | PRIMARY BRANCH "
+             f"{args.tree_branch_thickness_ratio:.0%} | TAPER EXPONENT {args.tree_thickness_exponent:.2f} | "
              f"SEGMENT BUDGET {args.tree_segment_budget:,}"),
             (f" 〰 SWAY {args.tree_sway:.2f} | LIGHTS {args.lights:.2f} | "
              f"OBJECT SNOW {'ON' if args.object_snow else 'OFF'} (SPARSE, MASS-SHED)"),
@@ -2576,18 +2745,21 @@ def status_line(args, engine, columns, frame):
     if columns >= 150:
         text = (f" CHRISTMAS SNOW [{args.mode.upper()}] | 2CLR=ON GROUND=FIXED | "
                 f"GRID {columns}x{total_rows} | {control} | "
+                f"WX {args.weather.upper()} | "
                 f"MAX {engine.maximum_depth_fraction:5.1%} AVG {engine.average_depth_fraction:5.1%} | "
                 f"FLAKES {len(engine.flakes):4d} | WIND {args.wind:+.1f} GUST {args.gust_strength:.1f} | "
                 f"SCENE {codes} | {state} | "
                 f"SHEDS {engine.shed_count} TOWERS {engine.tower_collapse_count} | F {frame}")
     elif columns >= 92:
         text = (f" SNOW {args.mode.upper()} | GRID {columns}x{total_rows} | 2CLR GND=FIXED | "
-                f"{control} | DEPTH {engine.maximum_depth_fraction:.0%}/{engine.average_depth_fraction:.0%} | "
+                f"{control} | WX {args.weather.upper()} | "
+                f"DEPTH {engine.maximum_depth_fraction:.0%}/{engine.average_depth_fraction:.0%} | "
                 f"FLK {len(engine.flakes)} W {args.wind:+.1f} G {args.gust_strength:.1f} | "
                 f"{state} S{engine.shed_count} T{engine.tower_collapse_count} F{frame}")
     else:
         live_short = args.control_status if args.listen else "OFF"
-        text = (f" SNOW {args.mode.upper()} {columns}x{total_rows} | 2CLR GND | L:{live_short} | "
+        text = (f" SNOW {args.mode.upper()} {columns}x{total_rows} | 2CLR GND | "
+                f"L:{live_short} WX:{args.weather[:1].upper()} | "
                 f"D {engine.maximum_depth_fraction:.0%}/{engine.average_depth_fraction:.0%} "
                 f"FLK{len(engine.flakes)} W{args.wind:+.1f} | "
                 f"S{engine.shed_count} T{engine.tower_collapse_count} F{frame}")
@@ -2655,8 +2827,29 @@ def poll_terminal_key():
         import msvcrt
         return msvcrt.getwch() if msvcrt.kbhit() else None
     import select
-    ready, _, _ = select.select([sys.stdin], [], [], 0)
-    return sys.stdin.read(1) if ready else None
+    descriptor = sys.stdin.fileno()
+    ready, _, _ = select.select([descriptor], [], [], 0)
+    if not ready:
+        return None
+    data = os.read(descriptor, 1)
+    if data != b"\x1b":
+        return data.decode("utf-8", errors="ignore")
+    # Cursor/function keys begin with ESC too. Give the remaining bytes a tiny
+    # arrival window so only a standalone Escape key exits the viewer.
+    deadline = time.monotonic() + 0.025
+    while len(data) < 12:
+        timeout = max(0.0, deadline - time.monotonic())
+        ready, _, _ = select.select([descriptor], [], [], timeout)
+        if not ready:
+            break
+        data += os.read(descriptor, 1)
+        if len(data) >= 3 and 0x40 <= data[-1] <= 0x7E:
+            break
+    return data.decode("ascii", errors="ignore")
+
+
+def viewer_quit_key(key):
+    return key in ("q", "Q", "\x1b")
 
 
 def animate(args):
@@ -2685,7 +2878,7 @@ def animate(args):
             key = poll_terminal_key()
             if key == "\t" and args.detailed_dashboard:
                 engine.dashboard_tab = (engine.dashboard_tab + 1) % len(DASHBOARD_TABS)
-            elif key in ("q", "Q", "\x1b"):
+            elif viewer_quit_key(key):
                 break
             if args.frames and frame >= args.frames:
                 break
@@ -2820,7 +3013,7 @@ def build_parser():
     display.add_argument("--no-dashboard", action="store_true",
                          help="give the status row back to the rendered scene")
     display.add_argument("--detailed-dashboard", action="store_true",
-                         help="reserve six rows for keyboard-tabbed font, snow, tree, animal, flight and process telemetry")
+                         help="reserve six rows for keyboard-tabbed font, sky, weather, scenery and process telemetry")
     display.add_argument("--physics", choices=("none", "ground", "full"),
                          default="full",
                          help="none: legacy simple snow; ground: bank slumping and terrain bodies; full: also retain snow on scenery")
@@ -2883,6 +3076,35 @@ def build_parser():
     sky.add_argument("--sky-blend", choices=("linear", "smooth", "cosine"),
                      default="smooth",
                      help="method used to merge each adjacent pair of gradient colours")
+
+    weather = parser.add_argument_group("rain hail and lightning")
+    weather.add_argument("--weather", choices=("snow", "rain", "hail", "mixed", "storm"),
+                         default="snow",
+                         help="precipitation family; mixed includes snow, rain and hail")
+    weather.add_argument("--rain-share", type=float, default=0.35,
+                         help="rain fraction in mixed precipitation")
+    weather.add_argument("--hail-share", type=float, default=0.10,
+                         help="hail fraction in mixed/storm precipitation")
+    weather.add_argument("--rain-speed", type=float, default=2.6,
+                         help="rain fall-speed multiplier")
+    weather.add_argument("--rain-length", type=int, default=5,
+                         help="rain streak length in virtual pixels")
+    weather.add_argument("--rain-colour", type=rgb_colour, default=rgb_colour("78C8F0"),
+                         help="rain RGB colour as six hexadecimal digits")
+    weather.add_argument("--hail-size", type=float, default=1.4,
+                         help="hailstone radius in virtual pixels")
+    weather.add_argument("--hail-bounce", type=float, default=0.55,
+                         help="probability that hail bounces on the ground")
+    weather.add_argument("--hail-colour", type=rgb_colour, default=rgb_colour("DDF7FF"),
+                         help="hail RGB colour as six hexadecimal digits")
+    weather.add_argument("--lightning", action=argparse.BooleanOptionalAction, default=False,
+                         help="enable occasional branched lightning and a sky flash")
+    weather.add_argument("--lightning-interval", type=float, default=18.0,
+                         help="average seconds between lightning strikes")
+    weather.add_argument("--lightning-flash", type=float, default=0.34,
+                         help="seconds that each lightning flash remains visible")
+    weather.add_argument("--lightning-branches", type=int, default=4,
+                         help="side branches drawn from the main lightning bolt")
 
     banks = parser.add_argument_group("accumulation and shedding")
     banks.add_argument("--initial-snow", type=float, default=0.12,
@@ -2949,8 +3171,10 @@ def build_parser():
                          help="daughter-branch divergence angle in degrees")
     scenery.add_argument("--tree-length-ratio", type=float, default=0.68,
                          help="daughter length divided by parent length")
-    scenery.add_argument("--tree-trunk-thickness", type=float, default=2.2,
+    scenery.add_argument("--tree-trunk-thickness", type=float, default=4.2,
                          help="base procedural trunk thickness in virtual pixels")
+    scenery.add_argument("--tree-branch-thickness-ratio", type=float, default=0.42,
+                         help="primary branch thickness as a fraction of main trunk thickness")
     scenery.add_argument("--tree-thickness-exponent", type=float, default=2.0,
                          help="branch area exponent; 2 applies Leonardo area preservation")
     scenery.add_argument("--tree-segment-budget", type=int, default=12000,
@@ -3198,6 +3422,14 @@ def pretty_help(parser, mode, colour=True):
         "  --sky-events aeroplane,ufo,santa --flyby-interval 12 --flyby-speed 40",
         paint("amber", "  Twilight sky   ") +
         "  --sky-colours 07152F,315A82,B9D8E8 --sky-stops 0,.58,1 --sky-blend smooth",
+        paint("amber", "  Rain shower    ") +
+        "  --weather rain --snow-rate 90 --rain-speed 3 --rain-length 7 --no-lightning",
+        paint("amber", "  Wintry mix     ") +
+        "  --weather mixed --rain-share .35 --hail-share .15 --hail-bounce .6",
+        paint("amber", "  Thunderstorm   ") +
+        "  --weather storm --lightning --lightning-interval 8 --lightning-branches 6",
+        paint("amber", "  Clear sky      ") +
+        "  --no-sky    (precipitation and flybys remain visible over black)",
         paint("amber", "  Santa arc      ") +
         "  --sky-events santa --santa-scale .5 --santa-arc-height .16 --santa-trail-length 3 --santa-trail-seconds 5.6",
         paint("amber", "  Plough test    ") +
@@ -3268,6 +3500,8 @@ def parse_args(argv=None):
                 ("rabbit-speed", args.rabbit_speed),
                 ("flyby-interval", args.flyby_interval),
                 ("flyby-speed", args.flyby_speed),
+                ("rain-speed", args.rain_speed),
+                ("lightning-interval", args.lightning_interval),
                 ("plough-interval", args.plough_interval),
                 ("plough-speed", args.plough_speed))
     if any(value <= 0 for _, value in positive):
@@ -3283,6 +3517,7 @@ def parse_args(argv=None):
         args.tumbleweed_climb, args.tumbleweed_collapse_pressure,
         args.santa_scale, args.santa_arc_height, args.santa_trail_seconds,
         args.santa_trail_length,
+        args.lightning_flash,
     )
     if any(value < 0 for value in nonnegative):
         parser.error("duration, frames, rates, drift, scenery density and lights cannot be negative")
@@ -3308,6 +3543,8 @@ def parse_args(argv=None):
         parser.error("tree-length-ratio must be in [0.35, 0.90]")
     if not 0.5 <= args.tree_trunk_thickness <= 12:
         parser.error("tree-trunk-thickness must be in [0.5, 12]")
+    if not 0.1 <= args.tree_branch_thickness_ratio <= 1:
+        parser.error("tree-branch-thickness-ratio must be in [0.1, 1]")
     if not 1.2 <= args.tree_thickness_exponent <= 4:
         parser.error("tree-thickness-exponent must be in [1.2, 4]")
     if not 0 <= args.tree_segment_budget <= 100000:
@@ -3320,6 +3557,18 @@ def parse_args(argv=None):
         parser.error("santa-scale must be in [0.2, 2]")
     if not 0 <= args.santa_arc_height <= 0.5:
         parser.error("santa-arc-height must be in [0, 0.5]")
+    if not 1 <= args.rain_length <= 40:
+        parser.error("rain-length must be in [1, 40]")
+    if not 0.5 <= args.hail_size <= 6:
+        parser.error("hail-size must be in [0.5, 6]")
+    if not 0 <= args.rain_share <= 1 or not 0 <= args.hail_share <= 1:
+        parser.error("rain-share and hail-share must be in [0, 1]")
+    if args.rain_share + args.hail_share > 1:
+        parser.error("rain-share plus hail-share cannot exceed 1")
+    if not 0 <= args.hail_bounce <= 1:
+        parser.error("hail-bounce must be in [0, 1]")
+    if not 0 <= args.lightning_branches <= 16:
+        parser.error("lightning-branches must be in [0, 16]")
     if args.terminal_columns is not None and args.terminal_columns < 24:
         parser.error("terminal-columns must be at least 24")
     if args.terminal_rows is not None and args.terminal_rows < 8:

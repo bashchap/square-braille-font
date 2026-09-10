@@ -10,6 +10,7 @@ from pathlib import Path
 from christmas_snow import (
     CONTROL_FORMAT,
     CODECS,
+    SHAPES,
     ControlListener,
     SnowEngine,
     Surface,
@@ -24,6 +25,8 @@ from christmas_snow import (
     draw_reindeer,
     draw_sky_event,
     draw_sky_gradient,
+    draw_lightning,
+    draw_precipitation,
     draw_tree,
     encode_surface,
     make_runtime,
@@ -34,6 +37,7 @@ from christmas_snow import (
     render_surface,
     sky_event_margin,
     tumbleweed_states,
+    viewer_quit_key,
 )
 from christmas_snow_control import Controller, namespace_to_argv, tui_parser
 
@@ -85,6 +89,60 @@ def main():
     check(defaults.santa_trail_length == 3.0 and
           defaults.santa_trail_seconds == 5.6,
           "Santa trail defaults are not 3x spatial and 2x persistence")
+    check(defaults.tree_trunk_thickness == 4.2 and
+          defaults.tree_branch_thickness_ratio == 0.42,
+          "tree trunk and independently tapered branch defaults regressed")
+    for name, points in SHAPES.items():
+        occupied = set(points)
+        solid_square = any(
+            {(x, y), (x + 1, y), (x, y + 1), (x + 1, y + 1)} <= occupied
+            for x, y in occupied)
+        check(not solid_square, f"{name} snow geometry still contains a big square block")
+    check(not viewer_quit_key("\x1b[B") and viewer_quit_key("\x1b"),
+          "Down-arrow escape sequence is still treated as viewer Escape")
+
+    rain_args = parse_args([
+        "--weather", "rain", "--snow-rate", "20", "--max-flakes", "12",
+        "--preload-seconds", "1", "--rain-length", "7",
+    ])
+    rain_engine = SnowEngine(rain_args, 80, 40)
+    check(rain_engine.flakes and all(item.kind == "rain" for item in rain_engine.flakes),
+          "rain mode created a non-rain particle")
+    for index, particle in enumerate(rain_engine.flakes):
+        particle.x = 5 + index * 5
+        particle.y = 12 + index % 5
+    rain_surface = Surface(80, 40)
+    draw_precipitation(rain_surface, rain_engine)
+    check(sum(pixel is not None for pixel in rain_surface.pixels) > len(rain_engine.flakes),
+          "rain did not render visible streak geometry")
+
+    hail_args = parse_args([
+        "--weather", "hail", "--hail-bounce", "1", "--hail-size", "2",
+        "--snow-rate", "0", "--max-flakes", "1", "--preload-seconds", "0",
+        "--initial-snow", "0",
+    ])
+    hail_engine = SnowEngine(hail_args, 80, 40)
+    hailstone = hail_engine.new_flake()
+    hailstone.x = 30
+    hailstone.y = hail_engine.surface_y(30) - 2
+    hailstone.speed = 20
+    hail_engine.flakes = [hailstone]
+    hail_engine.step(0.1, 0.0)
+    check(hailstone.kind == "hail" and hailstone.bounces == 1 and hailstone.speed < 0,
+          "hailstone did not bounce from the terrain")
+
+    lightning_args = parse_args([
+        "--lightning", "--lightning-branches", "5", "--snow-rate", "0",
+        "--max-flakes", "0", "--preload-seconds", "0",
+    ])
+    lightning_engine = SnowEngine(lightning_args, 120, 60)
+    lightning_engine.lightning_remaining = lightning_args.lightning_flash
+    lightning_surface = Surface(120, 60)
+    draw_sky_gradient(lightning_surface, lightning_args)
+    draw_lightning(lightning_surface, lightning_engine)
+    check(any(pixel is not None and pixel[1] >= 57
+              for pixel in lightning_surface.pixels),
+          "lightning created no branched foreground bolt")
 
     spruce = Surface(100, 100)
     draw_conifer(spruce, random.Random(4), 50, 90, 80, 4, 0,
@@ -234,6 +292,20 @@ def main():
     check("maple" in tree_args.tree_types and len(set(tree_signatures)) >= 5 and
           all(count > 50 for count, _ in tree_signatures),
           "procedural tree families are missing or visually indistinct")
+    branch_counts = []
+    for ratio in (0.20, 0.90):
+        ratio_args = parse_args([
+            "--tree-types", "oak", "--tree-trunk-thickness", "4.2",
+            "--tree-branch-thickness-ratio", str(ratio),
+            "--tree-branches", "5", "--tree-branch-levels", "3",
+        ])
+        ratio_surface = Surface(180, 130)
+        draw_tree(ratio_surface, random.Random(88), 90, 124, 102, 4, 0,
+                  "oak", ratio_args, segment_budget=[2000])
+        colours = [pixel[0] for pixel in ratio_surface.pixels if pixel is not None]
+        branch_counts.append(colours.count((104, 69, 48)))
+    check(branch_counts[1] > branch_counts[0] * 1.35,
+          "branch thickness is not independently adjustable from main trunk thickness")
 
     tumble_args = parse_args([
         "--mode", "pua4", "--columns", "80", "--rows", "20",
@@ -454,14 +526,14 @@ def main():
           "UNIQUE GLYPHS CURRENT FRAME" in detailed_frame and
           "SEEN SINCE START" in detailed_frame and "DEDUP" in detailed_frame,
           "font dashboard tab omitted creation, current or cumulative glyph evidence")
-    detail_engine.dashboard_tab = 6
+    detail_engine.dashboard_tab = 7
     process_frame = complete_frame(
         detailed_args, detail_codec, detail_rows, detail_engine,
         detail_background, 160, 1, 0.1)
     check("[PROCESS]" in process_frame and "PROCESS CPU" in process_frame and
           "MEMORY" in process_frame,
           "process dashboard tab omitted CPU or memory evidence")
-    tab_markers = ("[FONT]", "[SNOW]", "[SKY]", "[TREES]", "[ANIMALS]",
+    tab_markers = ("[FONT]", "[SNOW]", "[SKY]", "[WEATHER]", "[TREES]", "[ANIMALS]",
                    "[FLIGHTS]", "[PROCESS]")
     for index, marker in enumerate(tab_markers):
         detail_engine.dashboard_tab = index
@@ -545,6 +617,11 @@ def main():
         check("OTHER" not in [tab[0] for tab in controller.tabs] and
               sum(len(tab[2]) for tab in controller.tabs) == len(controller.actions),
               "control-console pages omitted or duplicated a production option")
+        for tab_index, (label, _, _) in enumerate(controller.tabs):
+            controller.tab_index = tab_index
+            check(f"[{controller.tabs[tab_index][1]}{label}]" in controller.tab_strip(58),
+                  f"narrow control console hid active {label} tab")
+        controller.tab_index = 0
         for action in controller.actions:
             guidance = " ".join(controller.guidance(action))
             check(controller.icon(action) and "Predicted effect:" in guidance and
@@ -600,7 +677,10 @@ def main():
     print("PASS: illustrated help covers every program and launcher control")
     print("PASS: aged tower collapses can cascade; live JSON and TUI argv round-trip")
     print("PASS: gradient sky, compact flybys, arcing Santa and extended fading comet trail")
-    print("PASS: paged control console, seven dashboard tabs, CPU/memory and geometry-safe export")
+    print("PASS: sparse snow crystals and independently tapered 4.2 VPX tree trunks")
+    print("PASS: rain streaks, bouncing hail and branched lightning render behind scenery")
+    print("PASS: Down-arrow escape sequence is not mistaken for the viewer quit key")
+    print("PASS: paged weather controls, eight dashboard tabs, CPU/memory and geometry-safe export")
 
 
 if __name__ == "__main__":

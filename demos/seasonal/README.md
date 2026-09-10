@@ -6,7 +6,8 @@ systems:
 - Square Braille: 2×4 virtual pixels per terminal cell;
 - PUA 4x4: 4×4 virtual pixels per terminal cell.
 
-It combines differently sized geometric snowflakes, true-colour snow palettes,
+It combines sparse geometric snowflakes, optional rain, bouncing hail and
+branched lightning, true-colour weather palettes,
 wind and gusts, uneven accumulation, broad threshold-driven fall-away events,
 aged local tower collapses with bounded chain reactions, layered
 pine trees, coloured lights, optional cabin and reindeer scenery, swaying
@@ -146,7 +147,8 @@ exponent is exposed rather than hard-coded:
 | `--tree-branch-levels` | 1–7 | Recursive oak/maple/birch daughter generations; cost can roughly double per extra level |
 | `--tree-branch-angle` | 1–75° | Upright to spreading daughter limbs |
 | `--tree-length-ratio` | 0.35–0.90 | Child length divided by parent length |
-| `--tree-trunk-thickness` | 0.5–12 VPX | Base procedural stroke weight |
+| `--tree-trunk-thickness` | 0.5–12 VPX | Main trunk weight; default 4.2 VPX |
+| `--tree-branch-thickness-ratio` | 0.1–1.0 | Primary branch weight as a fraction of the main trunk; default 0.42 keeps branches visibly slimmer |
 | `--tree-thickness-exponent` | 1.2–4 | Taper law; 2 is area-preserving for equal bifurcation |
 | `--tree-segment-budget` | 0–100,000 | Frame-wide safety ceiling for formula-generated segments |
 
@@ -155,7 +157,8 @@ For example, a sparse forest of broad, heavily branched winter trees is:
 ```sh
 --tree-types oak,maple,birch --tree-density 0.42 --tree-branches 7 \
   --tree-branch-levels 4 --tree-branch-angle 36 \
-  --tree-length-ratio 0.64 --tree-trunk-thickness 3.2 \
+  --tree-length-ratio 0.64 --tree-trunk-thickness 4.2 \
+  --tree-branch-thickness-ratio 0.42 \
   --tree-thickness-exponent 2 --tree-segment-budget 10000
 ```
 
@@ -241,6 +244,31 @@ stop, and `cosine` gives an even gentler merge. Use `--no-sky` for the old
 terminal-black background. Colours, stops, blend, and the on/off state are live
 controls. When changing the number of colours in the console, evenly spaced
 stops are generated automatically and can then be edited precisely.
+
+## Rain, hail and lightning
+
+`--weather` selects `snow`, `rain`, `hail`, `mixed`, or `storm`. Rain uses
+wind-slanted streaks and does not add to the snow bank. Hail uses round stones,
+can bounce up to twice, and also does not become snow. Mixed mode uses
+`--rain-share` and `--hail-share`; the remaining share is snow. Storm mode is a
+rain/hail combination.
+
+```sh
+# Rain with occasional branched lightning
+./scripts/macos/run-demo.sh pua4 christmas-snow \
+  --weather rain --rain-speed 2.8 --rain-length 7 \
+  --lightning --lightning-interval 12 --lightning-branches 5
+
+# Snow, rain and hail together
+./scripts/macos/run-demo.sh pua4 christmas-snow \
+  --weather mixed --rain-share 0.35 --hail-share 0.10 \
+  --hail-size 1.4 --hail-bounce 0.55
+```
+
+Rain and hail colours accept six hexadecimal RGB digits through
+`--rain-colour` and `--hail-colour`. Lightning brightens the distant sky and
+draws behind trees, cabins and other foreground scenery. Its interval, flash
+lifetime and branch count are live controls.
 
 For a busy, reproducible test scene:
 
@@ -349,9 +377,10 @@ low, moderate, or high performance sensitivity. Direct input remains available
 when a value outside the convenient slider range is valid.
 
 The console is divided into related pages instead of one oversized list:
-`DISPLAY`, `WINDOW`, `LIVE`, `SNOW`, `SKY`, `GROUND`, `SCENE`, `TREES`,
-`ANIMALS`, and `FLIGHTS`. The active page is bracketed in the coloured Unicode
-tab strip.
+`DISPLAY`, `WINDOW`, `LIVE`, `SNOW`, `SKY`, `WEATHER`, `GROUND`, `SCENE`,
+`TREES`, `ANIMALS`, and `FLIGHTS`. The active page is bracketed in the coloured
+Unicode tab strip; narrow windows scroll the strip so the active page remains
+visible.
 
 Controller keys:
 
@@ -423,7 +452,7 @@ Add `--detailed-dashboard` when the compact one-line status is not enough:
 ```
 
 The five extra rows are now a tabbed dashboard. Press `Tab` to rotate through
-`FONT`, `SNOW`, `SKY`, `TREES`, `ANIMALS`, `FLIGHTS`, and `PROCESS`; the highlighted
+`FONT`, `SNOW`, `SKY`, `WEATHER`, `TREES`, `ANIMALS`, `FLIGHTS`, and `PROCESS`; the highlighted
 name in the Unicode tab strip is the active page. Press `q` or `Esc` to leave
 the animation. The terminal input mode is temporary and restored on exit.
 
@@ -434,6 +463,8 @@ the animation. The terminal input mode is temporary and restored on exit.
   broad/local shedding, and sparse object-snow catches and releases.
 - `SKY` shows the current colour sequence, stop positions, blend curve, and
   layer order.
+- `WEATHER` separates live snow/rain/hail counts and reports rain geometry,
+  hail bounce settings, lightning timing and completed strike count.
 - `TREES` shows species, density, branch formula controls, the segment budget,
   sway and object-snow state.
 - `ANIMALS` shows rabbit states/reactions and foreground-reindeer state.
@@ -474,7 +505,7 @@ separate design with the same anatomical and seasonal cues at its reduced size.
 |---|---|
 | `--snow-rate` | Newly generated flakes per second |
 | `--max-flakes` | Safety ceiling for simultaneously active flakes |
-| `--flake-sizes` | Comma list drawn from `tiny,small,medium,large` |
+| `--flake-sizes` | Comma list drawn from `tiny,small,medium,large`; every size is sparse crystal/branch geometry, never a solid square block |
 | `--size-weights` | Relative frequency of each selected size |
 | `--fall-speed` | Mean downward speed in virtual pixels per second |
 | `--speed-variation` | Random variation around the mean fall speed |

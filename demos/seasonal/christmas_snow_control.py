@@ -36,6 +36,12 @@ RANGES = {
     "speed_variation": (0.0, 0.95, 0.05), "wind": (-30.0, 30.0, 0.5),
     "gust_strength": (0.0, 30.0, 0.5), "gust_period": (0.5, 30.0, 0.5),
     "drift": (0.0, 15.0, 0.25), "wobble": (0.0, 10.0, 0.25),
+    "rain_share": (0.0, 1.0, 0.05), "hail_share": (0.0, 1.0, 0.05),
+    "rain_speed": (1.0, 8.0, 0.1), "rain_length": (1, 40, 1),
+    "hail_size": (0.5, 6.0, 0.25), "hail_bounce": (0.0, 1.0, 0.05),
+    "lightning_interval": (1.0, 180.0, 1.0),
+    "lightning_flash": (0.05, 2.0, 0.05),
+    "lightning_branches": (0, 16, 1),
     "initial_snow": (0.0, 0.85, 0.01), "bank_drift": (0.0, 0.30, 0.005),
     "accumulation": (0.0, 12.0, 0.2), "shed_threshold": (0.05, 0.95, 0.01),
     "snow_repose_slope": (0.0, 8.0, 0.1),
@@ -52,6 +58,7 @@ RANGES = {
     "tree_branch_angle": (1.0, 75.0, 1.0),
     "tree_length_ratio": (0.35, 0.90, 0.01),
     "tree_trunk_thickness": (0.5, 12.0, 0.25),
+    "tree_branch_thickness_ratio": (0.1, 1.0, 0.05),
     "tree_thickness_exponent": (1.2, 4.0, 0.1),
     "tree_segment_budget": (0, 100000, 500),
     "object_snow_capture": (0.0, 1.0, 0.01),
@@ -87,6 +94,7 @@ GROUP_COLOURS = {
     "live control": 4,
     "falling snow": 6,
     "sky and atmosphere": 7,
+    "rain hail and lightning": 1,
     "accumulation and shedding": 5,
     "seasonal scenery": 2,
     "wildlife and occasional events": 7,
@@ -98,6 +106,7 @@ GROUP_ICONS = {
     "live control": "◎",
     "falling snow": "❄",
     "sky and atmosphere": "◒",
+    "rain hail and lightning": "☂",
     "accumulation and shedding": "▂",
     "seasonal scenery": "♠",
     "wildlife and occasional events": "✦",
@@ -116,6 +125,11 @@ OPTION_ICONS = {
     "gust_strength": "≋", "gust_period": "∿", "drift": "⌁",
     "wobble": "〰", "palette": "◈", "sky": "◒",
     "sky_colours": "◈", "sky_stops": "↕", "sky_blend": "≋",
+    "weather": "☂", "rain_share": "╱", "hail_share": "●",
+    "rain_speed": "⇣", "rain_length": "│", "rain_colour": "◈",
+    "hail_size": "●", "hail_bounce": "↥", "hail_colour": "◈",
+    "lightning": "ϟ", "lightning_interval": "◴",
+    "lightning_flash": "✦", "lightning_branches": "⑂",
     "initial_snow": "▂",
     "bank_drift": "≈", "accumulation": "▴", "accumulate": "+",
     "snow_repose_slope": "∡", "snow_relaxation": "≈",
@@ -129,6 +143,7 @@ OPTION_ICONS = {
     "tree_branches": "Y", "tree_branch_levels": "⑂",
     "tree_branch_angle": "∠", "tree_length_ratio": "↘",
     "tree_trunk_thickness": "┃", "tree_thickness_exponent": "²",
+    "tree_branch_thickness_ratio": "⑂",
     "tree_segment_budget": "Σ", "lights": "✦",
     "object_snow": "❅", "object_snow_capture": "⌁",
     "object_snow_max": "▦", "object_snow_hold": "◴",
@@ -176,6 +191,19 @@ IMPACT_GUIDANCE = {
     "sky_colours": "Two to eight top-to-bottom RRGGBB colours, for example 07152F,315A82,B9D8E8.",
     "sky_stops": "Matching increasing vertical fractions beginning at 0 and ending at 1; stops control where each colour is reached.",
     "sky_blend": "LINEAR changes evenly; SMOOTH eases both ends; COSINE gives the gentlest merge between colour stops.",
+    "weather": "SNOW accumulates; RAIN draws wind-slanted streaks; HAIL can bounce; MIXED combines all three; STORM combines rain and hail.",
+    "rain_share": "Fraction of mixed precipitation rendered as rain; the remainder after rain and hail is snow.",
+    "hail_share": "Fraction of mixed or storm precipitation rendered as hail. In mixed mode rain plus hail may not exceed 1.",
+    "rain_speed": "Multiplier applied to normal fall speed; 2–4 gives visibly faster rainfall without excessive aliasing.",
+    "rain_length": "Visible streak length in virtual pixels. Long streaks improve motion cues but touch more cells per frame.",
+    "rain_colour": "Six-digit RGB colour for rain streaks, such as 78C8F0.",
+    "hail_size": "Hailstone radius in virtual pixels. Large stones touch many pixels and increase compositor work.",
+    "hail_bounce": "Chance of up to two terrain bounces per hailstone; zero removes bounce calculations.",
+    "hail_colour": "Six-digit RGB colour for hailstones, such as DDF7FF.",
+    "lightning": "Enables occasional deterministic branched bolts plus a brief brightening of the distant sky.",
+    "lightning_interval": "Average quiet time between strikes; low values flash more frequently.",
+    "lightning_flash": "Visible flash lifetime. Longer values keep the bolt and brightened sky on screen longer.",
+    "lightning_branches": "Number of side forks on each bolt; more branches add line drawing work during flashes.",
     "initial_snow": "Higher fractions start with a deeper bank and may approach the shedding threshold immediately.",
     "accumulation": "Higher values add more bank depth per settling flake and create towers or sheds sooner.",
     "snow_repose_slope": "Sets the stable neighbouring height difference; lower values make a smoother, flatter bank.",
@@ -191,6 +219,7 @@ IMPACT_GUIDANCE = {
     "tree_branch_angle": "Controls daughter divergence: narrow values make upright crowns; wide values produce spreading forms.",
     "tree_length_ratio": "Sets child/parent length from 0.35 to 0.90; high values make large, overlapping crowns.",
     "tree_trunk_thickness": "Sets base stroke width in virtual pixels; thick trunks survive coarse cells but occupy more raster area.",
+    "tree_branch_thickness_ratio": "Decouples branch weight from the trunk; 0.42 keeps a 4.2 VPX main trunk while primary limbs begin near 1.8 VPX.",
     "tree_thickness_exponent": "Controls taper; 2 preserves summed child cross-sectional area under Leonardo's rule.",
     "tree_segment_budget": "Hard frame-wide safety cap for formula limbs; raise it for detail or lower it to protect frame time.",
     "object_snow": "ON lets a small fraction of impacts rest on trees, roofs and figures before mass or time makes it fall.",
@@ -227,13 +256,15 @@ HIGH_COST = frozenset({
     "snow_rate", "max_flakes", "preload_seconds",
     "tree_density", "max_trees", "lights", "cabin_count", "max_cabins",
     "tree_branch_levels", "tree_branches", "tree_segment_budget",
+    "rain_length", "hail_size", "lightning_branches",
     "object_snow_max", "object_snow_capture", "snow_relaxation",
     "cabin_scale", "leaf_count", "tumbleweed_count", "rabbit_count",
 })
 MEDIUM_COST = frozenset({
     "physics", "flake_sizes", "detailed_dashboard", "ambient", "ambient_speed",
     "sky", "sky_events", "flyby_interval", "santa_trail_length",
-    "santa_trail_seconds", "snow_plough",
+    "santa_trail_seconds", "weather", "hail_bounce", "lightning",
+    "lightning_interval", "snow_plough",
 })
 
 CONTROL_TAB_SPECS = (
@@ -251,6 +282,11 @@ CONTROL_TAB_SPECS = (
         "gust_strength", "gust_period", "drift", "wobble", "palette",
     })),
     ("SKY", "◒", frozenset({"sky", "sky_colours", "sky_stops", "sky_blend"})),
+    ("WEATHER", "☂", frozenset({
+        "weather", "rain_share", "hail_share", "rain_speed", "rain_length",
+        "rain_colour", "hail_size", "hail_bounce", "hail_colour", "lightning",
+        "lightning_interval", "lightning_flash", "lightning_branches",
+    })),
     ("GROUND", "▂", frozenset({
         "initial_snow", "bank_drift", "accumulation", "accumulate",
         "snow_repose_slope", "snow_relaxation", "shed_threshold", "shed_to",
@@ -265,7 +301,8 @@ CONTROL_TAB_SPECS = (
     ("TREES", "♠", frozenset({
         "no_trees", "tree_density", "max_trees", "tree_sway", "tree_types", "tree_branches",
         "tree_branch_levels", "tree_branch_angle", "tree_length_ratio",
-        "tree_trunk_thickness", "tree_thickness_exponent",
+        "tree_trunk_thickness", "tree_branch_thickness_ratio",
+        "tree_thickness_exponent",
         "tree_segment_budget", "lights", "object_snow",
         "object_snow_capture", "object_snow_max", "object_snow_hold",
         "object_snow_hold_jitter", "object_snow_adhesion",
@@ -340,7 +377,11 @@ def namespace_to_argv(namespace, actions):
             if not value:
                 argv.append(option_for(action))
         elif value is not None:
-            argv.extend((option_for(action), value_text(value)))
+            if action.dest in ("rain_colour", "hail_colour"):
+                rendered = "".join(f"{channel:02X}" for channel in value)
+            else:
+                rendered = value_text(value)
+            argv.extend((option_for(action), rendered))
     return argv
 
 
@@ -385,6 +426,37 @@ class Controller:
         self.index = 0
         self.scroll = 0
         self.status = f"Page {self.tabs[self.tab_index][0]}"
+
+    def tab_strip(self, width):
+        segments = []
+        for index, (label, icon, _) in enumerate(self.tabs):
+            text = f"{icon}{label}"
+            segments.append(f"[{text}]" if index == self.tab_index else text)
+        available = max(8, width - 3)
+        if len("  ".join(segments)) <= available:
+            return "  ".join(segments)
+        selected = self.tab_index
+        left = right = selected
+        while True:
+            candidates = []
+            if left > 0:
+                candidates.append((left - 1, right))
+            if right + 1 < len(segments):
+                candidates.append((left, right + 1))
+            adopted = False
+            for next_left, next_right in candidates:
+                prefix = "‹ " if next_left > 0 else ""
+                suffix = " ›" if next_right + 1 < len(segments) else ""
+                text = prefix + "  ".join(segments[next_left:next_right + 1]) + suffix
+                if len(text) <= available:
+                    left, right = next_left, next_right
+                    adopted = True
+                    break
+            if not adopted:
+                break
+        prefix = "‹ " if left > 0 else ""
+        suffix = " ›" if right + 1 < len(segments) else ""
+        return prefix + "  ".join(segments[left:right + 1]) + suffix
 
     def launcher_metadata(self):
         path = os.environ.get("FONT_DEMO_GEOMETRY_FILE", "")
@@ -715,11 +787,8 @@ class Controller:
         self.put(screen, 3, 0, "│" + summary.ljust(width - 2) + "│", curses.color_pair(2))
         self.put(screen, 4, 0, "├" + "─" * (width - 2) + "┤", curses.color_pair(1))
 
-        tabs = []
-        for index, (label, icon, _) in enumerate(self.tabs):
-            text = f"{icon}{label}"
-            tabs.append(f"[{text}]" if index == self.tab_index else text)
-        self.put(screen, 5, 1, "  ".join(tabs), curses.color_pair(6) | curses.A_BOLD)
+        self.put(screen, 5, 1, self.tab_strip(width),
+                 curses.color_pair(6) | curses.A_BOLD)
 
         panel_width = max(46, int(width * 0.64)) if width >= 92 else width - 2
         actions = self.page_actions
