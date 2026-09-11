@@ -258,6 +258,7 @@ class Flake:
     shape: str
     colour: tuple
     kind: str = "snow"
+    layer: str = "foreground"
     bounces: int = 0
 
 
@@ -302,6 +303,11 @@ class Rabbit:
     timer: float
     phase: float
     hops_before_pause: int
+    abduction_x: float = 0.0
+    abduction_y: float = 0.0
+    abduction_scale: float = 1.0
+    abduction_origin_x: float = 0.0
+    abduction_origin_y: float = 0.0
 
 
 @dataclass
@@ -1000,14 +1006,17 @@ def tumbleweed_states(args, engine, elapsed):
 def draw_rabbit(surface, engine, rabbit):
     if rabbit.state == "hidden":
         return
-    scale = max(1, min(2, engine.height // 80))
+    normal_scale = max(1.0, min(2.0, engine.height // 80))
+    scale = (rabbit.abduction_scale if rabbit.state == "abducting"
+             else normal_scale)
     direction = rabbit.direction
     hop = 0.0
     if rabbit.state in ("hopping", "startled"):
         amplitude = 5.0 if rabbit.state == "startled" else 3.2
         hop = abs(math.sin(rabbit.phase)) * amplitude * scale
-    base = engine.surface_y(rabbit.x) - 1 - hop
-    x = int(round(rabbit.x))
+    base = (rabbit.abduction_y if rabbit.state == "abducting"
+            else engine.surface_y(rabbit.x) - 1 - hop)
+    x = int(round(rabbit.abduction_x if rabbit.state == "abducting" else rabbit.x))
     y = int(round(base))
     fur = (174, 155, 135)
     shade = (116, 96, 84)
@@ -1054,7 +1063,8 @@ def santa_flyby_unit(engine):
     return max(0.20, former * engine.args.santa_scale)
 
 
-def current_sky_event(args, engine, elapsed):
+def current_sky_event_state(args, engine, elapsed):
+    """Return flyby geometry plus phase data used by interactive events."""
     if not args.sky_events:
         return None
     interval = args.flyby_interval
@@ -1063,15 +1073,46 @@ def current_sky_event(args, engine, elapsed):
         return None
     margin = sky_event_margin(engine)
     travel_time = (engine.width + margin * 2) / args.flyby_speed
-    cycle = travel_time + interval
-    event_index = int(shifted / cycle)
-    local = shifted - event_index * cycle
-    if local > travel_time:
-        return None
+    durations = [travel_time + interval + (
+        args.ufo_hover_seconds
+        if args.ufo_abduction and kind == "ufo" else 0.0)
+        for kind in args.sky_events]
+    rotation_duration = sum(durations)
+    rotations = int(shifted / rotation_duration)
+    local = shifted - rotations * rotation_duration
+    event_offset = 0
+    for event_offset, duration in enumerate(durations):
+        if local < duration:
+            break
+        local -= duration
+    event_index = rotations * len(args.sky_events) + event_offset
     rng = random.Random(args.seed + 51001 + event_index * 113)
     kind = args.sky_events[event_index % len(args.sky_events)]
     direction = -1 if rng.random() < 0.5 else 1
-    progress = local / max(0.001, travel_time)
+    phase = "flight"
+    phase_progress = local / max(0.001, travel_time)
+    if kind == "ufo" and args.ufo_abduction:
+        approach = travel_time * 0.5
+        hover = args.ufo_hover_seconds
+        departure = travel_time * 0.5
+        if local > approach + hover + departure:
+            return None
+        if local < approach:
+            progress = 0.5 * local / max(0.001, approach)
+            phase = "approach"
+            phase_progress = progress * 2.0
+        elif local < approach + hover:
+            progress = 0.5
+            phase = "abduction"
+            phase_progress = (local - approach) / max(0.001, hover)
+        else:
+            progress = 0.5 + 0.5 * (local - approach - hover) / max(0.001, departure)
+            phase = "departure"
+            phase_progress = (progress - 0.5) * 2.0
+    else:
+        if local > travel_time:
+            return None
+        progress = local / max(0.001, travel_time)
     x = -margin + progress * (engine.width + margin * 2)
     if direction < 0:
         x = engine.width - x
@@ -1093,12 +1134,26 @@ def current_sky_event(args, engine, elapsed):
         y = max(minimum_y, y)
     else:
         y = rng.uniform(minimum_y, maximum_y)
-    return kind, x, y, direction, event_index
+    return {
+        "kind": kind, "x": x, "y": y, "direction": direction,
+        "event_index": event_index, "phase": phase,
+        "phase_progress": max(0.0, min(1.0, phase_progress)),
+    }
+
+
+def current_sky_event(args, engine, elapsed):
+    """Compatibility tuple for callers that only need visible flyby geometry."""
+    state = current_sky_event_state(args, engine, elapsed)
+    if state is None:
+        return None
+    return (state["kind"], state["x"], state["y"],
+            state["direction"], state["event_index"])
 
 
 def draw_lightning(surface, engine):
     """Paint one deterministic branched bolt and a short-lived sky flash."""
-    if not engine.args.lightning or engine.lightning_remaining <= 0:
+    if (engine.args.weather == "none" or not engine.args.lightning or
+            engine.lightning_remaining <= 0):
         return
     fraction = min(1.0, engine.lightning_remaining /
                    max(0.001, engine.args.lightning_flash))
@@ -1149,10 +1204,12 @@ def draw_sky_event(surface, engine, elapsed):
         filled_ellipse(surface, particle.x, particle.y,
                        max(1.0, fraction * 1.8), max(1.0, fraction * 1.2),
                        colour, 55)
-    event = current_sky_event(engine.args, engine, elapsed)
+    event = current_sky_event_state(engine.args, engine, elapsed)
     if event is None:
         return
-    kind, x, y, direction, event_index = event
+    kind = event["kind"]
+    x, y = event["x"], event["y"]
+    direction, event_index = event["direction"], event["event_index"]
 
     def point(dx, dy):
         return x + direction * dx, y + dy
@@ -1230,16 +1287,23 @@ def draw_sky_event(surface, engine, elapsed):
             lamp_colour = glow if (lamp_index + int(elapsed * 6)) % 2 else (68, 180, 252)
             filled_ellipse(surface, x + lamp * unit, y + 4 * unit,
                            max(1, unit), max(1, unit), lamp_colour, 71)
-        beam_colour = (42, int(120 + 80 * pulse), int(128 + 90 * pulse))
-        for beam in (-9, -4, 4, 9):
-            surface.line(x + beam * unit, y + 7 * unit,
-                         x + beam * 2 * unit, y + 25 * unit,
-                         beam_colour, 52)
-        for scan_y in range(12, 25, 4):
-            span = int(scan_y * 0.70)
-            surface.line(x - span * unit, y + scan_y * unit,
-                         x + span * unit, y + scan_y * unit,
-                         (37, 105, 103), 51)
+        # The tractor beam is an event, not permanent UFO decoration. It is
+        # visible only while a rabbit is actively rising into a hovering craft.
+        if engine.ufo_beam_active and engine.abduction_event_index == event_index:
+            beam_colour = (42, int(120 + 80 * pulse), int(128 + 90 * pulse))
+            target_y = engine.ufo_beam_target_y
+            beam_depth = max(2.0, target_y - (y + 7 * unit))
+            for beam in (-7, -3, 3, 7):
+                surface.line(x + beam * unit, y + 7 * unit,
+                             x + beam * (1.0 + beam_depth / max(8.0, 30 * unit)),
+                             target_y, beam_colour, 52)
+            scan_y = y + 11 * unit
+            while scan_y < target_y:
+                fraction = (scan_y - y) / max(1.0, target_y - y)
+                span = (7 + 8 * fraction) * unit
+                surface.line(x - span, scan_y, x + span, scan_y,
+                             (37, 105, 103), 51)
+                scan_y += 4 * unit
     else:  # Santa's sleigh and reindeer team.
         unit = santa_flyby_unit(engine)
         red, deep_red = (218, 42, 53), (139, 25, 42)
@@ -1505,12 +1569,14 @@ class SnowEngine:
         self.max_flakes = (args.max_flakes if args.max_flakes is not None
                            else max(120, width * height // 100))
         self.snow_rate = args.snow_rate if args.snow_rate is not None else max(24.0, width / 5.0)
-        preload = min(self.max_flakes, int(self.snow_rate * args.preload_seconds))
+        preload = (0 if args.weather == "none" else
+                   min(self.max_flakes, int(self.snow_rate * args.preload_seconds)))
         self.flakes = [self.new_flake(initial=True) for _ in range(preload)]
         self.flake_distribution = (tuple(args.flake_sizes),
                                    tuple(args.size_weights))
         self.weather_distribution = (
-            args.weather, args.rain_share, args.hail_share, args.rain_speed)
+            args.weather, args.rain_share, args.hail_share, args.rain_speed,
+            args.weather_foreground_share)
         self.chunks = []
         self.resting_snow = []
         self.scenery_surfaces = [[] for _ in range(width)]
@@ -1526,6 +1592,11 @@ class SnowEngine:
         self.lightning_seed = self.rng.randrange(0, 2 ** 31)
         self.lightning_count = 0
         self.lightning_interval_setting = args.lightning_interval
+        self.abducted_rabbit_index = None
+        self.abduction_event_index = -1
+        self.ufo_beam_active = False
+        self.ufo_beam_target_y = 0.0
+        self.ufo_abduction_count = 0
         self.spawn_credit = 0.0
         self.shedding = None
         self.shed_count = 0
@@ -1639,11 +1710,14 @@ class SnowEngine:
             shape=shape,
             colour=colour,
             kind=kind,
+            layer=("foreground" if self.rng.random() <
+                   self.args.weather_foreground_share else "background"),
         )
 
     def step_lightning(self, dt):
         self.lightning_remaining = max(0.0, self.lightning_remaining - dt)
-        if not self.args.lightning:
+        if not self.args.lightning or self.args.weather == "none":
+            self.lightning_remaining = 0.0
             return
         self.lightning_timer -= dt
         if self.lightning_timer <= 0:
@@ -1918,12 +1992,14 @@ class SnowEngine:
             self.flake_distribution = distribution
         weather_distribution = (
             self.args.weather, self.args.rain_share,
-            self.args.hail_share, self.args.rain_speed)
+            self.args.hail_share, self.args.rain_speed,
+            self.args.weather_foreground_share)
         if weather_distribution != self.weather_distribution:
             # Rebuild the current population as well as future spawns. This
             # makes changes to precipitation mix and rain velocity visible
             # immediately even when --max-flakes has already been reached.
-            self.flakes = [self.new_flake(initial=True) for _ in self.flakes]
+            self.flakes = ([] if self.args.weather == "none" else
+                           [self.new_flake(initial=True) for _ in self.flakes])
             self.weather_distribution = weather_distribution
         if self.args.lightning_interval != self.lightning_interval_setting:
             self.lightning_timer = min(
@@ -2075,6 +2151,10 @@ class SnowEngine:
             ))
         if len(self.rabbits) > self.args.rabbit_count:
             self.rabbits = self.rabbits[:self.args.rabbit_count]
+            if (self.abducted_rabbit_index is not None and
+                    self.abducted_rabbit_index >= len(self.rabbits)):
+                self.abducted_rabbit_index = None
+                self.ufo_beam_active = False
 
     def hide_rabbit(self, rabbit):
         rabbit.state = "hidden"
@@ -2084,6 +2164,8 @@ class SnowEngine:
     def step_rabbits(self, dt, elapsed):
         tumbleweeds = tumbleweed_states(self.args, self, elapsed)
         for rabbit in self.rabbits:
+            if rabbit.state == "abducting":
+                continue
             if rabbit.state == "hidden":
                 rabbit.timer -= dt
                 if rabbit.timer <= 0:
@@ -2131,6 +2213,65 @@ class SnowEngine:
 
             if rabbit.x < -20 or rabbit.x > self.width + 20:
                 self.hide_rabbit(rabbit)
+
+    def step_ufo_abduction(self, elapsed):
+        """Hold a UFO stationary while one terrain rabbit rises and shrinks."""
+        state = current_sky_event_state(self.args, self, elapsed)
+        active = (self.args.ufo_abduction and state is not None and
+                  state["kind"] == "ufo" and state["phase"] == "abduction" and
+                  bool(self.rabbits))
+        if not active:
+            self.ufo_beam_active = False
+            if self.abducted_rabbit_index is not None:
+                self.hide_rabbit(self.rabbits[self.abducted_rabbit_index])
+                self.abducted_rabbit_index = None
+            return
+
+        event_index = state["event_index"]
+        if self.abduction_event_index != event_index:
+            visible = [(abs(rabbit.x - state["x"]), index)
+                       for index, rabbit in enumerate(self.rabbits)
+                       if rabbit.state != "hidden"]
+            rabbit_index = min(visible)[1] if visible else 0
+            rabbit = self.rabbits[rabbit_index]
+            if rabbit.state == "hidden":
+                rabbit.x = max(4.0, min(self.width - 4.0, state["x"]))
+                rabbit.direction = self.rng.choice((-1, 1))
+            rabbit.abduction_origin_x = rabbit.x
+            rabbit.abduction_origin_y = self.surface_y(rabbit.x) - 1
+            rabbit.abduction_x = rabbit.abduction_origin_x
+            rabbit.abduction_y = rabbit.abduction_origin_y
+            rabbit.abduction_scale = max(1.0, min(2.0, self.height // 80))
+            rabbit.state = "abducting"
+            self.abducted_rabbit_index = rabbit_index
+            self.abduction_event_index = event_index
+        elif self.abducted_rabbit_index is None:
+            # This event already completed; do not abduct a second rabbit
+            # during the same stationary hover.
+            return
+
+        rabbit = self.rabbits[self.abducted_rabbit_index]
+        raw_progress = state["phase_progress"]
+        progress = raw_progress * raw_progress * (3.0 - 2.0 * raw_progress)
+        unit = compact_flyby_unit(self, 65)
+        target_y = state["y"] + 7 * unit
+        rabbit.abduction_x = (rabbit.abduction_origin_x * (1.0 - progress) +
+                              state["x"] * progress)
+        rabbit.abduction_y = (rabbit.abduction_origin_y * (1.0 - progress) +
+                              target_y * progress)
+        normal_scale = max(1.0, min(2.0, self.height // 80))
+        # The rabbit silhouette is about ten scale units wide. A target scale
+        # of 0.5 UFO units therefore makes it 10% of the 50-unit saucer width.
+        target_scale = max(0.25, unit * 0.5)
+        rabbit.abduction_scale = (normal_scale * (1.0 - progress) +
+                                   target_scale * progress)
+        self.ufo_beam_target_y = rabbit.abduction_y
+        self.ufo_beam_active = raw_progress < 0.98
+        if raw_progress >= 0.98:
+            self.hide_rabbit(rabbit)
+            self.abducted_rabbit_index = None
+            self.ufo_beam_active = False
+            self.ufo_abduction_count += 1
 
     def step_plough(self, dt):
         if not self.args.snow_plough:
@@ -2209,8 +2350,13 @@ class SnowEngine:
             elif flake.y < self.height + 5:
                 survivors.append(flake)
         self.flakes = survivors
-        self.spawn_credit += self.snow_rate * dt
-        spawn = min(int(self.spawn_credit), self.max_flakes - len(self.flakes))
+        if self.args.weather == "none":
+            self.flakes = []
+            self.spawn_credit = 0.0
+        else:
+            self.spawn_credit += self.snow_rate * dt
+        spawn = (0 if self.args.weather == "none" else
+                 min(int(self.spawn_credit), self.max_flakes - len(self.flakes)))
         if spawn > 0:
             self.flakes.extend(self.new_flake() for _ in range(spawn))
             self.spawn_credit -= spawn
@@ -2231,6 +2377,7 @@ class SnowEngine:
         self.step_santa_trail(dt, elapsed)
         self.step_lightning(dt)
         self.step_rabbits(dt, elapsed)
+        self.step_ufo_abduction(elapsed)
         if self.physics.ground_enabled:
             self.detect_tower_collapses(dt)
             self.step_tower_collapses(dt)
@@ -2254,7 +2401,8 @@ LIVE_OPTION_DESTS = frozenset({
     "fps", "physics", "snow_rate", "max_flakes", "flake_sizes", "size_weights",
     "fall_speed", "speed_variation", "wind", "gust_strength", "gust_period",
     "drift", "wobble", "palette", "sky", "sky_colours", "sky_stops",
-    "sky_blend", "weather", "rain_share", "hail_share", "rain_speed",
+    "sky_blend", "weather", "weather_foreground_share",
+    "rain_share", "hail_share", "rain_speed",
     "rain_length", "rain_colour", "hail_size", "hail_bounce", "hail_colour",
     "lightning", "lightning_interval", "lightning_flash",
     "lightning_branches", "accumulation", "accumulate",
@@ -2276,7 +2424,7 @@ LIVE_OPTION_DESTS = frozenset({
     "rabbit_count", "rabbit_interval", "rabbit_speed", "sky_events",
     "flyby_interval", "flyby_speed", "snow_plough", "plough_interval",
     "santa_scale", "santa_arc_height", "santa_trail_seconds",
-    "santa_trail_length",
+    "santa_trail_length", "ufo_abduction", "ufo_hover_seconds",
     "plough_speed", "plough_clear_to",
     "scenery_set", "ambient_set",
 })
@@ -2388,8 +2536,10 @@ def draw_object_snow(surface, engine):
         draw_shape(surface, shape, patch.x, patch.y, patch.colour, 78)
 
 
-def draw_precipitation(surface, engine):
+def draw_precipitation(surface, engine, layer=None):
     for particle in engine.flakes:
+        if layer is not None and particle.layer != layer:
+            continue
         if particle.kind == "rain":
             length = engine.args.rain_length
             slant = max(-length * 0.65, min(length * 0.65,
@@ -2414,8 +2564,12 @@ def render_surface(background, engine):
     draw_sky_gradient(surface, engine.args)
     draw_lightning(surface, engine)
     draw_sky_event(surface, engine, getattr(engine, "elapsed", 0.0))
+    for rabbit in engine.rabbits:
+        if rabbit.state == "abducting":
+            draw_rabbit(surface, engine, rabbit)
     surface.pixels = [(pixel[0], 3) if pixel is not None else None
                       for pixel in surface.pixels]
+    draw_precipitation(surface, engine, "background")
     for index, pixel in enumerate(background.pixels):
         if pixel is not None:
             surface.pixels[index] = pixel
@@ -2423,10 +2577,11 @@ def render_surface(background, engine):
     draw_object_snow(surface, engine)
     draw_ambient(surface, engine, getattr(engine, "elapsed", 0.0))
     for rabbit in engine.rabbits:
-        draw_rabbit(surface, engine, rabbit)
+        if rabbit.state != "abducting":
+            draw_rabbit(surface, engine, rabbit)
     for chunk in engine.chunks:
         draw_shape(surface, chunk.shape, chunk.x, chunk.y, chunk.colour, 82)
-    draw_precipitation(surface, engine)
+    draw_precipitation(surface, engine, "foreground")
     draw_plough(surface, engine)
     return surface
 
@@ -2666,13 +2821,15 @@ def detailed_dashboard_lines(args, engine, codec, stats, columns):
     elif tab == "weather":
         kinds = {kind: sum(particle.kind == kind for particle in engine.flakes)
                  for kind in ("snow", "rain", "hail")}
+        layers = {layer: sum(particle.layer == layer for particle in engine.flakes)
+                  for layer in ("foreground", "background")}
         page = [
             (f" ☂ MODE {args.weather.upper()} | SNOW {kinds['snow']} RAIN {kinds['rain']} "
              f"HAIL {kinds['hail']} | PARTICLES {len(engine.flakes)}/{engine.max_flakes}"),
-            (f" ╱ RAIN ×{args.rain_speed:.2f} SPEED / {args.rain_length} VPX | "
-             f"MIX SHARE {args.rain_share:.0%}"),
+            (f" ◩ DEPTH FOREGROUND {layers['foreground']} / BACKGROUND {layers['background']} | "
+             f"NEW FOREGROUND SHARE {args.weather_foreground_share:.0%}"),
             (f" ● HAIL {args.hail_size:.2f} VPX | BOUNCE {args.hail_bounce:.0%} | "
-             f"MIX SHARE {args.hail_share:.0%}"),
+             f"RAIN ×{args.rain_speed:.2f}/{args.rain_length} VPX | MIX R{args.rain_share:.0%} H{args.hail_share:.0%}"),
             (f" ϟ LIGHTNING {'ON' if args.lightning else 'OFF'} | STRIKES {engine.lightning_count} | "
              f"INTERVAL {args.lightning_interval:.1f}s FLASH {args.lightning_flash:.2f}s"),
         ]
@@ -2707,8 +2864,9 @@ def detailed_dashboard_lines(args, engine, codec, stats, columns):
             (f" ☄ SANTA SCALE {args.santa_scale:.2f} | ARC {args.santa_arc_height:.0%} HEIGHT | "
              f"TRAIL ×{args.santa_trail_length:.1f}, {args.santa_trail_seconds:.1f}s / "
              f"{len(engine.santa_trail)} SPARKS"),
-            (f" ◇ DISTANT/OCCLUDED BY SCENERY AND SNOW | PLOUGH "
-             f"{'ACTIVE' if engine.plough.active else 'WAITING'} / {engine.plough_count} COMPLETE"),
+            (f" ⌁ UFO ABDUCTION {'ON' if args.ufo_abduction else 'OFF'} | "
+             f"BEAM {'ACTIVE' if engine.ufo_beam_active else 'HIDDEN'} | "
+             f"CAPTURES {engine.ufo_abduction_count} | HOVER {args.ufo_hover_seconds:.1f}s"),
         ]
     else:
         cache = cached_tree_pixels.cache_info()
@@ -3078,9 +3236,11 @@ def build_parser():
                      help="method used to merge each adjacent pair of gradient colours")
 
     weather = parser.add_argument_group("rain hail and lightning")
-    weather.add_argument("--weather", choices=("snow", "rain", "hail", "mixed", "storm"),
+    weather.add_argument("--weather", choices=("none", "snow", "rain", "hail", "mixed", "storm"),
                          default="snow",
-                         help="precipitation family; mixed includes snow, rain and hail")
+                         help="precipitation family; none disables precipitation and lightning")
+    weather.add_argument("--weather-foreground-share", type=float, default=0.45,
+                         help="fraction of new precipitation assigned in front of scenery")
     weather.add_argument("--rain-share", type=float, default=0.35,
                          help="rain fraction in mixed precipitation")
     weather.add_argument("--hail-share", type=float, default=0.10,
@@ -3241,6 +3401,11 @@ def build_parser():
                         help="seconds before each Santa comet-trail spark fades")
     events.add_argument("--santa-trail-length", type=float, default=3.0,
                         help="spatial trail multiplier; 3 is three times the original length")
+    events.add_argument("--ufo-abduction", action=argparse.BooleanOptionalAction,
+                        default=False,
+                        help="allow a hovering UFO to raise and shrink one rabbit through a temporary beam")
+    events.add_argument("--ufo-hover-seconds", type=float, default=6.0,
+                        help="seconds a UFO remains stationary while abducting a rabbit")
     events.add_argument("--snow-plough", action=argparse.BooleanOptionalAction,
                         default=True,
                         help="occasionally drive across and clear the accumulated bank")
@@ -3423,15 +3588,17 @@ def pretty_help(parser, mode, colour=True):
         paint("amber", "  Twilight sky   ") +
         "  --sky-colours 07152F,315A82,B9D8E8 --sky-stops 0,.58,1 --sky-blend smooth",
         paint("amber", "  Rain shower    ") +
-        "  --weather rain --snow-rate 90 --rain-speed 3 --rain-length 7 --no-lightning",
+        "  --weather rain --weather-foreground-share .65 --snow-rate 90 --rain-speed 3 --rain-length 7",
         paint("amber", "  Wintry mix     ") +
         "  --weather mixed --rain-share .35 --hail-share .15 --hail-bounce .6",
         paint("amber", "  Thunderstorm   ") +
         "  --weather storm --lightning --lightning-interval 8 --lightning-branches 6",
         paint("amber", "  Clear sky      ") +
-        "  --no-sky    (precipitation and flybys remain visible over black)",
+        "  --weather none    (sky, scenery, animals and flights remain active)",
         paint("amber", "  Santa arc      ") +
         "  --sky-events santa --santa-scale .5 --santa-arc-height .16 --santa-trail-length 3 --santa-trail-seconds 5.6",
+        paint("amber", "  UFO capture    ") +
+        "  --sky-events ufo --ufo-abduction --ufo-hover-seconds 6 --rabbit-count 2",
         paint("amber", "  Plough test    ") +
         "  --plough-interval 5 --plough-speed 60 --plough-clear-to .02",
         paint("amber", "  Font telemetry ") +
@@ -3468,7 +3635,7 @@ def pretty_help(parser, mode, colour=True):
         "",
         paint("green", "WHILE RUNNING"),
         "  Drag the window or use the terminal's font zoom controls to change the live grid.",
-        "  With --detailed-dashboard, press Tab for FONT/SNOW/TREES/ANIMALS/FLIGHTS/PROCESS.",
+        "  With --detailed-dashboard, press Tab for FONT/SNOW/SKY/WEATHER/TREES/ANIMALS/FLIGHTS/PROCESS.",
         "  On FONT, SEEN SINCE START is the cumulative unique glyph-pattern requirement.",
         "  With --listen, the companion TUI applies validated revisions from a shared JSON file.",
         "  Press q, Esc, or Control-C to quit and restore the previous terminal screen.",
@@ -3502,6 +3669,7 @@ def parse_args(argv=None):
                 ("flyby-speed", args.flyby_speed),
                 ("rain-speed", args.rain_speed),
                 ("lightning-interval", args.lightning_interval),
+                ("ufo-hover-seconds", args.ufo_hover_seconds),
                 ("plough-interval", args.plough_interval),
                 ("plough-speed", args.plough_speed))
     if any(value <= 0 for _, value in positive):
@@ -3563,6 +3731,8 @@ def parse_args(argv=None):
         parser.error("hail-size must be in [0.5, 6]")
     if not 0 <= args.rain_share <= 1 or not 0 <= args.hail_share <= 1:
         parser.error("rain-share and hail-share must be in [0, 1]")
+    if not 0 <= args.weather_foreground_share <= 1:
+        parser.error("weather-foreground-share must be in [0, 1]")
     if args.rain_share + args.hail_share > 1:
         parser.error("rain-share plus hail-share cannot exceed 1")
     if not 0 <= args.hail_bounce <= 1:

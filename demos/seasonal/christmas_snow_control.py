@@ -2,6 +2,7 @@
 """Keyboard TUI for live control of the Christmas Snow demo."""
 
 import argparse
+import copy
 import contextlib
 import curses
 import io
@@ -37,6 +38,7 @@ RANGES = {
     "gust_strength": (0.0, 30.0, 0.5), "gust_period": (0.5, 30.0, 0.5),
     "drift": (0.0, 15.0, 0.25), "wobble": (0.0, 10.0, 0.25),
     "rain_share": (0.0, 1.0, 0.05), "hail_share": (0.0, 1.0, 0.05),
+    "weather_foreground_share": (0.0, 1.0, 0.05),
     "rain_speed": (1.0, 8.0, 0.1), "rain_length": (1, 40, 1),
     "hail_size": (0.5, 6.0, 0.25), "hail_bounce": (0.0, 1.0, 0.05),
     "lightning_interval": (1.0, 180.0, 1.0),
@@ -78,6 +80,7 @@ RANGES = {
     "santa_scale": (0.2, 2.0, 0.05), "santa_arc_height": (0.0, 0.5, 0.01),
     "santa_trail_seconds": (0.0, 15.0, 0.25),
     "santa_trail_length": (0.25, 8.0, 0.25),
+    "ufo_hover_seconds": (1.0, 20.0, 0.5),
     "plough_speed": (1.0, 100.0, 2.0), "plough_clear_to": (0.0, 0.50, 0.005),
 }
 
@@ -125,7 +128,8 @@ OPTION_ICONS = {
     "gust_strength": "≋", "gust_period": "∿", "drift": "⌁",
     "wobble": "〰", "palette": "◈", "sky": "◒",
     "sky_colours": "◈", "sky_stops": "↕", "sky_blend": "≋",
-    "weather": "☂", "rain_share": "╱", "hail_share": "●",
+    "weather": "☂", "weather_foreground_share": "◩",
+    "rain_share": "╱", "hail_share": "●",
     "rain_speed": "⇣", "rain_length": "│", "rain_colour": "◈",
     "hail_size": "●", "hail_bounce": "↥", "hail_colour": "◈",
     "lightning": "ϟ", "lightning_interval": "◴",
@@ -156,6 +160,7 @@ OPTION_ICONS = {
     "sky_events": "✈", "flyby_interval": "◴", "flyby_speed": "→",
     "santa_scale": "↕", "santa_arc_height": "⌒",
     "santa_trail_seconds": "◴", "santa_trail_length": "☄",
+    "ufo_abduction": "⌁", "ufo_hover_seconds": "◴",
     "snow_plough": "▰", "plough_interval": "◴", "plough_speed": "→",
     "plough_clear_to": "▁",
 }
@@ -191,7 +196,8 @@ IMPACT_GUIDANCE = {
     "sky_colours": "Two to eight top-to-bottom RRGGBB colours, for example 07152F,315A82,B9D8E8.",
     "sky_stops": "Matching increasing vertical fractions beginning at 0 and ending at 1; stops control where each colour is reached.",
     "sky_blend": "LINEAR changes evenly; SMOOTH eases both ends; COSINE gives the gentlest merge between colour stops.",
-    "weather": "SNOW accumulates; RAIN draws wind-slanted streaks; HAIL can bounce; MIXED combines all three; STORM combines rain and hail.",
+    "weather": "NONE disables precipitation and lightning; SNOW accumulates; RAIN draws wind-slanted streaks; HAIL can bounce; MIXED combines all three; STORM combines rain and hail.",
+    "weather_foreground_share": "At creation, this fraction of snow, rain and hail is assigned in front of scenery; the remainder is occluded by trees, cabins and animals.",
     "rain_share": "Fraction of mixed precipitation rendered as rain; the remainder after rain and hail is snow.",
     "hail_share": "Fraction of mixed or storm precipitation rendered as hail. In mixed mode rain plus hail may not exceed 1.",
     "rain_speed": "Multiplier applied to normal fall speed; 2–4 gives visibly faster rainfall without excessive aliasing.",
@@ -245,6 +251,8 @@ IMPACT_GUIDANCE = {
     "santa_arc_height": "Sets the mid-flight rise as a scene-height fraction; zero restores a straight crossing.",
     "santa_trail_seconds": "Controls how long emitted sparks remain and fade; long trails increase active particle work.",
     "santa_trail_length": "Spatial multiplier behind the sleigh; 3 is three times the original length and also emits enough sparks to avoid gaps.",
+    "ufo_abduction": "ON lets each UFO pause over the terrain, reveal its beam only while a rabbit rises, and hide the rabbit after it enters the craft.",
+    "ufo_hover_seconds": "Longer values slow the rabbit's rise and keep the UFO stationary for easier inspection.",
     "snow_plough": "ON schedules complete terrain-following clearing passes; rabbits react when it approaches.",
     "plough_interval": "Lower values schedule bank-clearing passes more often.",
     "plough_speed": "Higher values clear the scene faster and leave less time to inspect the vehicle.",
@@ -263,7 +271,8 @@ HIGH_COST = frozenset({
 MEDIUM_COST = frozenset({
     "physics", "flake_sizes", "detailed_dashboard", "ambient", "ambient_speed",
     "sky", "sky_events", "flyby_interval", "santa_trail_length",
-    "santa_trail_seconds", "weather", "hail_bounce", "lightning",
+    "santa_trail_seconds", "weather", "weather_foreground_share",
+    "hail_bounce", "lightning",
     "lightning_interval", "snow_plough",
 })
 
@@ -283,7 +292,8 @@ CONTROL_TAB_SPECS = (
     })),
     ("SKY", "◒", frozenset({"sky", "sky_colours", "sky_stops", "sky_blend"})),
     ("WEATHER", "☂", frozenset({
-        "weather", "rain_share", "hail_share", "rain_speed", "rain_length",
+        "weather", "weather_foreground_share", "rain_share", "hail_share",
+        "rain_speed", "rain_length",
         "rain_colour", "hail_size", "hail_bounce", "hail_colour", "lightning",
         "lightning_interval", "lightning_flash", "lightning_branches",
     })),
@@ -293,6 +303,7 @@ CONTROL_TAB_SPECS = (
         "shed_width", "shed_rate", "tower_collapse", "tower_age",
         "tower_age_jitter", "tower_prominence", "tower_collapse_rate",
         "tower_cascade_chance", "tower_cascade_radius",
+        "snow_plough", "plough_interval", "plough_speed", "plough_clear_to",
     })),
     ("SCENE", "⌂", frozenset({
         "scenery", "cabin", "reindeer", "cabin_count", "max_cabins",
@@ -315,7 +326,7 @@ CONTROL_TAB_SPECS = (
     ("FLIGHTS", "✈", frozenset({
         "sky_events", "flyby_interval", "flyby_speed", "santa_scale",
         "santa_arc_height", "santa_trail_seconds", "santa_trail_length",
-        "snow_plough", "plough_interval", "plough_speed", "plough_clear_to",
+        "ufo_abduction", "ufo_hover_seconds",
     })),
 )
 
@@ -563,15 +574,16 @@ class Controller:
         self.atomic_json(self.cli.control_file, self.payload())
         self.status = f"{message} · revision {self.revision}"
 
-    def command_parts(self):
-        settings = [item for item in namespace_to_argv(self.values, self.actions)
-                    if item not in ("--mode", self.values.mode)]
+    def command_parts(self, values=None):
+        values = values or self.values
+        settings = [item for item in namespace_to_argv(values, self.actions)
+                    if item not in ("--mode", values.mode)]
         if sys.platform == "darwin":
-            prefix = ["./scripts/macos/run-demo.sh", self.values.mode, "christmas-snow"]
+            prefix = ["./scripts/macos/run-demo.sh", values.mode, "christmas-snow"]
         elif os.name == "nt":
             prefix = ["python", r".\demos\seasonal\christmas_snow.py",
-                      "--mode", self.values.mode]
-        elif self.values.mode == "pua4":
+                      "--mode", values.mode]
+        elif values.mode == "pua4":
             prefix = ["./experiments/pua-4x4/demos4x4/run-demo.sh", "christmas-snow"]
         else:
             prefix = ["./scripts/linux/launch-mate-terminal.sh", "christmas-snow"]
@@ -586,14 +598,106 @@ class Controller:
             index += 1
         return prefix, segments
 
-    def command(self):
+    def command(self, values=None):
         """Return a copyable multiline command with real shell continuations."""
-        prefix, segments = self.command_parts()
+        prefix, segments = self.command_parts(values)
         continuation = " `\n  " if os.name == "nt" else " \\\n  "
         rendered = shlex.join(prefix)
         if segments:
             rendered += continuation + continuation.join(shlex.join(part) for part in segments)
         return rendered
+
+    def isolated_preview_values(self):
+        """Return a validated visual-only configuration for the active page."""
+        values = copy.deepcopy(self.values)
+        page = self.tabs[self.tab_index][0]
+        values.snapshot = False
+        values.duration = 0.0
+        values.frames = 0
+        values.detailed_dashboard = False
+        values.no_dashboard = False
+        values.window_position = None
+
+        def no_weather():
+            values.weather = "none"
+            values.lightning = False
+
+        def no_ground():
+            values.initial_snow = 0.0
+            values.bank_drift = 0.0
+            values.accumulation = 0.0
+            values.accumulate = False
+            values.snow_plough = False
+
+        def no_scene():
+            values.scenery = "none"
+            values.cabin = False
+            values.reindeer = False
+            values.no_trees = True
+            values.tree_density = 0.0
+
+        def no_animals():
+            values.ambient = "none"
+            values.leaf_count = 0
+            values.tumbleweed_count = 0
+            values.rabbit_count = 0
+
+        def no_flights():
+            values.sky_events = ()
+            values.ufo_abduction = False
+
+        if page in {"DISPLAY", "WINDOW", "LIVE"}:
+            return self.parse_safely(namespace_to_argv(values, self.actions))
+        if page == "SKY":
+            no_weather(); no_ground(); no_scene(); no_animals(); no_flights()
+        elif page in {"SNOW", "WEATHER"}:
+            no_ground(); no_scene(); no_animals(); no_flights(); values.sky = False
+            if page == "SNOW":
+                values.weather = "snow"
+                values.lightning = False
+        elif page == "GROUND":
+            no_weather(); no_scene(); no_animals(); no_flights(); values.sky = False
+        elif page == "SCENE":
+            no_weather(); no_ground(); no_animals(); no_flights(); values.sky = False
+        elif page == "TREES":
+            no_weather(); no_ground(); no_animals(); no_flights(); values.sky = False
+            values.scenery = "trees"
+            values.cabin = False
+            values.reindeer = False
+            values.no_trees = False
+        elif page == "ANIMALS":
+            no_weather(); no_scene(); no_flights(); values.sky = False
+            values.initial_snow = 0.025
+            values.bank_drift = 0.01
+            values.accumulation = 0.0
+            values.accumulate = False
+            values.snow_plough = False
+        elif page == "FLIGHTS":
+            no_weather(); no_ground(); no_scene(); no_animals(); values.sky = False
+        return self.parse_safely(namespace_to_argv(values, self.actions))
+
+    def launch_preview(self):
+        """Launch an isolated renderer for this page without blocking the TUI."""
+        values = self.isolated_preview_values()
+        prefix, segments = self.command_parts(values)
+        argv = prefix + [item for segment in segments for item in segment]
+        repository = Path(__file__).resolve().parents[2]
+        kwargs = {
+            "cwd": str(repository),
+            "stdin": subprocess.DEVNULL,
+            "stdout": subprocess.DEVNULL,
+            "stderr": subprocess.DEVNULL,
+        }
+        if os.name == "nt":
+            kwargs["creationflags"] = getattr(subprocess, "CREATE_NEW_CONSOLE", 0)
+        else:
+            kwargs["start_new_session"] = True
+        try:
+            subprocess.Popen(argv, **kwargs)
+            page = self.tabs[self.tab_index][0]
+            self.status = f"Launched isolated {page} preview · current values · wind retained"
+        except OSError as error:
+            self.status = f"Preview launch failed: {error}"
 
     def save(self):
         self.capture_window_state()
@@ -789,6 +893,19 @@ class Controller:
 
         self.put(screen, 5, 1, self.tab_strip(width),
                  curses.color_pair(6) | curses.A_BOLD)
+        strip = self.tab_strip(width)
+        tab_colours = (1, 3, 4, 6, 5, 2, 7, 3, 2, 4, 1)
+        for tab_index, (label, icon, _) in enumerate(self.tabs):
+            token = f"{icon}{label}"
+            offset = strip.find(token)
+            if offset < 0:
+                continue
+            selected = tab_index == self.tab_index
+            icon_style = curses.color_pair(tab_colours[tab_index % len(tab_colours)]) | curses.A_BOLD
+            label_style = (curses.color_pair(3) | curses.A_BOLD
+                           if selected else curses.color_pair(6) | curses.A_BOLD)
+            self.put(screen, 5, 1 + offset, icon, icon_style)
+            self.put(screen, 5, 1 + offset + len(icon), label, label_style)
 
         panel_width = max(46, int(width * 0.64)) if width >= 92 else width - 2
         actions = self.page_actions
@@ -816,25 +933,45 @@ class Controller:
             for row in range(6, height - 3):
                 self.put(screen, row, split, "│", curses.color_pair(1))
             action = self.selected_action
-            details = [
-                f"◆ {self.icon(action)} SELECTED OPTION ◆", "",
-                f"{self.icon(action)}  {option_for(action)}",
-                f"Group: {action.container.title}",
-                f"Current: {value_text(getattr(self.values, action.dest))}",
-                f"Scope: {'applies immediately' if action.dest in LIVE_OPTION_DESTS else 'saved now; viewer restart required'}",
-                "",
-            ]
-            details.extend(textwrap.wrap(action.help or "", max(24, width - split - 5)))
-            details.extend([""])
-            for guidance in self.guidance(action):
-                details.extend(textwrap.wrap(guidance, max(24, width - split - 5)))
-            details.extend(["", "←/→ adjust or cycle", "Enter direct input", "Space toggle"])
-            for row, line in enumerate(details, 7):
-                self.put(screen, row, split + 2, line,
-                         curses.color_pair(4) if row > 7 else curses.color_pair(3))
+            wrap_width = max(24, width - split - 5)
+            details = []
+
+            def section(title, text, heading_pair, body_pair=6):
+                details.append((f"◆ {title}", curses.color_pair(heading_pair) | curses.A_BOLD))
+                for line in textwrap.wrap(text, wrap_width) or [""]:
+                    details.append(("  " + line, curses.color_pair(body_pair)))
+                details.append(("", 0))
+
+            details.append((f"◆ {self.icon(action)} SELECTED OPTION ◆",
+                            curses.color_pair(3) | curses.A_BOLD))
+            details.append((f"  {option_for(action)}", curses.color_pair(1) | curses.A_BOLD))
+            details.append((f"  {action.container.title}", curses.color_pair(2)))
+            details.append(("", 0))
+            details.append(("CURRENT VALUE", curses.color_pair(5) | curses.A_BOLD))
+            details.append((f"  {value_text(getattr(self.values, action.dest))}",
+                            curses.color_pair(6) | curses.A_BOLD))
+            scope = ('applies immediately' if action.dest in LIVE_OPTION_DESTS
+                     else 'saved now; viewer restart required')
+            details.append((f"  ◉ {scope}", curses.color_pair(2 if action.dest in LIVE_OPTION_DESTS else 7)))
+            details.append(("", 0))
+            section("WHAT IT CONTROLS", action.help or "No description supplied.", 4)
+            guidance = self.guidance(action)
+            if guidance:
+                section("RANGE & INPUT", guidance[0], 1)
+            if len(guidance) > 1:
+                section("EXPECTED IMPACT", guidance[1].removeprefix("Predicted effect: "), 3)
+            if len(guidance) > 2:
+                performance_pair = 7 if action.dest in HIGH_COST else 2
+                section("PERFORMANCE", guidance[2].removeprefix("Performance: "),
+                        performance_pair, performance_pair)
+            details.append((f"V  launch isolated {self.tabs[self.tab_index][0]} preview",
+                            curses.color_pair(1) | curses.A_BOLD))
+            details.append(("←/→ adjust   Enter type   Space toggle", curses.color_pair(4)))
+            for row, (line, style) in enumerate(details, 7):
+                self.put(screen, row, split + 2, line, style)
 
         self.put(screen, height - 3, 0, "├" + "─" * (width - 2) + "┤", curses.color_pair(1))
-        keys = " ⇥ TAB PAGE  ↑↓ SELECT  ←→ ADJUST  ⏎ TYPE  ␠ TOGGLE  S SAVE  P COMMAND  R RESET  Q QUIT "
+        keys = " ⇥ TAB  ↑↓ SELECT  ←→ ADJUST  ⏎ TYPE  ␠ TOGGLE  V PREVIEW  S SAVE  P COMMAND  R RESET  Q QUIT "
         self.put(screen, height - 2, 0, "│" + keys.ljust(width - 2) + "│", curses.color_pair(4))
         self.put(screen, height - 1, 0, ("└─ " + self.status + " ").ljust(width - 1, "─") + "┘",
                  curses.color_pair(1))
@@ -898,6 +1035,8 @@ class Controller:
                 self.save()
             elif key in (ord("p"), ord("P")):
                 self.show_command(screen)
+            elif key in (ord("v"), ord("V")):
+                self.launch_preview()
             elif key in (ord("r"), ord("R")):
                 self.reset()
 

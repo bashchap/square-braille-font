@@ -18,6 +18,7 @@ from christmas_snow import (
     cabin_layout,
     complete_frame,
     current_sky_event,
+    current_sky_event_state,
     dashboard_rows,
     draw_ambient,
     draw_conifer,
@@ -115,6 +116,42 @@ def main():
     draw_precipitation(rain_surface, rain_engine)
     check(sum(pixel is not None for pixel in rain_surface.pixels) > len(rain_engine.flakes),
           "rain did not render visible streak geometry")
+
+    background_args = parse_args([
+        "--weather", "rain", "--weather-foreground-share", "0",
+        "--snow-rate", "20", "--max-flakes", "12", "--preload-seconds", "1",
+    ])
+    foreground_args = parse_args([
+        "--weather", "rain", "--weather-foreground-share", "1",
+        "--snow-rate", "20", "--max-flakes", "12", "--preload-seconds", "1",
+    ])
+    background_engine = SnowEngine(background_args, 80, 40)
+    foreground_engine = SnowEngine(foreground_args, 80, 40)
+    check(all(item.layer == "background" for item in background_engine.flakes) and
+          all(item.layer == "foreground" for item in foreground_engine.flakes),
+          "precipitation was not assigned to its configured depth at creation")
+    cover = Surface(80, 40)
+    cover_colour = (24, 88, 42)
+    cover.rectangle(0, 0, 80, 40, cover_colour, 14)
+    for layered_engine in (background_engine, foreground_engine):
+        layered_engine.flakes = layered_engine.flakes[:1]
+        layered_engine.flakes[0].x = 40
+        layered_engine.flakes[0].y = 20
+    background_pixel = render_surface(cover, background_engine).pixels[20 * 80 + 40]
+    foreground_pixel = render_surface(cover, foreground_engine).pixels[20 * 80 + 40]
+    check(background_pixel[0] == cover_colour and
+          foreground_pixel[0] == foreground_args.rain_colour,
+          "precipitation layers did not render behind/in front of scenery")
+
+    clear_args = parse_args([
+        "--weather", "none", "--lightning", "--snow-rate", "100",
+        "--max-flakes", "100", "--preload-seconds", "4",
+    ])
+    clear_engine = SnowEngine(clear_args, 80, 40)
+    clear_engine.lightning_remaining = 1.0
+    clear_engine.step(0.1, 0.1)
+    check(not clear_engine.flakes and clear_engine.lightning_remaining == 0,
+          "weather none did not suppress precipitation and lightning")
 
     hail_args = parse_args([
         "--weather", "hail", "--hail-bounce", "1", "--hail-size", "2",
@@ -438,6 +475,38 @@ def main():
     check(compact_bounds[0][0] <= 110 and compact_bounds[1][0] <= 65,
           "aeroplane or UFO regressed to its oversized former footprint")
 
+    abduction_args = parse_args([
+        "--mode", "pua4", "--sky-events", "ufo", "--ufo-abduction",
+        "--ufo-hover-seconds", "4", "--flyby-interval", "1",
+        "--flyby-speed", "100", "--rabbit-count", "1",
+        "--snow-rate", "0", "--max-flakes", "0", "--preload-seconds", "0",
+    ])
+    abduction_engine = SnowEngine(abduction_args, 200, 100)
+    abduction_travel = ((abduction_engine.width + sky_event_margin(abduction_engine) * 2) /
+                        abduction_args.flyby_speed)
+    hover_start = 0.35 + abduction_travel * 0.5
+    early = hover_start + abduction_args.ufo_hover_seconds * 0.15
+    late = hover_start + abduction_args.ufo_hover_seconds * 0.85
+    early_event = current_sky_event_state(abduction_args, abduction_engine, early)
+    late_event = current_sky_event_state(abduction_args, abduction_engine, late)
+    check(early_event["x"] == late_event["x"] and
+          early_event["phase"] == late_event["phase"] == "abduction",
+          "UFO did not remain stationary throughout the abduction phase")
+    abduction_engine.step_ufo_abduction(early)
+    rabbit = abduction_engine.rabbits[0]
+    early_y, early_scale = rabbit.abduction_y, rabbit.abduction_scale
+    abduction_engine.step_ufo_abduction(late)
+    check(rabbit.state == "abducting" and rabbit.abduction_y < early_y and
+          rabbit.abduction_scale < early_scale and abduction_engine.ufo_beam_active,
+          "rabbit did not rise and shrink while the UFO beam was active")
+    target_unit = max(0.65, max(1.0, min(3.0, abduction_engine.height // 65)) / 3.0)
+    finish = hover_start + abduction_args.ufo_hover_seconds * 0.99
+    abduction_engine.step_ufo_abduction(finish)
+    check(rabbit.state == "hidden" and not abduction_engine.ufo_beam_active and
+          abduction_engine.ufo_abduction_count == 1 and
+          rabbit.abduction_scale <= target_unit * 0.55,
+          "completed UFO capture did not hide the beam/rabbit at 10% saucer scale")
+
     santa_elapsed = 0.35 + 2 * (large_travel + 1) + large_travel * 0.5
     santa_a = Surface(672, 216)
     santa_b = Surface(672, 216)
@@ -621,6 +690,32 @@ def main():
             controller.tab_index = tab_index
             check(f"[{controller.tabs[tab_index][1]}{label}]" in controller.tab_strip(58),
                   f"narrow control console hid active {label} tab")
+        controller.values.weather = "rain"
+        controller.values.wind = 9.0
+        controller.values.sky_events = ("ufo",)
+        controller.values.ufo_abduction = True
+        controller.values.rabbit_count = 2
+        controller.tab_index = next(index for index, tab in enumerate(controller.tabs)
+                                    if tab[0] == "WEATHER")
+        weather_preview = controller.isolated_preview_values()
+        check(weather_preview.weather == "rain" and weather_preview.wind == 9 and
+              not weather_preview.scenery_set and weather_preview.rabbit_count == 0 and
+              not weather_preview.sky_events and weather_preview.initial_snow == 0,
+              "WEATHER preview did not isolate precipitation while preserving wind")
+        controller.tab_index = next(index for index, tab in enumerate(controller.tabs)
+                                    if tab[0] == "FLIGHTS")
+        flight_preview = controller.isolated_preview_values()
+        check(flight_preview.weather == "none" and
+              flight_preview.sky_events == ("ufo",) and
+              flight_preview.ufo_abduction and not flight_preview.scenery_set,
+              "FLIGHTS preview did not isolate the configured sky event")
+        controller.tab_index = next(index for index, tab in enumerate(controller.tabs)
+                                    if tab[0] == "TREES")
+        tree_preview = controller.isolated_preview_values()
+        check(tree_preview.weather == "none" and
+              tree_preview.scenery_set == frozenset(("trees",)) and
+              tree_preview.rabbit_count == 0,
+              "TREES preview did not isolate procedural trees")
         controller.tab_index = 0
         for action in controller.actions:
             guidance = " ".join(controller.guidance(action))
@@ -679,6 +774,8 @@ def main():
     print("PASS: gradient sky, compact flybys, arcing Santa and extended fading comet trail")
     print("PASS: sparse snow crystals and independently tapered 4.2 VPX tree trunks")
     print("PASS: rain streaks, bouncing hail and branched lightning render behind scenery")
+    print("PASS: precipitation depth assignment, weather-off mode and isolated tab previews")
+    print("PASS: hovering UFO beam raises and shrinks a rabbit only during abduction")
     print("PASS: Down-arrow escape sequence is not mistaken for the viewer quit key")
     print("PASS: paged weather controls, eight dashboard tabs, CPU/memory and geometry-safe export")
 

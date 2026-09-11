@@ -247,7 +247,9 @@ stops are generated automatically and can then be edited precisely.
 
 ## Rain, hail and lightning
 
-`--weather` selects `snow`, `rain`, `hail`, `mixed`, or `storm`. Rain uses
+`--weather` selects `none`, `snow`, `rain`, `hail`, `mixed`, or `storm`.
+`none` disables precipitation and lightning without removing the gradient sky,
+scenery, ambient motion, rabbits, or scheduled flights. Rain uses
 wind-slanted streaks and does not add to the snow bank. Hail uses round stones,
 can bounce up to twice, and also does not become snow. Mixed mode uses
 `--rain-share` and `--hail-share`; the remaining share is snow. Storm mode is a
@@ -269,6 +271,23 @@ Rain and hail colours accept six hexadecimal RGB digits through
 `--rain-colour` and `--hail-colour`. Lightning brightens the distant sky and
 draws behind trees, cabins and other foreground scenery. Its interval, flash
 lifetime and branch count are live controls.
+
+Every newly created snowflake, raindrop, and hailstone is assigned permanently
+to either the foreground or background precipitation layer.
+`--weather-foreground-share 0.45` means approximately 45% are painted after
+the cabins, trees, and animals while the other 55% can be occluded by them.
+Use `0` for entirely distant weather or `1` for weather entirely in front.
+The WEATHER dashboard reports the current population in each layer.
+
+```sh
+# Sky, scenery and animals with no weather at all
+./scripts/macos/run-demo.sh pua4 christmas-snow --weather none
+
+# Put 70% of a windy rain shower in front of the scenery
+./scripts/macos/run-demo.sh pua4 christmas-snow \
+  --weather rain --weather-foreground-share 0.70 \
+  --wind 8 --gust-strength 10
+```
 
 For a busy, reproducible test scene:
 
@@ -380,7 +399,9 @@ The console is divided into related pages instead of one oversized list:
 `DISPLAY`, `WINDOW`, `LIVE`, `SNOW`, `SKY`, `WEATHER`, `GROUND`, `SCENE`,
 `TREES`, `ANIMALS`, and `FLIGHTS`. The active page is bracketed in the coloured
 Unicode tab strip; narrow windows scroll the strip so the active page remains
-visible.
+visible. Each tab symbol has its own colour. The right-hand inspector uses
+separate coloured sections for the current value, purpose, valid range,
+predicted effect, and performance sensitivity.
 
 Controller keys:
 
@@ -391,12 +412,18 @@ Controller keys:
 | Left / Right | Move a numeric slider or cycle a choice |
 | Space | Toggle an on/off option |
 | Enter | Type an exact value; type `AUTO` for auto-sized controls |
+| `V` | Launch a second window containing only the active tab's visual elements; WEATHER retains wind/gust behavior |
 | `S` | Capture window geometry/font size, then save a JSON preset and adjacent standalone `.command.txt` launch command |
 | `P` | Display a complete standalone command; it is also printed on exit |
 | `R` | Restore defaults for the selected font mode |
 | `Q` | Quit the controller; the viewer keeps its last accepted values |
 
 `LIVE` options take effect on the next control poll (default 0.20 seconds).
+The isolated visual previews use a black canvas so unrelated sky/scenery does
+not mask the selected element. ANIMALS retains only a shallow flat baseline
+needed by terrain-following animals. DISPLAY, WINDOW, and LIVE contain no
+drawable scene object, so their preview is the complete scene under those
+meta-settings.
 `RESTART` options affect raster construction or process lifetime; the TUI saves
 them, but clearly identifies that the graphics viewer must be restarted. The
 viewer dashboard shows `LIVE WAIT`, `LIVE R<n>`, `LIVE ERROR`, or
@@ -463,13 +490,13 @@ the animation. The terminal input mode is temporary and restored on exit.
   broad/local shedding, and sparse object-snow catches and releases.
 - `SKY` shows the current colour sequence, stop positions, blend curve, and
   layer order.
-- `WEATHER` separates live snow/rain/hail counts and reports rain geometry,
-  hail bounce settings, lightning timing and completed strike count.
+- `WEATHER` separates live snow/rain/hail counts, foreground/background
+  populations, hail bounce settings, lightning timing and completed strikes.
 - `TREES` shows species, density, branch formula controls, the segment budget,
   sway and object-snow state.
 - `ANIMALS` shows rabbit states/reactions and foreground-reindeer state.
 - `FLIGHTS` identifies the current distant event, schedule, speed, occlusion
-  rule, Santa scale/arc/trail state, and snow-plough activity.
+  rule, Santa scale/arc/trail state, and UFO abduction/beam state.
 - `PROCESS` shows CPU sampled over quarter-second windows, raster-and-encode
   time against the frame budget implied by `--fps`, peak resident memory
   (`PEAK RSS`), and the main configured cost sources. Peak RSS is a high-water
@@ -489,7 +516,10 @@ is the complete 256-glyph Square or 65,536-glyph PUA4 repertoire on disk.
 The event artwork is virtual-pixel geometry rather than embedded images. The
 aeroplane includes a tapered shaded fuselage, swept wings, tail, engine,
 windows, cockpit, and contrails. The UFO has a layered saucer, glass dome,
-occupant, alternating lamps, and scan beam. Both flybys, plus the static
+occupant and alternating lamps. Its tractor beam is normally absent. With
+`--ufo-abduction`, the UFO stops at mid-flight, the beam appears only while a
+rabbit rises, and the rabbit steadily shrinks until its width is 10% of the
+saucer. `--ufo-hover-seconds` controls the duration. Both flybys, plus the static
 foreground reindeer, are now one third of their former linear scale so they
 read as scene accents rather than dominating the landscape. Santa is half its
 former linear size. It now separates sack and presents, Santa's
@@ -498,6 +528,36 @@ reins, and four reindeer with eyes, muzzles, ears, tails and four jointed legs.
 The far and near leg pairs use different shades and gait phases for depth and a
 more natural suspended gallop. The foreground seasonal reindeer remains a
 separate design with the same anatomical and seasonal cues at its reduced size.
+
+## What is prebuilt, generated, and cached
+
+The PUA4 font is a static, prebuilt lookup repertoire containing all 65,536
+possible 4×4 binary masks. Christmas Snow does not create or redefine a font
+while it runs and it does not load cabin, tree, rabbit, aircraft, UFO, Santa,
+or weather bitmap assets. Python constructs those objects as coloured
+virtual-pixel geometry. The encoder examines each final 4×4 cell, converts its
+16 occupied/unoccupied samples into a 16-bit mask, selects the corresponding
+existing PUA4 codepoint, and emits ANSI foreground/background colours.
+
+Caching already happens at two useful levels:
+
+- the static scenery `Surface` is retained between frames and rebuilt only
+  when dimensions or scenery-affecting controls change;
+- expensive procedural tree geometry is held in a bounded in-memory cache,
+  then cheap wind-dependent sway is applied while it is composited.
+
+Further caching is viable, but whole pre-encoded frames would be a poor fit:
+movement, arbitrary terminal sizes, cell alignment, foreground/background
+occlusion, live colours, and snow depth change the final cells continuously.
+The best next optimization candidate is a small virtual-pixel sprite-frame
+atlas for aircraft, UFO, Santa, reindeer, rabbits, and the plough, indexed by
+direction, scale, and animation phase. The cached sprite would still be
+composited dynamically, preserving correct occlusion and PUA4 selection.
+Continuous effects such as precipitation, deforming snow, tree sway, the
+abduction scale transition, and tumbleweed rotation should remain procedural
+or use deliberately quantized cache steps. Benchmarking should determine
+whether geometry drawing or final cell encoding is the actual bottleneck
+before adding that memory/complexity tradeoff.
 
 ## Snow controls
 
