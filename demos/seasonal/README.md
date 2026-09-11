@@ -209,13 +209,23 @@ The foreground is not limited to falling snow:
   compositing layer and are occluded by trees, cabins, animals and snow.
   `--santa-scale 0.50` is the half-size default. `--santa-arc-height` controls
   his mid-flight rise, `--santa-trail-length` controls its spatial extent, and
-  `--santa-trail-seconds` controls the fading gold-and-ice particle trail left
-  behind the sleigh. The defaults are now `3.0` times the original spatial
-  length and `5.6` seconds—twice the original lifetime.
+  `--santa-trail-seconds` controls the fading red, blue, yellow, orange and
+  green particle trail left behind the sleigh. The defaults are now `3.0`
+  times the original spatial length and `5.6` seconds—twice the original
+  lifetime. Santa also drops a tumbling parcel vertically into each cottage
+  or lodge chimney he crosses. Disable deliveries with `--no-santa-presents`
+  or adjust their initial descent with `--present-fall-speed`.
+- `--ufo-abduction` makes a UFO pause and activate a moving cyan, blue, violet,
+  gold and white transporter column. A visible rabbit is captured only when
+  already aligned beneath the craft; a hidden rabbit may enter beneath it for
+  the event. The rabbit then rises vertically and shrinks to 10% of the UFO's
+  width. It is never pulled sideways by a diagonal beam.
 - The snow plough is enabled by default. `--plough-interval` controls how often
   it enters, `--plough-speed` controls traversal speed, and
-  `--plough-clear-to` is the shallow bank left by a completed pass. Use
-  `--no-snow-plough` for a scene that never receives a full-width clearing.
+  `--plough-clear-to` is the shallow bank left by a completed pass. Its wheels
+  remain on one horizontal road datum while the blade removes changing snow;
+  it does not climb the bank it is clearing. Use `--no-snow-plough` for a scene
+  that never receives a full-width clearing.
 
 To isolate the half-scale arcing Santa and his fading trail:
 
@@ -244,6 +254,17 @@ stop, and `cosine` gives an even gentler merge. Use `--no-sky` for the old
 terminal-black background. Colours, stops, blend, and the on/off state are live
 controls. When changing the number of colours in the console, evenly spaced
 stops are generated automatically and can then be edited precisely.
+
+The sky can make small flybys look coarser even though their depth order is
+correct. A PUA4 terminal cell has one 4x4 binary foreground mask plus, at most,
+one representative ANSI background colour. With a solid gradient behind a
+small multicolour object, its edge colours and the already-coloured rear pixels
+must share those two cell-level colour roles. The encoder preserves the nearest
+mask and minimizes reconstruction error, but cannot retain every source colour
+inside the same cell. Against terminal black, empty samples need no background
+colour, so more of a small silhouette survives crisply. This is a two-colour
+per-cell and 4x4 sampling limit, not missing depth compositing; foreground trees
+and cabins still occlude the distant flights correctly.
 
 ## Rain, hail and lightning
 

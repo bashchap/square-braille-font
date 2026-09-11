@@ -334,12 +334,24 @@ class CometParticle:
 
 
 @dataclass
+class PresentDrop:
+    x: float
+    y: float
+    target_x: float
+    target_y: float
+    speed: float
+    colour_index: int
+    event_index: int
+
+
+@dataclass
 class SnowPlough:
     active: bool
     x: float
     direction: int
     timer: float
     y: float = 0.0
+    path_y: float = 0.0
 
 
 class SeasonalPhysics:
@@ -749,6 +761,24 @@ def cabin_layout(args, width, height, snow_line):
         cabin_type = args.cabin_types[index % len(args.cabin_types)]
         placements.append((centre, base, local_height, index, cabin_type))
     return placements
+
+
+def cabin_chimney_targets(args, width, height, snow_line):
+    """Return chimney openings using the exact geometry used by draw_cabin."""
+    targets = []
+    for cabin_index, (centre, base, cabin_height, variant, cabin_type) in enumerate(
+            cabin_layout(args, width, height, snow_line)):
+        if cabin_type == "a-frame":
+            continue
+        aspect = {"cottage": 1.72, "lodge": 2.18}[cabin_type]
+        cabin_width = max(16, int(round(cabin_height * aspect)))
+        left = int(round(centre - cabin_width / 2))
+        top = base - cabin_height
+        chimney_width = max(2, cabin_width // 10)
+        targets.append((cabin_index,
+                        left + cabin_width * 0.72 + chimney_width * 0.5,
+                        top - cabin_height * 0.54))
+    return targets
 
 
 def draw_cabin(surface, centre_x, base, cabin_height, variant=0, cabin_type="cottage"):
@@ -1195,8 +1225,8 @@ def draw_lightning(surface, engine):
 
 
 def draw_sky_event(surface, engine, elapsed):
-    trail_colours = ((255, 244, 184), (255, 196, 60),
-                     (123, 210, 240), (68, 105, 138))
+    trail_colours = ((255, 48, 72), (54, 145, 255), (255, 231, 64),
+                     (255, 132, 38), (55, 222, 105))
     for particle in engine.santa_trail:
         fraction = max(0.0, min(1.0, particle.ttl / particle.maximum_ttl))
         base = trail_colours[particle.colour_index % len(trail_colours)]
@@ -1268,7 +1298,6 @@ def draw_sky_event(surface, engine, elapsed):
         glass = (122, 222, 245)
         alien = (22, 164, 70)
         glow = (83, 255, 211)
-        pulse = 0.5 + 0.5 * math.sin(elapsed * 7.0 + event_index)
         filled_ellipse(surface, x, y + 2 * unit, 25 * unit, 7 * unit,
                        dark, 64)
         filled_ellipse(surface, x, y, 22 * unit, 6 * unit, metal, 66)
@@ -1290,20 +1319,52 @@ def draw_sky_event(surface, engine, elapsed):
         # The tractor beam is an event, not permanent UFO decoration. It is
         # visible only while a rabbit is actively rising into a hovering craft.
         if engine.ufo_beam_active and engine.abduction_event_index == event_index:
-            beam_colour = (42, int(120 + 80 * pulse), int(128 + 90 * pulse))
             target_y = engine.ufo_beam_target_y
-            beam_depth = max(2.0, target_y - (y + 7 * unit))
-            for beam in (-7, -3, 3, 7):
-                surface.line(x + beam * unit, y + 7 * unit,
-                             x + beam * (1.0 + beam_depth / max(8.0, 30 * unit)),
-                             target_y, beam_colour, 52)
-            scan_y = y + 11 * unit
+            top_y = y + 7 * unit
+            beam_depth = max(2.0, target_y - top_y)
+            beam_palette = ((44, 236, 255), (51, 121, 255),
+                            (184, 75, 255), (255, 205, 54),
+                            (224, 255, 249))
+            # An original transporter effect: tapered boundary rails surround
+            # counter-rotating coloured energy ribbons and descending scan
+            # rings. It deliberately avoids a static cone of one flat colour.
+            for side in (-1, 1):
+                surface.line(x + side * 6 * unit, top_y,
+                             x + side * 12 * unit, target_y,
+                             beam_palette[1], 51)
+            segments = max(10, int(beam_depth / max(1.0, 2.2 * unit)))
+            for ribbon in range(4):
+                previous = None
+                phase = elapsed * (5.2 + ribbon * 0.45) + ribbon * math.tau / 4
+                for segment in range(segments + 1):
+                    fraction = segment / segments
+                    ribbon_y = top_y + beam_depth * fraction
+                    span = (3.0 + 7.0 * fraction) * unit
+                    ribbon_x = x + math.sin(phase + fraction * math.tau * 2.4) * span
+                    if previous is not None:
+                        surface.line(*previous, ribbon_x, ribbon_y,
+                                     beam_palette[ribbon], 53 + ribbon % 2)
+                    previous = (ribbon_x, ribbon_y)
+            ring_spacing = max(2.0, 4.0 * unit)
+            ring_offset = (elapsed * 18.0 * unit) % ring_spacing
+            scan_y = top_y + ring_offset
+            ring_index = 0
             while scan_y < target_y:
-                fraction = (scan_y - y) / max(1.0, target_y - y)
-                span = (7 + 8 * fraction) * unit
+                fraction = (scan_y - top_y) / beam_depth
+                span = (5.0 + 7.0 * fraction) * unit
+                colour = beam_palette[(ring_index + int(elapsed * 5)) % len(beam_palette)]
                 surface.line(x - span, scan_y, x + span, scan_y,
-                             (37, 105, 103), 51)
-                scan_y += 4 * unit
+                             colour, 55)
+                scan_y += ring_spacing
+                ring_index += 1
+            spark_rng = random.Random(event_index * 1009 + int(elapsed * 12))
+            for _ in range(10):
+                fraction = spark_rng.random()
+                spark_y = top_y + beam_depth * fraction
+                span = (4.0 + 8.0 * fraction) * unit
+                spark_x = x + spark_rng.uniform(-span, span)
+                surface.pixel(spark_x, spark_y,
+                              beam_palette[spark_rng.randrange(len(beam_palette))], 56)
     else:  # Santa's sleigh and reindeer team.
         unit = santa_flyby_unit(engine)
         red, deep_red = (218, 42, 53), (139, 25, 42)
@@ -1470,6 +1531,28 @@ def draw_sky_event(surface, engine, elapsed):
                      (205, 170, 92), 64)
 
 
+def draw_present_drops(surface, engine):
+    """Paint Santa's tumbling parcels while scenery remains able to occlude them."""
+    colours = ((239, 54, 67), (48, 132, 226), (49, 173, 92),
+               (255, 151, 38), (145, 77, 190))
+    for index, present in enumerate(engine.present_drops):
+        size = max(1.0, santa_flyby_unit(engine) * 2.2)
+        colour = colours[present.colour_index % len(colours)]
+        phase = int(engine.elapsed * 9 + index) % 2
+        if phase:
+            surface.rectangle(present.x - size, present.y - size * 0.7,
+                              present.x + size, present.y + size * 0.7,
+                              colour, 60)
+        else:
+            surface.rectangle(present.x - size * 0.7, present.y - size,
+                              present.x + size * 0.7, present.y + size,
+                              colour, 60)
+        surface.line(present.x, present.y - size,
+                     present.x, present.y + size, (255, 225, 82), 61)
+        surface.line(present.x - size, present.y,
+                     present.x + size, present.y, (255, 225, 82), 61)
+
+
 def draw_plough(surface, engine):
     plough = engine.plough
     if not plough.active:
@@ -1587,6 +1670,11 @@ class SnowEngine:
         self.tumbleweed_collapses = 0
         self.santa_trail = []
         self.santa_trail_credit = 0.0
+        self.present_drops = []
+        self.present_drop_keys = set()
+        self.present_delivery_count = 0
+        self.last_santa_event_index = -1
+        self.last_santa_sleigh_x = None
         self.lightning_timer = args.lightning_interval * self.rng.uniform(0.25, 0.85)
         self.lightning_remaining = 0.0
         self.lightning_seed = self.rng.randrange(0, 2 ** 31)
@@ -1611,6 +1699,7 @@ class SnowEngine:
         self.plough = SnowPlough(
             active=False, x=-20.0, direction=1,
             timer=args.plough_interval * self.rng.uniform(0.35, 0.75),
+            path_y=self.scenery_ground_y - 1,
         )
         self.plough_count = 0
         self.telemetry_wall = time.monotonic()
@@ -1658,8 +1747,14 @@ class SnowEngine:
         for particle in self.santa_trail:
             particle.x *= scale_x
             particle.y *= scale_y
+        for present in self.present_drops:
+            present.x *= scale_x
+            present.y *= scale_y
+            present.target_x *= scale_x
+            present.target_y *= scale_y
         self.plough.x *= scale_x
         self.plough.y *= scale_y
+        self.plough.path_y *= scale_y
         self.width = width
         self.height = height
         self.depths = depths
@@ -2018,6 +2113,8 @@ class SnowEngine:
         self.sync_tumbleweeds()
         if not self.args.snow_plough:
             self.plough.active = False
+        if not self.args.santa_presents or "cabin" not in self.args.scenery_set:
+            self.present_drops = []
 
     def sync_tumbleweeds(self, initial=False):
         ambient = effective_ambient(self.args, self.width)
@@ -2136,8 +2233,55 @@ class SnowEngine:
                     13, 19 * trail_length) * unit,
                 y=y + self.rng.uniform(-2.0, 3.0) * unit,
                 ttl=ttl, maximum_ttl=ttl,
-                colour_index=(event_index + index + len(self.santa_trail)) % 4))
+                colour_index=(event_index + index + len(self.santa_trail)) % 5))
         self.santa_trail = self.santa_trail[-int(240 * max(1.0, trail_length)):]
+
+    def step_santa_presents(self, dt, elapsed):
+        """Drop parcels vertically into chimney openings as Santa crosses them."""
+        survivors = []
+        for present in self.present_drops:
+            present.speed += SeasonalPhysics.GRAVITY * 0.45 * dt
+            present.y += present.speed * dt
+            if present.y >= present.target_y:
+                self.present_delivery_count += 1
+            else:
+                survivors.append(present)
+        self.present_drops = survivors
+
+        state = current_sky_event_state(self.args, self, elapsed)
+        enabled = (self.args.santa_presents and state is not None and
+                   state["kind"] == "santa" and "cabin" in self.args.scenery_set)
+        if not enabled:
+            self.last_santa_event_index = -1
+            self.last_santa_sleigh_x = None
+            return
+        unit = santa_flyby_unit(self)
+        sleigh_x = state["x"] - state["direction"] * 29 * unit
+        event_index = state["event_index"]
+        if self.last_santa_event_index != event_index:
+            self.last_santa_event_index = event_index
+            self.last_santa_sleigh_x = sleigh_x
+            return
+        previous_x = self.last_santa_sleigh_x
+        self.last_santa_sleigh_x = sleigh_x
+        if previous_x is None:
+            return
+        left, right = sorted((previous_x, sleigh_x))
+        targets = cabin_chimney_targets(
+            self.args, self.width, self.height,
+            max(0, min(self.height - 1, int(round(self.scenery_ground_y)))))
+        for cabin_index, chimney_x, chimney_y in targets:
+            key = (event_index, cabin_index)
+            if key in self.present_drop_keys or not left <= chimney_x <= right:
+                continue
+            self.present_drop_keys.add(key)
+            self.present_drops.append(PresentDrop(
+                x=chimney_x, y=state["y"] - 3 * unit,
+                target_x=chimney_x, target_y=chimney_y,
+                speed=self.args.present_fall_speed,
+                colour_index=(event_index + cabin_index) % 5,
+                event_index=event_index,
+            ))
 
     def sync_rabbits(self, initial=False):
         while len(self.rabbits) < self.args.rabbit_count:
@@ -2229,12 +2373,26 @@ class SnowEngine:
 
         event_index = state["event_index"]
         if self.abduction_event_index != event_index:
+            alignment = max(1.0, compact_flyby_unit(self, 65) * 2.0)
             visible = [(abs(rabbit.x - state["x"]), index)
                        for index, rabbit in enumerate(self.rabbits)
-                       if rabbit.state != "hidden"]
-            rabbit_index = min(visible)[1] if visible else 0
+                       if rabbit.state != "hidden" and
+                       abs(rabbit.x - state["x"]) <= alignment]
+            hidden = [index for index, rabbit in enumerate(self.rabbits)
+                      if rabbit.state == "hidden"]
+            if visible:
+                rabbit_index = min(visible)[1]
+            elif hidden:
+                rabbit_index = hidden[0]
+            else:
+                # A visible rabbit that is not under the stationary craft is
+                # never dragged sideways by a diagonal beam.
+                self.abduction_event_index = event_index
+                self.abducted_rabbit_index = None
+                self.ufo_beam_active = False
+                return
             rabbit = self.rabbits[rabbit_index]
-            if rabbit.state == "hidden":
+            if rabbit.state == "hidden" or abs(rabbit.x - state["x"]) <= alignment:
                 rabbit.x = max(4.0, min(self.width - 4.0, state["x"]))
                 rabbit.direction = self.rng.choice((-1, 1))
             rabbit.abduction_origin_x = rabbit.x
@@ -2255,8 +2413,7 @@ class SnowEngine:
         progress = raw_progress * raw_progress * (3.0 - 2.0 * raw_progress)
         unit = compact_flyby_unit(self, 65)
         target_y = state["y"] + 7 * unit
-        rabbit.abduction_x = (rabbit.abduction_origin_x * (1.0 - progress) +
-                              state["x"] * progress)
+        rabbit.abduction_x = state["x"]
         rabbit.abduction_y = (rabbit.abduction_origin_y * (1.0 - progress) +
                               target_y * progress)
         normal_scale = max(1.0, min(2.0, self.height // 80))
@@ -2284,10 +2441,14 @@ class SnowEngine:
             plough.active = True
             plough.direction = self.rng.choice((-1, 1))
             plough.x = -24.0 if plough.direction > 0 else self.width + 24.0
+            plough.path_y = self.scenery_ground_y - 1
+            plough.y = plough.path_y
 
         old_x = plough.x
         plough.x += plough.direction * self.args.plough_speed * dt
-        plough.y = self.surface_y(plough.x) - 1
+        # The vehicle follows the road datum, not the changing top of the bank
+        # it is clearing. Snow depth therefore cannot make it climb or bob.
+        plough.y = plough.path_y
         start, end = sorted((int(old_x), int(plough.x + plough.direction * 8)))
         target = self.height * self.args.plough_clear_to
         for x in range(max(0, start), min(self.width, end + 1)):
@@ -2375,6 +2536,7 @@ class SnowEngine:
         self.step_plough(dt)
         self.step_tumbleweeds(dt, elapsed)
         self.step_santa_trail(dt, elapsed)
+        self.step_santa_presents(dt, elapsed)
         self.step_lightning(dt)
         self.step_rabbits(dt, elapsed)
         self.step_ufo_abduction(elapsed)
@@ -2424,7 +2586,8 @@ LIVE_OPTION_DESTS = frozenset({
     "rabbit_count", "rabbit_interval", "rabbit_speed", "sky_events",
     "flyby_interval", "flyby_speed", "snow_plough", "plough_interval",
     "santa_scale", "santa_arc_height", "santa_trail_seconds",
-    "santa_trail_length", "ufo_abduction", "ufo_hover_seconds",
+    "santa_trail_length", "santa_presents", "present_fall_speed",
+    "ufo_abduction", "ufo_hover_seconds",
     "plough_speed", "plough_clear_to",
     "scenery_set", "ambient_set",
 })
@@ -2564,6 +2727,7 @@ def render_surface(background, engine):
     draw_sky_gradient(surface, engine.args)
     draw_lightning(surface, engine)
     draw_sky_event(surface, engine, getattr(engine, "elapsed", 0.0))
+    draw_present_drops(surface, engine)
     for rabbit in engine.rabbits:
         if rabbit.state == "abducting":
             draw_rabbit(surface, engine, rabbit)
@@ -2863,7 +3027,7 @@ def detailed_dashboard_lines(args, engine, codec, stats, columns):
             f" → FLYBY SPEED {args.flyby_speed:.1f} VPX/s | QUIET INTERVAL {args.flyby_interval:.1f}s",
             (f" ☄ SANTA SCALE {args.santa_scale:.2f} | ARC {args.santa_arc_height:.0%} HEIGHT | "
              f"TRAIL ×{args.santa_trail_length:.1f}, {args.santa_trail_seconds:.1f}s / "
-             f"{len(engine.santa_trail)} SPARKS"),
+             f"{len(engine.santa_trail)} SPARKS | GIFTS {engine.present_delivery_count} DELIVERED"),
             (f" ⌁ UFO ABDUCTION {'ON' if args.ufo_abduction else 'OFF'} | "
              f"BEAM {'ACTIVE' if engine.ufo_beam_active else 'HIDDEN'} | "
              f"CAPTURES {engine.ufo_abduction_count} | HOVER {args.ufo_hover_seconds:.1f}s"),
@@ -3401,6 +3565,11 @@ def build_parser():
                         help="seconds before each Santa comet-trail spark fades")
     events.add_argument("--santa-trail-length", type=float, default=3.0,
                         help="spatial trail multiplier; 3 is three times the original length")
+    events.add_argument("--santa-presents", action=argparse.BooleanOptionalAction,
+                        default=True,
+                        help="drop a parcel vertically into each chimney Santa crosses")
+    events.add_argument("--present-fall-speed", type=float, default=12.0,
+                        help="initial parcel fall speed in virtual pixels per second")
     events.add_argument("--ufo-abduction", action=argparse.BooleanOptionalAction,
                         default=False,
                         help="allow a hovering UFO to raise and shrink one rabbit through a temporary beam")
@@ -3670,6 +3839,7 @@ def parse_args(argv=None):
                 ("rain-speed", args.rain_speed),
                 ("lightning-interval", args.lightning_interval),
                 ("ufo-hover-seconds", args.ufo_hover_seconds),
+                ("present-fall-speed", args.present_fall_speed),
                 ("plough-interval", args.plough_interval),
                 ("plough-speed", args.plough_speed))
     if any(value <= 0 for _, value in positive):

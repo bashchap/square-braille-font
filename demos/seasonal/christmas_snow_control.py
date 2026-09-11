@@ -80,6 +80,7 @@ RANGES = {
     "santa_scale": (0.2, 2.0, 0.05), "santa_arc_height": (0.0, 0.5, 0.01),
     "santa_trail_seconds": (0.0, 15.0, 0.25),
     "santa_trail_length": (0.25, 8.0, 0.25),
+    "present_fall_speed": (1.0, 80.0, 1.0),
     "ufo_hover_seconds": (1.0, 20.0, 0.5),
     "plough_speed": (1.0, 100.0, 2.0), "plough_clear_to": (0.0, 0.50, 0.005),
 }
@@ -160,6 +161,7 @@ OPTION_ICONS = {
     "sky_events": "✈", "flyby_interval": "◴", "flyby_speed": "→",
     "santa_scale": "↕", "santa_arc_height": "⌒",
     "santa_trail_seconds": "◴", "santa_trail_length": "☄",
+    "santa_presents": "◆", "present_fall_speed": "⇣",
     "ufo_abduction": "⌁", "ufo_hover_seconds": "◴",
     "snow_plough": "▰", "plough_interval": "◴", "plough_speed": "→",
     "plough_clear_to": "▁",
@@ -251,9 +253,11 @@ IMPACT_GUIDANCE = {
     "santa_arc_height": "Sets the mid-flight rise as a scene-height fraction; zero restores a straight crossing.",
     "santa_trail_seconds": "Controls how long emitted sparks remain and fade; long trails increase active particle work.",
     "santa_trail_length": "Spatial multiplier behind the sleigh; 3 is three times the original length and also emits enough sparks to avoid gaps.",
+    "santa_presents": "ON drops one parcel straight into every non-A-frame cabin chimney crossed by Santa during a flyby.",
+    "present_fall_speed": "Initial parcel descent speed in virtual pixels per second; gravity then accelerates it toward the chimney.",
     "ufo_abduction": "ON lets each UFO pause over the terrain, reveal its beam only while a rabbit rises, and hide the rabbit after it enters the craft.",
     "ufo_hover_seconds": "Longer values slow the rabbit's rise and keep the UFO stationary for easier inspection.",
-    "snow_plough": "ON schedules complete terrain-following clearing passes; rabbits react when it approaches.",
+    "snow_plough": "ON schedules complete horizontal road-datum clearing passes; rabbits react when it approaches.",
     "plough_interval": "Lower values schedule bank-clearing passes more often.",
     "plough_speed": "Higher values clear the scene faster and leave less time to inspect the vehicle.",
     "plough_clear_to": "Lower fractions leave a thinner snow bank after a completed full-width pass.",
@@ -326,6 +330,7 @@ CONTROL_TAB_SPECS = (
     ("FLIGHTS", "✈", frozenset({
         "sky_events", "flyby_interval", "flyby_speed", "santa_scale",
         "santa_arc_height", "santa_trail_seconds", "santa_trail_length",
+        "santa_presents", "present_fall_speed",
         "ufo_abduction", "ufo_hover_seconds",
     })),
 )

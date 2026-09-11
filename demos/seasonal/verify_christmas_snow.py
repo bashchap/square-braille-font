@@ -11,6 +11,7 @@ from christmas_snow import (
     CONTROL_FORMAT,
     CODECS,
     SHAPES,
+    CometParticle,
     ControlListener,
     SnowEngine,
     Surface,
@@ -495,10 +496,20 @@ def main():
     abduction_engine.step_ufo_abduction(early)
     rabbit = abduction_engine.rabbits[0]
     early_y, early_scale = rabbit.abduction_y, rabbit.abduction_scale
+    check(abs(rabbit.abduction_x - early_event["x"]) < 1e-9,
+          "rabbit was not directly below the UFO when capture began")
     abduction_engine.step_ufo_abduction(late)
     check(rabbit.state == "abducting" and rabbit.abduction_y < early_y and
-          rabbit.abduction_scale < early_scale and abduction_engine.ufo_beam_active,
+          rabbit.abduction_scale < early_scale and abduction_engine.ufo_beam_active and
+          abs(rabbit.abduction_x - late_event["x"]) < 1e-9,
           "rabbit did not rise and shrink while the UFO beam was active")
+    beam_surface = Surface(abduction_engine.width, abduction_engine.height)
+    draw_sky_event(beam_surface, abduction_engine, late)
+    beam_palette = {(44, 236, 255), (51, 121, 255), (184, 75, 255),
+                    (255, 205, 54), (224, 255, 249)}
+    check(len(beam_palette & {pixel[0] for pixel in beam_surface.pixels
+                              if pixel is not None}) >= 3,
+          "UFO transporter did not render multiple animated energy colours")
     target_unit = max(0.65, max(1.0, min(3.0, abduction_engine.height // 65)) / 3.0)
     finish = hover_start + abduction_args.ufo_hover_seconds * 0.99
     abduction_engine.step_ufo_abduction(finish)
@@ -506,6 +517,64 @@ def main():
           abduction_engine.ufo_abduction_count == 1 and
           rabbit.abduction_scale <= target_unit * 0.55,
           "completed UFO capture did not hide the beam/rabbit at 10% saucer scale")
+
+    unaligned_engine = SnowEngine(abduction_args, 200, 100)
+    unaligned = unaligned_engine.rabbits[0]
+    unaligned.state = "hopping"
+    unaligned.x = 4.0
+    unaligned_engine.step_ufo_abduction(early)
+    check(unaligned.state == "hopping" and
+          unaligned_engine.abducted_rabbit_index is None and
+          not unaligned_engine.ufo_beam_active,
+          "UFO abducted a visible rabbit that was not directly below it")
+
+    trail_surface = Surface(80, 24)
+    trail_engine = SnowEngine(large_event_args, 80, 24)
+    festive = ((255, 48, 72), (54, 145, 255), (255, 231, 64),
+               (255, 132, 38), (55, 222, 105))
+    trail_engine.santa_trail = [
+        CometParticle(8 + index * 12, 12, 1.0, 1.0, index)
+        for index in range(5)
+    ]
+    draw_sky_event(trail_surface, trail_engine, 0.0)
+    check(set(festive).issubset({pixel[0] for pixel in trail_surface.pixels
+                                 if pixel is not None}),
+          "Santa trail did not expose the complete festive five-colour palette")
+
+    plough_args = parse_args([
+        "--mode", "pua4", "--plough-interval", "1", "--plough-speed", "20",
+        "--snow-rate", "0", "--max-flakes", "0", "--preload-seconds", "0",
+    ])
+    plough_engine = SnowEngine(plough_args, 160, 80)
+    plough_engine.depths = [2.0 + (x % 13) * 2.5 for x in range(160)]
+    plough_engine.plough.active = True
+    plough_engine.plough.x = 40.0
+    plough_engine.plough.direction = 1
+    plough_engine.plough.path_y = plough_engine.scenery_ground_y - 1
+    plough_engine.plough.y = plough_engine.plough.path_y
+    path_y = plough_engine.plough.path_y
+    plough_engine.step_plough(0.25)
+    plough_engine.step_plough(0.25)
+    check(plough_engine.plough.y == path_y,
+          "snow plough followed the changing bank instead of a horizontal road datum")
+
+    present_args = parse_args([
+        "--mode", "pua4", "--sky-events", "santa", "--flyby-interval", "1",
+        "--flyby-speed", "100", "--cabin", "--cabin-count", "2",
+        "--cabin-types", "cottage,lodge", "--present-fall-speed", "2",
+        "--snow-rate", "0", "--max-flakes", "0", "--preload-seconds", "0",
+    ])
+    present_engine = SnowEngine(present_args, 300, 120)
+    present_travel = ((present_engine.width + sky_event_margin(present_engine) * 2) /
+                      present_args.flyby_speed)
+    elapsed = 0.35
+    while elapsed < 0.35 + present_travel:
+        present_engine.step_santa_presents(0.02, elapsed)
+        elapsed += 0.02
+    check(present_engine.present_drop_keys and
+          all(abs(present.x - present.target_x) < 1e-9
+              for present in present_engine.present_drops),
+          "Santa did not release vertically aligned parcels over cabin chimneys")
 
     santa_elapsed = 0.35 + 2 * (large_travel + 1) + large_travel * 0.5
     santa_a = Surface(672, 216)
