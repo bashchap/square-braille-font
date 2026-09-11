@@ -180,6 +180,9 @@ order and then repeated. `--cabin-size-variation` adds deterministic size
 variation around `--cabin-scale`; the seed makes the same scene reproducible.
 Every design retains its own fixed proportions, so neither a live terminal
 resize nor a deeper snow bank stretches the building.
+The A-frame uses a filled outer roof shell and inset wall triangle rather than
+a fragile one-pixel outline, keeping both diagonals and the eaves continuous
+after the image is reduced into 4×4 PUA cells.
 
 `--ambient auto` adds animated leaves and, once the viewport is at least 720
 virtual pixels wide, tumbleweed. Use `--ambient all` to force both at any size,
@@ -202,11 +205,29 @@ The foreground is not limited to falling snow:
 - `--rabbit-count`, `--rabbit-interval`, and `--rabbit-speed` control rabbits
   that follow the current snow surface. They hop, pause to eat, and continue in
   either direction. A nearby tumbleweed or plough startles a rabbit, which
-  turns away and accelerates.
-- `--sky-events auto` rotates aeroplane, UFO, and Santa-with-reindeer flybys.
+  turns away and accelerates. Each rabbit keeps a deterministic depth lane:
+  distant rabbits are smaller, travel more slowly through parallax, sit closer
+  to the horizon, and can pass behind cabins and trees; near rabbits pass in
+  front.
+- `--postman` schedules a postman who walks in from either edge, selects an
+  actual cabin door, pauses to hand over mail, and continues off screen.
+  `--postman-interval`, `--postman-speed`, and `--postman-stop-seconds` tune the
+  visit. Eight cached jointed gait phases use opposing arms and legs; the
+  figure is constrained below door height but above rabbit height. The motion
+  was informed by [Eadweard Muybridge's 1887 public-domain walking sequence](https://commons.wikimedia.org/wiki/File:Muybridge_human_male_walking_animated.gif)
+  and the [Library of Congress record for *Animal locomotion*](https://www.loc.gov/item/92502807/);
+  the demo does not copy or bundle their photographic pixels.
+- `--sky-events auto` rotates commuter/airliner aeroplanes, a helicopter, a
+  lost kite with a moving tail, UFO, and Santa-with-reindeer flybys.
   Use `none`, one name, or a comma list with `--flyby-interval` and
   `--flyby-speed` for a particular demonstration. All flights occupy a distant
   compositing layer and are occluded by trees, cabins, animals and snow.
+  `--aeroplane-types` selects a compact rounded commuter aircraft or long
+  red-striped airliner; both are half the preceding release's scale.
+  `--pilot-ejection` permits a deterministic occasional ejection: the pilot
+  starts in freefall, opens a canopy, then drifts down at
+  `--parachute-fall-speed` in the furthest flight layer. Set
+  `--ejection-chance 0` to disable it or `1` to demonstrate every pass.
   `--santa-scale 0.50` is the half-size default. `--santa-arc-height` controls
   his mid-flight rise, `--santa-trail-length` controls its spatial extent, and
   `--santa-trail-seconds` controls the fading red, blue, yellow, orange and
@@ -216,10 +237,14 @@ The foreground is not limited to falling snow:
   or lodge chimney he crosses. Disable deliveries with `--no-santa-presents`
   or adjust their initial descent with `--present-fall-speed`.
 - `--ufo-abduction` makes a UFO pause and activate a moving cyan, blue, violet,
-  gold and white transporter column. A visible rabbit is captured only when
-  already aligned beneath the craft; a hidden rabbit may enter beneath it for
-  the event. The rabbit then rises vertically and shrinks to 10% of the UFO's
-  width. It is never pulled sideways by a diagonal beam.
+  gold and white transporter column. The UFO selects one already-visible
+  rabbit, swoops from a distant point toward that rabbit, and freezes directly
+  above it before the beam appears. If no rabbit is visible, the flyby proceeds
+  without a beam or capture; no hidden stand-in is created. The selected rabbit
+  then rises vertically in front of the sparse beam and shrinks to 10% of the
+  UFO's width. `--ufo-types` rotates saucer, orb and delta vehicles, while
+  `--ufo-trail-length` and `--ufo-trail-seconds` tune their plasma wakes. After
+  capture the craft accelerates away while shrinking back toward a point.
 - The snow plough is enabled by default. `--plough-interval` controls how often
   it enters, `--plough-speed` controls traversal speed, and
   `--plough-clear-to` is the shallow bank left by a completed pass. Its wheels
@@ -515,9 +540,11 @@ the animation. The terminal input mode is temporary and restored on exit.
   populations, hail bounce settings, lightning timing and completed strikes.
 - `TREES` shows species, density, branch formula controls, the segment budget,
   sway and object-snow state.
-- `ANIMALS` shows rabbit states/reactions and foreground-reindeer state.
-- `FLIGHTS` identifies the current distant event, schedule, speed, occlusion
-  rule, Santa scale/arc/trail state, and UFO abduction/beam state.
+- `ANIMALS` shows rabbit states, persistent depth lanes, reactions, postman
+  state/deliveries, and terrain-blocked tumbleweed counts.
+- `FLIGHTS` identifies the current distant event and aircraft type, schedule,
+  ejected-pilot count, Santa scale/arc/trail state, and UFO vehicle,
+  abduction/beam and plasma-trail state.
 - `PROCESS` shows CPU sampled over quarter-second windows, raster-and-encode
   time against the frame budget implied by `--fps`, peak resident memory
   (`PEAK RSS`), and the main configured cost sources. Peak RSS is a high-water
@@ -535,9 +562,12 @@ trimmed bespoke font would have required up to that point. `STATIC AVAILABLE`
 is the complete 256-glyph Square or 65,536-glyph PUA4 repertoire on disk.
 
 The event artwork is virtual-pixel geometry rather than embedded images. The
-aeroplane includes a tapered shaded fuselage, swept wings, tail, engine,
-windows, cockpit, and contrails. The UFO has a layered saucer, glass dome,
-occupant and alternating lamps. Its tractor beam is normally absent. With
+commuter aeroplane follows the supplied compact reference's rounded cream
+fuselage, red tail, shaded belly, swept wings, windows and underslung engine;
+the long airliner and olive helicopter have separate silhouettes. The kite is
+a wind-wandering diamond with spars, a segmented line and coloured tail bows.
+The UFO can be a layered saucer, orb or delta craft. Its tractor beam is
+normally absent. With
 `--ufo-abduction`, the UFO stops at mid-flight, the beam appears only while a
 rabbit rises, and the rabbit steadily shrinks until its width is 10% of the
 saucer. `--ufo-hover-seconds` controls the duration. Both flybys, plus the static
@@ -566,6 +596,9 @@ Caching already happens at two useful levels:
   when dimensions or scenery-affecting controls change;
 - expensive procedural tree geometry is held in a bounded in-memory cache,
   then cheap wind-dependent sway is applied while it is composited.
+- the postman's eight direction/pose-specific procedural gait frames are held
+  in a separate bounded cache. The process dashboard reports hit/miss totals
+  for both tree geometry and postman frames.
 
 Further caching is viable, but whole pre-encoded frames would be a poor fit:
 movement, arbitrary terminal sizes, cell alignment, foreground/background
@@ -812,8 +845,10 @@ resize preservation, animated tree movement, frame dimensions, and the absence
 of reverse-video output. It also forces an aged local tower and neighbour
 cascade, applies a live JSON revision, and round-trips the TUI's effective
 options back through the production parser. Additional checks cover varied
-cabin types, tumbleweed-aware rabbits, all three sky events, complete plough
-clearing, detailed reindeer and flyby pixel complexity, dashboard dimensions
+cabin types, tumbleweed-aware rabbits, all five sky events, complete plough
+clearing, rabbit perspective/occlusion, existing-rabbit-only UFO capture,
+helicopter/kite rotation, pilot parachute deployment, cached postman delivery,
+detailed reindeer and flyby pixel complexity, dashboard dimensions
 and CPU/memory labels, per-option TUI icons and guidance, snapshot-window hold
 behaviour, and an executable saved command containing literal shell
 continuation backslashes. It also cross-checks draw-time exposed-surface indexing

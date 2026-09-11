@@ -16,6 +16,7 @@ from christmas_snow import (
     SnowEngine,
     Surface,
     build_parser,
+    cached_postman_pixels,
     cabin_layout,
     complete_frame,
     current_sky_event,
@@ -23,6 +24,8 @@ from christmas_snow import (
     dashboard_rows,
     draw_ambient,
     draw_conifer,
+    draw_cabin,
+    draw_postman,
     draw_rabbit,
     draw_reindeer,
     draw_sky_event,
@@ -299,6 +302,20 @@ def main():
     check(len({item[4] for item in three_types}) == 3 and
           len({item[2] for item in three_types}) > 1,
           "cabins did not vary both archetype and size")
+    aframe_surface = Surface(120, 100)
+    draw_cabin(aframe_surface, 60, 92, 44, cabin_type="a-frame")
+    roof_colour = (102, 35, 40)
+    painted_rows = []
+    for y in range(25, 92):
+        xs = [x for x in range(120)
+              if aframe_surface.pixels[y * 120 + x] is not None]
+        if xs:
+            painted_rows.append((y, min(xs), max(xs)))
+    check(len(painted_rows) >= 55 and
+          all(right - left >= 1 for _, left, right in painted_rows[1:]) and
+          any(pixel is not None and pixel[0] == roof_colour
+              for pixel in aframe_surface.pixels),
+          "A-frame cabin did not retain continuous clean filled edges")
 
     reindeer_surface = Surface(320, 130)
     draw_reindeer(reindeer_surface, 320, 130, 112)
@@ -435,6 +452,66 @@ def main():
     check(any(pixel is not None and pixel[1] >= 86 for pixel in rabbit_surface.pixels),
           "active rabbit produced no visible terrain-following geometry")
 
+    depth_args = parse_args([
+        "--mode", "pua4", "--rabbit-count", "2", "--rabbit-speed", "20",
+        "--snow-rate", "0", "--max-flakes", "0", "--preload-seconds", "0",
+        "--scenery", "none", "--no-snow-plough", "--no-postman",
+    ])
+    depth_engine = SnowEngine(depth_args, 200, 100)
+    near, far = depth_engine.rabbits
+    check(near.depth > 0.68 > far.depth,
+          "rabbit creation did not provide persistent near and far lanes")
+    for rabbit in (near, far):
+        rabbit.x, rabbit.state, rabbit.phase = 80.0, "hopping", 0.0
+    depth_engine.step_rabbits(0.25, 0.0)
+    check(near.x - 80.0 > far.x - 80.0,
+          "far rabbit did not move more slowly under perspective parallax")
+    near.x = far.x = 80.0
+    near_surface = Surface(200, 100)
+    far_surface = Surface(200, 100)
+    draw_rabbit(near_surface, depth_engine, near)
+    draw_rabbit(far_surface, depth_engine, far)
+    check(painted_bounds(near_surface)[1] > painted_bounds(far_surface)[1],
+          "far rabbit was not smaller than a near rabbit")
+    cover = Surface(200, 100)
+    cover.rectangle(72, 65, 90, 100, (9, 81, 44), 20)
+    far.x, far.state = 80.0, "eating"
+    near.state = "hidden"
+    layered_far = render_surface(cover, depth_engine)
+    far_centre = layered_far.pixels[85 * 200 + 80]
+    check(far_centre is not None and far_centre[0] == (9, 81, 44),
+          "far rabbit was not occluded by foreground scenery")
+    far.state, near.state, near.x = "hidden", "eating", 80.0
+    layered_near = render_surface(cover, depth_engine)
+    check(any(pixel is not None and pixel[0] == (174, 155, 135)
+              for pixel in layered_near.pixels),
+          "near rabbit was not rendered in front of scenery")
+
+    postman_args = parse_args([
+        "--mode", "pua4", "--scenery", "cabin", "--cabin-count", "1",
+        "--postman", "--postman-interval", "1", "--postman-speed", "80",
+        "--postman-stop-seconds", "0.5", "--rabbit-count", "0",
+        "--snow-rate", "0", "--max-flakes", "0", "--preload-seconds", "0",
+    ])
+    postman_engine = SnowEngine(postman_args, 240, 100)
+    postman_engine.postman.timer = 0
+    postman_engine.step_postman(0.01)
+    check(postman_engine.postman.state == "walking_to" and
+          postman_engine.postman.figure_height <= 20,
+          "postman did not enter at cabin-door scale")
+    for _ in range(700):
+        postman_engine.step_postman(0.02)
+        if postman_engine.postman_delivery_count:
+            break
+    check(postman_engine.postman_delivery_count == 1,
+          "postman did not walk to a cabin and complete a delivery")
+    cache_before = cached_postman_pixels.cache_info().hits
+    postman_engine.postman.state = "walking_on"
+    draw_postman(Surface(240, 100), postman_engine)
+    draw_postman(Surface(240, 100), postman_engine)
+    check(cached_postman_pixels.cache_info().hits > cache_before,
+          "postman gait frames were not served by the graphical cache")
+
     event_args = parse_args([
         "--mode", "pua4", "--sky-events", "aeroplane,ufo,santa",
         "--flyby-interval", "1", "--flyby-speed", "100",
@@ -458,6 +535,48 @@ def main():
     check(all(pixel_count >= 80 and colours >= 4
               for pixel_count, colours in event_complexities),
           "one or more sky flybys lacks rich multi-colour geometry")
+
+    variety_args = parse_args([
+        "--mode", "pua4",
+        "--sky-events", "aeroplane,helicopter,kite,ufo,santa",
+        "--aeroplane-types", "commuter,airliner",
+        "--flyby-interval", "1", "--flyby-speed", "100",
+        "--snow-rate", "0", "--max-flakes", "0", "--preload-seconds", "0",
+    ])
+    variety_engine = SnowEngine(variety_args, 240, 120)
+    variety_travel = ((variety_engine.width + sky_event_margin(variety_engine) * 2) /
+                      variety_args.flyby_speed)
+    variety_kinds = []
+    for index in range(5):
+        elapsed = 0.35 + index * (variety_travel + 1) + variety_travel * 0.5
+        state = current_sky_event_state(variety_args, variety_engine, elapsed)
+        variety_kinds.append(state["kind"])
+        event_surface = Surface(variety_engine.width, variety_engine.height)
+        draw_sky_event(event_surface, variety_engine, elapsed)
+        check(len([pixel for pixel in event_surface.pixels if pixel is not None]) >= 35,
+              f"{state['kind']} produced insufficient visible geometry")
+    check(variety_kinds == ["aeroplane", "helicopter", "kite", "ufo", "santa"],
+          "extended sky rotation omitted an aircraft or lost kite")
+
+    ejection_args = parse_args([
+        "--mode", "pua4", "--sky-events", "aeroplane",
+        "--pilot-ejection", "--ejection-chance", "1",
+        "--flyby-interval", "1", "--flyby-speed", "100",
+        "--snow-rate", "0", "--max-flakes", "0", "--preload-seconds", "0",
+    ])
+    ejection_engine = SnowEngine(ejection_args, 240, 120)
+    ejection_travel = ((ejection_engine.width + sky_event_margin(ejection_engine) * 2) /
+                       ejection_args.flyby_speed)
+    ejection_elapsed = 0.35 + ejection_travel * 0.55
+    ejection_engine.step_parachutists(0.05, ejection_elapsed)
+    check(len(ejection_engine.parachutists) == 1 and
+          not ejection_engine.parachutists[0].canopy_open,
+          "forced aeroplane ejection did not create a distant freefalling pilot")
+    for _ in range(20):
+        ejection_engine.step_parachutists(0.05, ejection_elapsed + 0.1)
+    check(ejection_engine.parachutists and
+          ejection_engine.parachutists[0].canopy_open,
+          "ejected pilot's parachute did not open")
 
     large_event_args = parse_args([
         "--mode", "pua4", "--sky-events", "aeroplane,ufo,santa",
@@ -483,6 +602,8 @@ def main():
         "--snow-rate", "0", "--max-flakes", "0", "--preload-seconds", "0",
     ])
     abduction_engine = SnowEngine(abduction_args, 200, 100)
+    rabbit = abduction_engine.rabbits[0]
+    rabbit.state, rabbit.x = "hopping", 82.0
     abduction_travel = ((abduction_engine.width + sky_event_margin(abduction_engine) * 2) /
                         abduction_args.flyby_speed)
     hover_start = 0.35 + abduction_travel * 0.5
@@ -494,7 +615,6 @@ def main():
           early_event["phase"] == late_event["phase"] == "abduction",
           "UFO did not remain stationary throughout the abduction phase")
     abduction_engine.step_ufo_abduction(early)
-    rabbit = abduction_engine.rabbits[0]
     early_y, early_scale = rabbit.abduction_y, rabbit.abduction_scale
     check(abs(rabbit.abduction_x - early_event["x"]) < 1e-9,
           "rabbit was not directly below the UFO when capture began")
@@ -507,9 +627,11 @@ def main():
     draw_sky_event(beam_surface, abduction_engine, late)
     beam_palette = {(44, 236, 255), (51, 121, 255), (184, 75, 255),
                     (255, 205, 54), (224, 255, 249)}
-    check(len(beam_palette & {pixel[0] for pixel in beam_surface.pixels
-                              if pixel is not None}) >= 3,
-          "UFO transporter did not render multiple animated energy colours")
+    beam_pixels = [pixel for pixel in beam_surface.pixels
+                   if pixel is not None and pixel[0] in beam_palette]
+    check(len(beam_palette & {pixel[0] for pixel in beam_pixels}) >= 2 and
+          len(beam_pixels) < 90,
+          "UFO transporter was not sparse, animated multi-colour energy")
     target_unit = max(0.65, max(1.0, min(3.0, abduction_engine.height // 65)) / 3.0)
     finish = hover_start + abduction_args.ufo_hover_seconds * 0.99
     abduction_engine.step_ufo_abduction(finish)
@@ -518,15 +640,13 @@ def main():
           rabbit.abduction_scale <= target_unit * 0.55,
           "completed UFO capture did not hide the beam/rabbit at 10% saucer scale")
 
-    unaligned_engine = SnowEngine(abduction_args, 200, 100)
-    unaligned = unaligned_engine.rabbits[0]
-    unaligned.state = "hopping"
-    unaligned.x = 4.0
-    unaligned_engine.step_ufo_abduction(early)
-    check(unaligned.state == "hopping" and
-          unaligned_engine.abducted_rabbit_index is None and
-          not unaligned_engine.ufo_beam_active,
-          "UFO abducted a visible rabbit that was not directly below it")
+    hidden_engine = SnowEngine(abduction_args, 200, 100)
+    hidden = hidden_engine.rabbits[0]
+    hidden_engine.step_ufo_abduction(early)
+    check(hidden.state == "hidden" and
+          hidden_engine.abducted_rabbit_index is None and
+          not hidden_engine.ufo_beam_active,
+          "UFO manufactured a hidden rabbit solely for an abduction")
 
     trail_surface = Surface(80, 24)
     trail_engine = SnowEngine(large_event_args, 80, 24)
@@ -550,13 +670,16 @@ def main():
     plough_engine.plough.active = True
     plough_engine.plough.x = 40.0
     plough_engine.plough.direction = 1
-    plough_engine.plough.path_y = plough_engine.scenery_ground_y - 1
+    plough_engine.plough.path_y = (
+        plough_engine.height * (1.0 - plough_args.plough_clear_to) - 1)
     plough_engine.plough.y = plough_engine.plough.path_y
     path_y = plough_engine.plough.path_y
     plough_engine.step_plough(0.25)
     plough_engine.step_plough(0.25)
     check(plough_engine.plough.y == path_y,
           "snow plough followed the changing bank instead of a horizontal road datum")
+    check(path_y > plough_engine.scenery_ground_y,
+          "snow plough road datum remained stranded above its cleared surface")
 
     present_args = parse_args([
         "--mode", "pua4", "--sky-events", "santa", "--flyby-interval", "1",
@@ -840,11 +963,12 @@ def main():
     print("PASS: tumbleweed rolls physically, stops at high snow and promotes collapse")
     print("PASS: illustrated help covers every program and launcher control")
     print("PASS: aged tower collapses can cascade; live JSON and TUI argv round-trip")
-    print("PASS: gradient sky, compact flybys, arcing Santa and extended fading comet trail")
+    print("PASS: five compact flybys, aircraft variants, kite and pilot parachute")
     print("PASS: sparse snow crystals and independently tapered 4.2 VPX tree trunks")
     print("PASS: rain streaks, bouncing hail and branched lightning render behind scenery")
     print("PASS: precipitation depth assignment, weather-off mode and isolated tab previews")
-    print("PASS: hovering UFO beam raises and shrinks a rabbit only during abduction")
+    print("PASS: swooping UFO uses an existing rabbit; sparse beam and plasma trail animate")
+    print("PASS: rabbit depth drives scale, parallax and cabin occlusion; postman gait is cached")
     print("PASS: Down-arrow escape sequence is not mistaken for the viewer quit key")
     print("PASS: paged weather controls, eight dashboard tabs, CPU/memory and geometry-safe export")
 
