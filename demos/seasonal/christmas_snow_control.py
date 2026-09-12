@@ -61,6 +61,7 @@ RANGES = {
     "tree_length_ratio": (0.35, 0.90, 0.01),
     "tree_trunk_thickness": (0.5, 12.0, 0.25),
     "tree_branch_thickness_ratio": (0.1, 1.0, 0.05),
+    "conifer_colour_variation": (0.0, 100.0, 2.0),
     "tree_thickness_exponent": (1.2, 4.0, 0.1),
     "tree_segment_budget": (0, 100000, 500),
     "object_snow_capture": (0.0, 1.0, 0.01),
@@ -70,6 +71,8 @@ RANGES = {
     "object_snow_adhesion": (0.0, 20.0, 0.25),
     "cabin_count": (0, 20, 1), "max_cabins": (0, 20, 1),
     "cabin_scale": (0.25, 3.0, 0.05), "leaf_count": (0, 1000, 10),
+    "cabin_depth_share": (0.0, 1.0, 0.05),
+    "cabin_depth_scale": (0.25, 0.95, 0.05),
     "tumbleweed_count": (0, 100, 1), "ambient_speed": (0.0, 40.0, 0.5),
     "tumbleweed_climb": (0.0, 2.0, 0.05),
     "tumbleweed_collapse_pressure": (0.0, 20.0, 0.25),
@@ -79,11 +82,24 @@ RANGES = {
     "postman_interval": (1.0, 600.0, 5.0),
     "postman_speed": (1.0, 40.0, 0.5),
     "postman_stop_seconds": (0.5, 30.0, 0.5),
+    "postman_delivery_frequency": (0.0, 8.0, 0.1),
     "flyby_interval": (1.0, 300.0, 5.0),
     "flyby_speed": (1.0, 100.0, 2.0), "plough_interval": (1.0, 600.0, 5.0),
-    "santa_scale": (0.2, 2.0, 0.05), "santa_arc_height": (0.0, 0.5, 0.01),
+    "superman_frequency": (0.1, 12.0, 0.1),
+    "superman_speed": (1.0, 160.0, 2.0),
+    "helicopter_hover_seconds": (0.5, 20.0, 0.5),
+    "helicopter_wait_min": (0.0, 60.0, 0.5),
+    "helicopter_wait_max": (0.0, 120.0, 0.5),
+    "helicopter_downwash": (0.0, 4.0, 0.1),
+    "cloud_count": (0, 60, 1), "cloud_speed": (0.0, 40.0, 0.5),
+    "cloud_parallax": (0.0, 4.0, 0.1),
+    "santa_scale_min": (0.01, 2.0, 0.01),
+    "santa_scale_max": (0.01, 2.0, 0.05),
+    "santa_arc_height": (0.0, 0.5, 0.01),
     "santa_trail_seconds": (0.0, 15.0, 0.25),
     "santa_trail_length": (0.25, 8.0, 0.25),
+    "santa_presents_min": (1, 20, 1),
+    "santa_presents_max": (1, 30, 1),
     "present_fall_speed": (1.0, 80.0, 1.0),
     "ufo_hover_seconds": (1.0, 20.0, 0.5),
     "ufo_trail_seconds": (0.0, 15.0, 0.25),
@@ -97,7 +113,7 @@ RESTART_ONLY = frozenset({
     "mode", "duration", "frames", "columns", "rows", "seed", "snapshot",
     "no_dashboard", "detailed_dashboard", "preload_seconds", "initial_snow",
     "bank_drift", "control_poll", "terminal_columns", "terminal_rows",
-    "font_size", "window_position",
+    "font_size", "window_position", "native_encoder",
 })
 
 GROUP_COLOURS = {
@@ -106,6 +122,7 @@ GROUP_COLOURS = {
     "live control": 4,
     "falling snow": 6,
     "sky and atmosphere": 7,
+    "clouds and parallax": 6,
     "rain hail and lightning": 1,
     "accumulation and shedding": 5,
     "seasonal scenery": 2,
@@ -118,6 +135,7 @@ GROUP_ICONS = {
     "live control": "◎",
     "falling snow": "❄",
     "sky and atmosphere": "◒",
+    "clouds and parallax": "☁",
     "rain hail and lightning": "☂",
     "accumulation and shedding": "▂",
     "seasonal scenery": "♠",
@@ -126,7 +144,7 @@ GROUP_ICONS = {
 
 OPTION_ICONS = {
     "mode": "▦", "fps": "◷", "duration": "◴", "frames": "≡",
-    "physics": "⚙",
+    "physics": "⚙", "native_encoder": "⚡",
     "columns": "↔", "rows": "↕", "seed": "※", "snapshot": "▣",
     "terminal_columns": "⇔", "terminal_rows": "⇕", "font_size": "A",
     "window_position": "⌖",
@@ -137,6 +155,8 @@ OPTION_ICONS = {
     "gust_strength": "≋", "gust_period": "∿", "drift": "⌁",
     "wobble": "〰", "palette": "◈", "sky": "◒",
     "sky_colours": "◈", "sky_stops": "↕", "sky_blend": "≋",
+    "clouds": "☁", "cloud_count": "☷", "cloud_speed": "→",
+    "cloud_depths": "◫", "cloud_parallax": "≋", "cloud_colours": "◈",
     "weather": "☂", "weather_foreground_share": "◩",
     "rain_share": "╱", "hail_share": "●",
     "rain_speed": "⇣", "rain_length": "│", "rain_colour": "◈",
@@ -157,23 +177,30 @@ OPTION_ICONS = {
     "tree_branch_angle": "∠", "tree_length_ratio": "↘",
     "tree_trunk_thickness": "┃", "tree_thickness_exponent": "²",
     "tree_branch_thickness_ratio": "⑂",
+    "conifer_colour_variation": "◈",
     "tree_segment_budget": "Σ", "lights": "✦",
     "object_snow": "❅", "object_snow_capture": "⌁",
     "object_snow_max": "▦", "object_snow_hold": "◴",
     "object_snow_hold_jitter": "±", "object_snow_adhesion": "⚖",
     "cabin_count": "⌂", "max_cabins": "⌂", "cabin_scale": "↕",
-    "cabin_types": "⌂", "cabin_size_variation": "±", "ambient": "≈",
+    "cabin_types": "⌂", "cabin_size_variation": "±",
+    "cabin_depth_share": "◫", "cabin_depth_scale": "↕", "ambient": "≈",
     "leaf_count": "❧", "tumbleweed_count": "⊛", "ambient_speed": "→",
     "tumbleweed_climb": "∡", "tumbleweed_collapse_pressure": "⇥",
     "rabbit_count": "♙", "rabbit_interval": "◴", "rabbit_speed": "→",
     "postman": "♟", "postman_interval": "◴", "postman_speed": "→",
-    "postman_stop_seconds": "✉",
+    "postman_stop_seconds": "✉", "postman_delivery_frequency": "⟳",
     "sky_events": "✈", "flyby_interval": "◴", "flyby_speed": "→",
+    "superman_path": "⌒", "superman_frequency": "◴",
+    "superman_speed": "➜",
+    "helicopter_hover_seconds": "⌁", "helicopter_wait_min": "◴",
+    "helicopter_wait_max": "◷", "helicopter_downwash": "◎",
     "aeroplane_types": "✈", "pilot_ejection": "♟",
     "ejection_chance": "⚄", "parachute_fall_speed": "☂",
-    "santa_scale": "↕", "santa_arc_height": "⌒",
+    "santa_scale_min": "·", "santa_scale_max": "◆", "santa_arc_height": "⌒",
     "santa_trail_seconds": "◴", "santa_trail_length": "☄",
-    "santa_presents": "◆", "present_fall_speed": "⇣",
+    "santa_presents": "◆", "santa_presents_min": "▣",
+    "santa_presents_max": "▦", "present_fall_speed": "⇣",
     "ufo_abduction": "⌁", "ufo_hover_seconds": "◴",
     "ufo_types": "◉", "ufo_trail_seconds": "◴",
     "ufo_trail_length": "☄",
@@ -183,6 +210,7 @@ OPTION_ICONS = {
 
 IMPACT_GUIDANCE = {
     "physics": "NONE provides the cheapest legacy-style fall/deposit path; GROUND adds bank slumping and terrain-aware bodies; FULL also indexes scenery so snow can rest and shed from objects.",
+    "native_encoder": "AUTO uses the optional Rust cell analyser when built, OFF forces Python, and ON refuses to start if the native library is unavailable.",
     "fps": "Higher values make motion smoother but raise CPU and terminal-output work almost linearly.",
     "duration": "Zero runs until stopped; a positive value ends the viewer after that many seconds.",
     "frames": "Zero leaves duration in control; a positive value stops after an exact rendered-frame count.",
@@ -212,6 +240,12 @@ IMPACT_GUIDANCE = {
     "sky_colours": "Two to eight top-to-bottom RRGGBB colours, for example 07152F,315A82,B9D8E8.",
     "sky_stops": "Matching increasing vertical fractions beginning at 0 and ending at 1; stops control where each colour is reached.",
     "sky_blend": "LINEAR changes evenly; SMOOTH eases both ends; COSINE gives the gentlest merge between colour stops.",
+    "clouds": "ON adds continuously wrapping procedural clouds without loading image assets.",
+    "cloud_count": "Number of cloud bodies. High counts add several filled ellipses per frame and can noticeably increase encoding work on wide grids.",
+    "cloud_speed": "Base virtual-pixel speed; actual speed is depth-scaled so near clouds cross faster.",
+    "cloud_depths": "One to eight comma-separated lanes from 0.05 far to 1 near; lanes at 0.62+ can pass in front of distant flights.",
+    "cloud_parallax": "Higher values increase the speed difference between far and near clouds; zero largely removes depth parallax.",
+    "cloud_colours": "Two to eight RRGGBB colours cycled through the cloud population; darker values read as storm layers.",
     "weather": "NONE disables precipitation and lightning; SNOW accumulates; RAIN draws wind-slanted streaks; HAIL can bounce; MIXED combines all three; STORM combines rain and hail.",
     "weather_foreground_share": "At creation, this fraction of snow, rain and hail is assigned in front of scenery; the remainder is occluded by trees, cabins and animals.",
     "rain_share": "Fraction of mixed precipitation rendered as rain; the remainder after rain and hail is snow.",
@@ -237,6 +271,7 @@ IMPACT_GUIDANCE = {
     "tree_sway": "Higher values bend crowns farther without materially changing tree count.",
     "tree_types": "Choose pine, fir, spruce, oak, maple and birch individually or as a comma list; all rotates every family.",
     "tree_branches": "Sets conifer whorls or broadleaf primary crown limbs; 3–7 is natural, while high values add drawing work.",
+    "conifer_colour_variation": "Maximum seeded RGB separation between pine, fir and spruce individuals. Zero is uniform; 20–45 is clear but natural; very high values are stylised.",
     "tree_branch_levels": "Adds recursive oak/maple/birch daughter generations; each extra level can roughly double their branch segments.",
     "tree_branch_angle": "Controls daughter divergence: narrow values make upright crowns; wide values produce spreading forms.",
     "tree_length_ratio": "Sets child/parent length from 0.35 to 0.90; high values make large, overlapping crowns.",
@@ -261,22 +296,35 @@ IMPACT_GUIDANCE = {
     "rabbit_count": "Each rabbit follows terrain and animates independently; modest counts keep reactions readable.",
     "rabbit_interval": "Lower values make hidden rabbits return sooner and keep more animals visible.",
     "rabbit_speed": "Near rabbits use this full terrain speed; distant rabbits move more slowly for parallax and are drawn behind cabins and trees.",
-    "postman": "ON schedules a jointed walking postman who visits a real cabin door, hands over mail, and continues off-screen.",
+    "postman": "ON schedules a detailed jointed postman who turns away from the road, scales toward a real door, posts mail, waits, returns and continues.",
     "postman_interval": "Lower values schedule postal visits more often; each postman waits for the previous visit to finish.",
     "postman_speed": "Walking speed in virtual pixels per second; gait cadence follows it automatically.",
-    "postman_stop_seconds": "Time spent at the selected cabin door displaying the handover pose.",
+    "postman_stop_seconds": "Time spent waiting at the selected cabin door after the letter has been posted.",
+    "postman_delivery_frequency": "Multiplier for scheduled visits: 0 disables them, 0.5 halves frequency, 1 is normal and 2 doubles it; cabins are visited in rotation.",
     "sky_events": "Select none, one event, or a comma list; the listed events rotate in order.",
     "flyby_interval": "Lower values reduce the quiet period between sky crossings.",
     "flyby_speed": "Higher values cross the viewport faster and shorten each visible flyby.",
+    "superman_path": "STRAIGHT holds altitude, CURVE undulates, and ARC rises through the middle of the crossing.",
+    "superman_frequency": "Requested Superman appearances per minute within the configured event rotation; other listed flights also consume rotation time.",
+    "superman_speed": "Independent Superman flight speed in virtual pixels per second; very high values can visibly skip narrow cells.",
+    "helicopter_hover_seconds": "Pause before descent and again before departure; longer values make the staged transition easier to inspect.",
+    "helicopter_wait_min": "Shortest landed wait before the supply crate is released; paired with the maximum for deterministic variation.",
+    "helicopter_wait_max": "Longest landed wait. Large values keep rotor downwash active and can remove more loose surface snow.",
+    "helicopter_downwash": "Rotor coupling from 0 off to 4 extreme; high values displace precipitation, scour snow and add many animated particles.",
+    "cabin_depth_share": "Fraction of cabins deterministically assigned to an elevated distance lane; these produce longer postman approaches.",
+    "cabin_depth_scale": "Distant-cabin size from 0.25 to 0.95 of normal; smaller values push cabins higher and make the delivery walk longer.",
     "aeroplane_types": "COMMUTER is compact and rounded; AIRLINER is longer with repeated windows, a red stripe and swept wing.",
     "pilot_ejection": "ON permits a repeatably random far-distance ejection during an aeroplane pass.",
     "ejection_chance": "Probability per aeroplane pass; 0 disables ejections and 1 forces every eligible pass.",
     "parachute_fall_speed": "Terminal descent speed after the canopy opens; wind adds a small distant drift.",
-    "santa_scale": "0.50 is half the original linear size, keeping the formation smaller than foreground houses.",
+    "santa_scale_min": "Furthest entry/exit scale. The 0.02 default reduces the formation to approximately a point before it approaches.",
+    "santa_scale_max": "Nearest midpoint scale. The 0.50 default remains smaller than foreground houses; legacy --santa-scale sets this value.",
     "santa_arc_height": "Sets the mid-flight rise as a scene-height fraction; zero restores a straight crossing.",
     "santa_trail_seconds": "Controls how long emitted sparks remain and fade; long trails increase active particle work.",
     "santa_trail_length": "Spatial multiplier behind the sleigh; 3 is three times the original length and also emits enough sparks to avoid gaps.",
-    "santa_presents": "ON drops one parcel straight into every non-A-frame cabin chimney crossed by Santa during a flyby.",
+    "santa_presents": "ON drops a simultaneous group of parcels into every non-A-frame cabin chimney crossed by Santa.",
+    "santa_presents_min": "Minimum parcels released on the same frame at each chimney; each receives a different initial fall speed.",
+    "santa_presents_max": "Maximum simultaneous parcels. High values briefly add more animated objects and colour changes.",
     "present_fall_speed": "Initial parcel descent speed in virtual pixels per second; gravity then accelerates it toward the chimney.",
     "ufo_abduction": "ON lets each UFO pause over the terrain, reveal its beam only while a rabbit rises, and hide the rabbit after it enters the craft.",
     "ufo_hover_seconds": "Longer values slow the rabbit's rise and keep the UFO stationary for easier inspection.",
@@ -305,12 +353,14 @@ MEDIUM_COST = frozenset({
     "hail_bounce", "lightning",
     "lightning_interval", "snow_plough", "ufo_trail_length",
     "ufo_trail_seconds", "pilot_ejection", "postman",
+    "helicopter_downwash",
 })
 
 CONTROL_TAB_SPECS = (
     ("DISPLAY", "▣", frozenset({
         "mode", "fps", "duration", "frames", "columns", "rows", "seed",
         "snapshot", "no_dashboard", "detailed_dashboard", "physics",
+        "native_encoder",
     })),
     ("WINDOW", "▤", frozenset({
         "terminal_columns", "terminal_rows", "font_size", "window_position",
@@ -322,6 +372,10 @@ CONTROL_TAB_SPECS = (
         "gust_strength", "gust_period", "drift", "wobble", "palette",
     })),
     ("SKY", "◒", frozenset({"sky", "sky_colours", "sky_stops", "sky_blend"})),
+    ("CLOUDS", "☁", frozenset({
+        "clouds", "cloud_count", "cloud_speed", "cloud_depths",
+        "cloud_parallax", "cloud_colours",
+    })),
     ("WEATHER", "☂", frozenset({
         "weather", "weather_foreground_share", "rain_share", "hail_share",
         "rain_speed", "rain_length",
@@ -339,11 +393,13 @@ CONTROL_TAB_SPECS = (
     ("SCENE", "⌂", frozenset({
         "scenery", "cabin", "reindeer", "cabin_count", "max_cabins",
         "cabin_scale", "cabin_types", "cabin_size_variation",
+        "cabin_depth_share", "cabin_depth_scale",
     })),
     ("TREES", "♠", frozenset({
         "no_trees", "tree_density", "max_trees", "tree_sway", "tree_types", "tree_branches",
         "tree_branch_levels", "tree_branch_angle", "tree_length_ratio",
         "tree_trunk_thickness", "tree_branch_thickness_ratio",
+        "conifer_colour_variation",
         "tree_thickness_exponent",
         "tree_segment_budget", "lights", "object_snow",
         "object_snow_capture", "object_snow_max", "object_snow_hold",
@@ -353,13 +409,18 @@ CONTROL_TAB_SPECS = (
         "ambient", "leaf_count", "tumbleweed_count", "ambient_speed",
         "tumbleweed_climb", "tumbleweed_collapse_pressure", "rabbit_count",
         "rabbit_interval", "rabbit_speed", "postman", "postman_interval",
-        "postman_speed", "postman_stop_seconds",
+        "postman_speed", "postman_stop_seconds", "postman_delivery_frequency",
     })),
     ("FLIGHTS", "✈", frozenset({
         "sky_events", "flyby_interval", "flyby_speed", "aeroplane_types",
-        "pilot_ejection", "ejection_chance", "parachute_fall_speed", "santa_scale",
+        "superman_path", "superman_frequency", "superman_speed",
+        "helicopter_hover_seconds", "helicopter_wait_min",
+        "helicopter_wait_max", "helicopter_downwash",
+        "pilot_ejection", "ejection_chance", "parachute_fall_speed",
+        "santa_scale_min", "santa_scale_max",
         "santa_arc_height", "santa_trail_seconds", "santa_trail_length",
-        "santa_presents", "present_fall_speed",
+        "santa_presents", "santa_presents_min", "santa_presents_max",
+        "present_fall_speed",
         "ufo_abduction", "ufo_hover_seconds", "ufo_types",
         "ufo_trail_seconds", "ufo_trail_length",
     })),
@@ -453,6 +514,7 @@ class Controller:
         self.index = 0
         self.scroll = 0
         self.revision = 0
+        self.restart_generation = 0
         self.status = "Ready"
         self.command_message = ""
         self.values = self.load_initial()
@@ -582,6 +644,7 @@ class Controller:
                     parsed = self.parse_safely(payload["argv"])
                     if parsed.mode == self.cli.mode:
                         self.revision = int(payload.get("revision", 0))
+                        self.restart_generation = int(payload.get("restart", 0))
                         self.status = f"Loaded {path}"
                         return parsed
             except (OSError, ValueError, KeyError, TypeError, SystemExit):
@@ -593,6 +656,7 @@ class Controller:
             "format": CONTROL_FORMAT,
             "revision": self.revision,
             "written_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
+            "restart": self.restart_generation,
             "argv": namespace_to_argv(self.values, self.actions),
         }
 
@@ -681,34 +745,41 @@ class Controller:
             values.sky_events = ()
             values.ufo_abduction = False
 
+        def no_clouds():
+            values.clouds = False
+            values.cloud_count = 0
+
         if page in {"DISPLAY", "WINDOW", "LIVE"}:
             return self.parse_safely(namespace_to_argv(values, self.actions))
         if page == "SKY":
+            no_weather(); no_ground(); no_scene(); no_animals(); no_flights(); no_clouds()
+        elif page == "CLOUDS":
             no_weather(); no_ground(); no_scene(); no_animals(); no_flights()
+            values.clouds = True
         elif page in {"SNOW", "WEATHER"}:
-            no_ground(); no_scene(); no_animals(); no_flights(); values.sky = False
+            no_ground(); no_scene(); no_animals(); no_flights(); no_clouds(); values.sky = False
             if page == "SNOW":
                 values.weather = "snow"
                 values.lightning = False
         elif page == "GROUND":
-            no_weather(); no_scene(); no_animals(); no_flights(); values.sky = False
+            no_weather(); no_scene(); no_animals(); no_flights(); no_clouds(); values.sky = False
         elif page == "SCENE":
-            no_weather(); no_ground(); no_animals(); no_flights(); values.sky = False
+            no_weather(); no_ground(); no_animals(); no_flights(); no_clouds(); values.sky = False
         elif page == "TREES":
-            no_weather(); no_ground(); no_animals(); no_flights(); values.sky = False
+            no_weather(); no_ground(); no_animals(); no_flights(); no_clouds(); values.sky = False
             values.scenery = "trees"
             values.cabin = False
             values.reindeer = False
             values.no_trees = False
         elif page == "ANIMALS":
-            no_weather(); no_scene(); no_flights(); values.sky = False
+            no_weather(); no_scene(); no_flights(); no_clouds(); values.sky = False
             values.initial_snow = 0.025
             values.bank_drift = 0.01
             values.accumulation = 0.0
             values.accumulate = False
             values.snow_plough = False
         elif page == "FLIGHTS":
-            no_weather(); no_ground(); no_scene(); no_animals(); values.sky = False
+            no_weather(); no_ground(); no_scene(); no_animals(); no_clouds(); values.sky = False
         return self.parse_safely(namespace_to_argv(values, self.actions))
 
     def launch_preview(self):
@@ -753,6 +824,11 @@ class Controller:
         if self.values.window_position:
             geometry += f" · position {self.values.window_position}"
         self.status = f"Saved {destination} and {command_path}{geometry}{suffix}"
+
+    def restart_viewer(self):
+        """Ask the listening viewer to rebuild in its existing terminal."""
+        self.restart_generation += 1
+        self.publish("Viewer restart requested in its current window")
 
     def reset(self):
         self.values = self.parse_safely(["--mode", self.values.mode])
@@ -1001,12 +1077,14 @@ class Controller:
                         performance_pair, performance_pair)
             details.append((f"V  launch isolated {self.tabs[self.tab_index][0]} preview",
                             curses.color_pair(1) | curses.A_BOLD))
+            details.append(("X  restart listening viewer in its current window",
+                            curses.color_pair(3) | curses.A_BOLD))
             details.append(("←/→ adjust   Enter type   Space toggle", curses.color_pair(4)))
             for row, (line, style) in enumerate(details, 7):
                 self.put(screen, row, split + 2, line, style)
 
         self.put(screen, height - 3, 0, "├" + "─" * (width - 2) + "┤", curses.color_pair(1))
-        keys = " ⇥ TAB  ↑↓ SELECT  ←→ ADJUST  ⏎ TYPE  ␠ TOGGLE  V PREVIEW  S SAVE  P COMMAND  R RESET  Q QUIT "
+        keys = " ⇥ TAB  ↑↓ SELECT  ←→ ADJUST  ⏎ TYPE  ␠ TOGGLE  V PREVIEW  X RESTART  S SAVE  P COMMAND  R RESET  Q QUIT "
         self.put(screen, height - 2, 0, "│" + keys.ljust(width - 2) + "│", curses.color_pair(4))
         self.put(screen, height - 1, 0, ("└─ " + self.status + " ").ljust(width - 1, "─") + "┘",
                  curses.color_pair(1))
@@ -1072,6 +1150,8 @@ class Controller:
                 self.show_command(screen)
             elif key in (ord("v"), ord("V")):
                 self.launch_preview()
+            elif key in (ord("x"), ord("X")):
+                self.restart_viewer()
             elif key in (ord("r"), ord("R")):
                 self.reset()
 

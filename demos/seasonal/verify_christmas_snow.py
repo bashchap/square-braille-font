@@ -16,7 +16,10 @@ from christmas_snow import (
     SnowEngine,
     Surface,
     build_parser,
+    build_scenery,
     cached_postman_pixels,
+    cabin_path_network,
+    cabin_door_rect,
     cabin_layout,
     complete_frame,
     current_sky_event,
@@ -25,15 +28,19 @@ from christmas_snow import (
     draw_ambient,
     draw_conifer,
     draw_cabin,
+    draw_cabin_paths,
+    draw_clouds,
     draw_postman,
     draw_rabbit,
     draw_reindeer,
     draw_sky_event,
     draw_sky_gradient,
     draw_lightning,
+    draw_parachutists,
     draw_precipitation,
     draw_tree,
     encode_surface,
+    encode_surface_native,
     make_runtime,
     parse_args,
     parse_ambient,
@@ -45,6 +52,7 @@ from christmas_snow import (
     viewer_quit_key,
 )
 from christmas_snow_control import Controller, namespace_to_argv, tui_parser
+from christmas_snow_native import load_native_analyser
 
 
 def check(condition, message):
@@ -302,6 +310,13 @@ def main():
     check(len({item[4] for item in three_types}) == 3 and
           len({item[2] for item in three_types}) > 1,
           "cabins did not vary both archetype and size")
+    cabin_args.cabin_depth_share = 1.0
+    cabin_args.cabin_depth_scale = 0.42
+    distant_cabins = cabin_layout(cabin_args, 1600, 100, 86)
+    check(all(item[2] < 18 and item[1] < 80 for item in distant_cabins),
+          "distant cabins were not scaled and elevated toward the horizon")
+    cabin_args.cabin_depth_share = 0.34
+    cabin_args.cabin_depth_scale = 0.56
     aframe_surface = Surface(120, 100)
     draw_cabin(aframe_surface, 60, 92, 44, cabin_type="a-frame")
     roof_colour = (102, 35, 40)
@@ -316,6 +331,13 @@ def main():
           any(pixel is not None and pixel[0] == roof_colour
               for pixel in aframe_surface.pixels),
           "A-frame cabin did not retain continuous clean filled edges")
+    door_left, door_top, door_right, door_bottom = cabin_door_rect(
+        60, 92, 44, "a-frame")
+    aframe_width = max(16, int(round(44 * 1.48)))
+    check(door_left > 60 - aframe_width * 0.44 and
+          door_right < 60 + aframe_width * 0.44 and
+          door_top < door_bottom <= 92,
+          "A-frame door escaped the inset triangular wall bounds")
 
     reindeer_surface = Surface(320, 130)
     draw_reindeer(reindeer_surface, 320, 130, 112)
@@ -361,6 +383,18 @@ def main():
         branch_counts.append(colours.count((104, 69, 48)))
     check(branch_counts[1] > branch_counts[0] * 1.35,
           "branch thickness is not independently adjustable from main trunk thickness")
+    conifer_colours = []
+    for variation in (0, 60):
+        variation_args = parse_args([
+            "--tree-types", "pine", "--conifer-colour-variation", str(variation),
+        ])
+        variation_surface = Surface(180, 130)
+        draw_tree(variation_surface, random.Random(188), 90, 124, 102, 4, 0,
+                  "pine", variation_args, segment_budget=[2000])
+        conifer_colours.append({pixel[0] for pixel in variation_surface.pixels
+                                if pixel is not None})
+    check(conifer_colours[0] != conifer_colours[1],
+          "configurable conifer colour separation did not alter pine rendering")
 
     tumble_args = parse_args([
         "--mode", "pua4", "--columns", "80", "--rows", "20",
@@ -487,6 +521,27 @@ def main():
               for pixel in layered_near.pixels),
           "near rabbit was not rendered in front of scenery")
 
+    cabin_depth_args = parse_args([
+        "--mode", "pua4", "--scenery", "cabin", "--cabin-count", "1",
+        "--cabin-types", "cottage", "--rabbit-count", "2",
+        "--snow-rate", "0", "--max-flakes", "0", "--preload-seconds", "0",
+        "--no-snow-plough", "--no-postman",
+    ])
+    cabin_depth_engine = SnowEngine(cabin_depth_args, 240, 100)
+    cabin_background = build_scenery(
+        cabin_depth_args, 240, 100, cabin_depth_engine.scenery_ground_y, 0.0)
+    cabin_centre = cabin_layout(
+        cabin_depth_args, 240, 100,
+        int(round(cabin_depth_engine.scenery_ground_y)))[0][0]
+    cabin_depth_engine.rabbits[0].state = "hidden"
+    far_cabin_rabbit = cabin_depth_engine.rabbits[1]
+    far_cabin_rabbit.x, far_cabin_rabbit.state = cabin_centre, "eating"
+    cabin_layered = render_surface(cabin_background, cabin_depth_engine)
+    rabbit_colours = {(174, 155, 135), (116, 96, 84), (236, 226, 214)}
+    check(not any(pixel is not None and pixel[0] in rabbit_colours
+                  for pixel in cabin_layered.pixels),
+          "far rabbit feet leaked below the cabin occlusion footprint")
+
     postman_args = parse_args([
         "--mode", "pua4", "--scenery", "cabin", "--cabin-count", "1",
         "--postman", "--postman-interval", "1", "--postman-speed", "80",
@@ -496,21 +551,69 @@ def main():
     postman_engine = SnowEngine(postman_args, 240, 100)
     postman_engine.postman.timer = 0
     postman_engine.step_postman(0.01)
+    road_height = postman_engine.postman.road_figure_height
+    door_height = postman_engine.postman.door_figure_height
     check(postman_engine.postman.state == "walking_to" and
-          postman_engine.postman.figure_height <= 20,
-          "postman did not enter at cabin-door scale")
-    for _ in range(700):
+          road_height >= door_height * 1.45,
+          "postman did not enter at the enlarged road scale")
+    visited_states = {postman_engine.postman.state}
+    linear_scale_error = 0.0
+    for _ in range(1600):
         postman_engine.step_postman(0.02)
-        if postman_engine.postman_delivery_count:
+        postman = postman_engine.postman
+        visited_states.add(postman.state)
+        if postman.state in ("approaching", "returning"):
+            total = max(0.001, ((postman.door_x - postman.road_x) ** 2 +
+                                (postman.door_y - postman.road_y) ** 2) ** 0.5)
+            if postman.state == "approaching":
+                progress = 1.0 - (((postman.door_x - postman.x) ** 2 +
+                                   (postman.door_y - postman.y) ** 2) ** 0.5 / total)
+                expected = road_height + (door_height - road_height) * progress
+            else:
+                progress = 1.0 - (((postman.road_x - postman.x) ** 2 +
+                                   (postman.road_y - postman.y) ** 2) ** 0.5 / total)
+                expected = door_height + (road_height - door_height) * progress
+            linear_scale_error = max(
+                linear_scale_error, abs(postman.figure_height - expected))
+        if postman_engine.postman_delivery_count and postman.state == "walking_on":
             break
-    check(postman_engine.postman_delivery_count == 1,
-          "postman did not walk to a cabin and complete a delivery")
+    expected_states = {"turning_in", "approaching", "posting", "waiting",
+                       "turning_from_house", "returning", "turning_out",
+                       "walking_on"}
+    check(postman_engine.postman_delivery_count == 1 and
+          expected_states.issubset(visited_states) and
+          linear_scale_error < 1e-6 and
+          abs(postman_engine.postman.figure_height - road_height) < 1e-6 and
+          postman_engine.postman_snow_collapses > 0,
+          "postman did not turn, scale, post, wait, return and resume smoothly")
+    side_pose = cached_postman_pixels(17, 1, 2, 0, False)
+    back_pose = cached_postman_pixels(17, 1, 2, 4, False)
+    front_pose = cached_postman_pixels(17, 1, 2, -4, False)
+    check(side_pose != back_pose != front_pose,
+          "postman turn poses did not change silhouette and depth colours")
     cache_before = cached_postman_pixels.cache_info().hits
     postman_engine.postman.state = "walking_on"
     draw_postman(Surface(240, 100), postman_engine)
     draw_postman(Surface(240, 100), postman_engine)
     check(cached_postman_pixels.cache_info().hits > cache_before,
           "postman gait frames were not served by the graphical cache")
+    route_args = parse_args([
+        "--mode", "pua4", "--scenery", "cabin", "--cabin-count", "3",
+        "--cabin-depth-share", "1", "--cabin-depth-scale", "0.4",
+        "--postman", "--postman-delivery-frequency", "2",
+        "--rabbit-count", "0", "--snow-rate", "0", "--max-flakes", "0",
+    ])
+    route_engine = SnowEngine(route_args, 360, 120)
+    route_engine.postman.timer = 0
+    route_engine.step_postman(0.01)
+    first_target = route_engine.postman.target_cabin
+    check(route_engine.postman.road_y - route_engine.postman.door_y > 10,
+          "distant cabin did not produce a long postman delivery path")
+    route_engine.postman.state = "hidden"
+    route_engine.postman.timer = 0
+    route_engine.step_postman(0.01)
+    check(route_engine.postman.target_cabin != first_target,
+          "postman did not rotate deliveries across every cabin")
 
     event_args = parse_args([
         "--mode", "pua4", "--sky-events", "aeroplane,ufo,santa",
@@ -544,19 +647,44 @@ def main():
         "--snow-rate", "0", "--max-flakes", "0", "--preload-seconds", "0",
     ])
     variety_engine = SnowEngine(variety_args, 240, 120)
-    variety_travel = ((variety_engine.width + sky_event_margin(variety_engine) * 2) /
-                      variety_args.flyby_speed)
     variety_kinds = []
-    for index in range(5):
-        elapsed = 0.35 + index * (variety_travel + 1) + variety_travel * 0.5
+    elapsed = 0.0
+    last_kind = None
+    while len(variety_kinds) < 5 and elapsed < 180:
         state = current_sky_event_state(variety_args, variety_engine, elapsed)
-        variety_kinds.append(state["kind"])
-        event_surface = Surface(variety_engine.width, variety_engine.height)
-        draw_sky_event(event_surface, variety_engine, elapsed)
-        check(len([pixel for pixel in event_surface.pixels if pixel is not None]) >= 35,
-              f"{state['kind']} produced insufficient visible geometry")
+        if state is not None and state["kind"] != last_kind:
+            variety_kinds.append(state["kind"])
+            last_kind = state["kind"]
+        elif state is None:
+            last_kind = None
+        elapsed += 0.1
     check(variety_kinds == ["aeroplane", "helicopter", "kite", "ufo", "santa"],
           "extended sky rotation omitted an aircraft or lost kite")
+
+    kite_args = parse_args([
+        "--mode", "pua4", "--sky-events", "kite",
+        "--flyby-interval", "1", "--flyby-speed", "60",
+        "--gust-strength", "16", "--gust-period", "4",
+        "--snow-rate", "0", "--max-flakes", "0", "--preload-seconds", "0",
+    ])
+    kite_engine = SnowEngine(kite_args, 300, 140)
+    kite_travel = ((kite_engine.width + sky_event_margin(kite_engine) * 2) /
+                   kite_args.flyby_speed)
+    kite_elapsed = 0.35 + kite_travel * 0.5
+    tail_centres = []
+    for wind in (-20.0, 20.0):
+        kite_args.wind = wind
+        state = current_sky_event_state(kite_args, kite_engine, kite_elapsed)
+        kite_surface = Surface(kite_engine.width, kite_engine.height)
+        draw_sky_event(kite_surface, kite_engine, kite_elapsed)
+        tail_points = [(index % kite_surface.width, index // kite_surface.width)
+                       for index, pixel in enumerate(kite_surface.pixels)
+                       if pixel is not None and
+                       index // kite_surface.width > state["y"] + 13]
+        tail_centres.append(sum(x - state["x"] for x, _ in tail_points) /
+                            max(1, len(tail_points)))
+    check(tail_centres[1] > tail_centres[0] + 6,
+          "kite tail did not bend downwind under the shared wind/gust field")
 
     ejection_args = parse_args([
         "--mode", "pua4", "--sky-events", "aeroplane",
@@ -577,6 +705,56 @@ def main():
     check(ejection_engine.parachutists and
           ejection_engine.parachutists[0].canopy_open,
           "ejected pilot's parachute did not open")
+    parachute_a = Surface(ejection_engine.width, ejection_engine.height)
+    draw_parachutists(parachute_a, ejection_engine)
+    ejection_engine.parachutists[0].phase += 1.4
+    parachute_b = Surface(ejection_engine.width, ejection_engine.height)
+    draw_parachutists(parachute_b, ejection_engine)
+    check(painted_bounds(parachute_a)[0] >= 11 and
+          parachute_a.pixels != parachute_b.pixels,
+          "parachute canopy was not enlarged with obvious pendulum/billow motion")
+
+    superman_base = [
+        "--mode", "pua4", "--sky-events", "superman",
+        "--superman-frequency", "60", "--superman-speed", "80",
+        "--snow-rate", "0", "--max-flakes", "0", "--preload-seconds", "0",
+    ]
+    superman_straight_args = parse_args([*superman_base, "--superman-path", "straight"])
+    superman_arc_args = parse_args([*superman_base, "--superman-path", "arc"])
+    superman_engine = SnowEngine(superman_straight_args, 320, 160)
+    superman_travel = ((superman_engine.width + sky_event_margin(superman_engine) * 2) /
+                       superman_straight_args.superman_speed)
+    superman_midpoint = 0.35 + superman_travel * 0.5
+    straight_state = current_sky_event_state(
+        superman_straight_args, superman_engine, superman_midpoint)
+    superman_engine.args = superman_arc_args
+    arc_state = current_sky_event_state(
+        superman_arc_args, superman_engine, superman_midpoint)
+    superhero_surface = Surface(320, 160)
+    draw_sky_event(superhero_surface, superman_engine, superman_midpoint)
+    check(straight_state["kind"] == arc_state["kind"] == "superman" and
+          arc_state["y"] < straight_state["y"] and
+          any(pixel is not None and pixel[0] == (218, 38, 52)
+              for pixel in superhero_surface.pixels),
+          "Superman path controls or animated red cape were not rendered")
+
+    cloud_args = parse_args([
+        "--mode", "pua4", "--clouds", "--cloud-count", "6",
+        "--cloud-speed", "8", "--cloud-depths", "0.2,0.5,0.85",
+        "--cloud-parallax", "1.5", "--cloud-colours", "8899AA,CCDDEE",
+        "--snow-rate", "0", "--max-flakes", "0",
+    ])
+    cloud_engine = SnowEngine(cloud_args, 320, 160)
+    clouds_start = Surface(320, 160)
+    draw_clouds(clouds_start, cloud_engine, 0.0, near=False)
+    draw_clouds(clouds_start, cloud_engine, 0.0, near=True)
+    clouds_later = Surface(320, 160)
+    draw_clouds(clouds_later, cloud_engine, 6.0, near=False)
+    draw_clouds(clouds_later, cloud_engine, 6.0, near=True)
+    cloud_priorities = {pixel[1] for pixel in clouds_start.pixels if pixel is not None}
+    check({42, 43, 76, 77}.issubset(cloud_priorities) and
+          clouds_start.pixels != clouds_later.pixels,
+          "cloud depth lanes did not move with distinct far/near parallax")
 
     large_event_args = parse_args([
         "--mode", "pua4", "--sky-events", "aeroplane,ufo,santa",
@@ -594,6 +772,24 @@ def main():
         compact_bounds.append(painted_bounds(event_surface))
     check(compact_bounds[0][0] <= 110 and compact_bounds[1][0] <= 65,
           "aeroplane or UFO regressed to its oversized former footprint")
+
+    santa_depth_args = parse_args([
+        "--mode", "pua4", "--sky-events", "santa", "--flyby-interval", "1",
+        "--flyby-speed", "100", "--santa-scale-min", "0.02",
+        "--santa-scale-max", "0.5", "--snow-rate", "0", "--max-flakes", "0",
+    ])
+    santa_depth_engine = SnowEngine(santa_depth_args, 320, 160)
+    santa_travel = ((santa_depth_engine.width + sky_event_margin(santa_depth_engine) * 2) /
+                    santa_depth_args.flyby_speed)
+    santa_entry = current_sky_event_state(
+        santa_depth_args, santa_depth_engine, 0.35 + santa_travel * 0.01)
+    santa_middle = current_sky_event_state(
+        santa_depth_args, santa_depth_engine, 0.35 + santa_travel * 0.5)
+    santa_exit = current_sky_event_state(
+        santa_depth_args, santa_depth_engine, 0.35 + santa_travel * 0.99)
+    check(santa_entry["scale"] < 0.025 and santa_middle["scale"] > 0.49 and
+          abs(santa_exit["scale"] - santa_entry["scale"]) < 1e-9,
+          "Santa did not zoom symmetrically from a point to the configured maximum")
 
     abduction_args = parse_args([
         "--mode", "pua4", "--sky-events", "ufo", "--ufo-abduction",
@@ -632,6 +828,23 @@ def main():
     check(len(beam_palette & {pixel[0] for pixel in beam_pixels}) >= 2 and
           len(beam_pixels) < 90,
           "UFO transporter was not sparse, animated multi-colour energy")
+    opaque_scenery = Surface(abduction_engine.width, abduction_engine.height)
+    opaque_scenery.rectangle(0, 0, opaque_scenery.width - 1,
+                             opaque_scenery.height - 1, (8, 8, 8), 40)
+    abduction_engine.elapsed = late
+    abduction_engine.depths = [0.0] * abduction_engine.width
+    abduction_engine.args.ambient_set = frozenset()
+    rabbit.depth = 1.0
+    near_capture = render_surface(opaque_scenery, abduction_engine)
+    capture_colours = beam_palette | rabbit_colours
+    check(any(pixel is not None and pixel[0] in capture_colours
+              for pixel in near_capture.pixels),
+          "foreground rabbit and beam jumped behind cabin scenery during capture")
+    rabbit.depth = 0.3
+    far_capture = render_surface(opaque_scenery, abduction_engine)
+    check(not any(pixel is not None and pixel[0] in capture_colours
+                  for pixel in far_capture.pixels),
+          "background rabbit and beam did not retain their shared rear depth lane")
     target_unit = max(0.65, max(1.0, min(3.0, abduction_engine.height // 65)) / 3.0)
     finish = hover_start + abduction_args.ufo_hover_seconds * 0.99
     abduction_engine.step_ufo_abduction(finish)
@@ -698,6 +911,10 @@ def main():
           all(abs(present.x - present.target_x) < 1e-9
               for present in present_engine.present_drops),
           "Santa did not release vertically aligned parcels over cabin chimneys")
+    check(len(present_engine.present_drops) + present_engine.present_delivery_count >=
+          len(present_engine.present_drop_keys) * present_args.santa_presents_min and
+          len({round(present.speed, 4) for present in present_engine.present_drops}) > 1,
+          "Santa did not release simultaneous multi-speed present groups")
 
     santa_elapsed = 0.35 + 2 * (large_travel + 1) + large_travel * 0.5
     santa_a = Surface(672, 216)
@@ -759,6 +976,15 @@ def main():
     check(plough_engine.plough_count == 1 and
           max(plough_engine.depths) <= plough_engine.height * 0.03,
           "completed snow-plough pass did not clear the entire bank")
+    target_depth = plough_engine.height * plough_args.plough_clear_to
+    plough_engine.depths = [target_depth] * plough_engine.width
+    plough_engine.depths[10] = target_depth + 3.0
+    plough_engine.plough.active = True
+    plough_engine.plough.direction = 1
+    plough_engine.plough.x = plough_engine.width + 29.0
+    plough_engine.step_plough(0.01)
+    check(plough_engine.depths[10] == target_depth + 3.0,
+          "plough exit erased new snow deposited behind the completed blade path")
 
     parser = build_parser()
     guide = pretty_help(parser, "pua4", colour=False)
@@ -852,6 +1078,13 @@ def main():
         check(live_args.wind == 9 and not live_args.tower_collapse and
               all(flake.shape == "large" for flake in live_engine.flakes),
               "live control did not immediately update numeric, Boolean and flake-size settings")
+        control_path.write_text(json.dumps({
+            "format": CONTROL_FORMAT, "revision": 8, "restart": 1,
+            "argv": ["--mode", "pua4", "--wind", "11"],
+        }), encoding="utf-8")
+        check(listener.poll(live_args, live_engine, force=True) and
+              listener.restart_requested and live_args.wind == 11,
+              "live-control restart token did not apply current values and request rebuild")
 
     control_parser = build_parser()
     control_actions = [action for action in control_parser._actions
@@ -878,6 +1111,12 @@ def main():
         check("OTHER" not in [tab[0] for tab in controller.tabs] and
               sum(len(tab[2]) for tab in controller.tabs) == len(controller.actions),
               "control-console pages omitted or duplicated a production option")
+        restart_before = controller.restart_generation
+        controller.restart_viewer()
+        restart_payload = json.loads(Path(cli.control_file).read_text(encoding="utf-8"))
+        check(controller.restart_generation == restart_before + 1 and
+              restart_payload["restart"] == controller.restart_generation,
+              "X restart did not publish a viewer rebuild token")
         for tab_index, (label, _, _) in enumerate(controller.tabs):
             controller.tab_index = tab_index
             check(f"[{controller.tabs[tab_index][1]}{label}]" in controller.tab_strip(58),
@@ -908,6 +1147,13 @@ def main():
               tree_preview.scenery_set == frozenset(("trees",)) and
               tree_preview.rabbit_count == 0,
               "TREES preview did not isolate procedural trees")
+        controller.tab_index = next(index for index, tab in enumerate(controller.tabs)
+                                    if tab[0] == "CLOUDS")
+        cloud_preview = controller.isolated_preview_values()
+        check(cloud_preview.clouds and cloud_preview.cloud_count > 0 and
+              cloud_preview.weather == "none" and not cloud_preview.scenery_set and
+              not cloud_preview.sky_events,
+              "CLOUDS preview did not isolate parallax atmosphere layers")
         controller.tab_index = 0
         for action in controller.actions:
             guidance = " ".join(controller.guidance(action))
@@ -942,6 +1188,77 @@ def main():
         else:
             os.environ["FONT_DEMO_GEOMETRY_FILE"] = old_geometry
 
+    route_args = parse_args([
+        "--mode", "pua4", "--scenery", "cabin", "--cabin-count", "4",
+        "--cabin-depth-share", "0.5", "--snow-rate", "0",
+        "--max-flakes", "0", "--preload-seconds", "0",
+    ])
+    route_engine = SnowEngine(route_args, 360, 140)
+    route_line = int(round(route_engine.scenery_ground_y))
+    road_y, spurs = cabin_path_network(route_args, 360, 140, route_line)
+    route_surface = Surface(360, 140)
+    draw_cabin_paths(route_surface, route_engine)
+    check(len(spurs) == 4 and all(points[-1][1] != road_y for _, points in spurs) and
+          sum(pixel is not None for pixel in route_surface.pixels) > 100,
+          "shared dirt road did not connect every cabin door")
+
+    hero_args = parse_args([
+        "--mode", "pua4", "--sky-events", "superman",
+        "--flyby-interval", "1", "--superman-speed", "100",
+        "--snow-rate", "0", "--max-flakes", "0", "--preload-seconds", "0",
+    ])
+    hero_engine = SnowEngine(hero_args, 420, 150)
+    hero_surface = Surface(hero_engine.width, hero_engine.height)
+    hero_elapsed = next(
+        tick * 0.05 for tick in range(2000)
+        if ((state := current_sky_event_state(
+            hero_args, hero_engine, tick * 0.05)) is not None and
+            0.45 <= state["phase_progress"] <= 0.55))
+    draw_sky_event(hero_surface, hero_engine, hero_elapsed)
+    hero_width, hero_height = painted_bounds(hero_surface)
+    check(hero_width >= 42 and hero_width >= hero_height * 4,
+          "expanded Superman sprite is not recognisably long in flight")
+
+    helicopter_args = parse_args([
+        "--mode", "pua4", "--sky-events", "helicopter",
+        "--flyby-interval", "1", "--flyby-speed", "100",
+        "--helicopter-hover-seconds", "1", "--helicopter-wait-min", "2",
+        "--helicopter-wait-max", "2", "--helicopter-downwash", "1",
+        "--scenery", "cabin", "--cabin-count", "2",
+        "--snow-rate", "20", "--max-flakes", "80", "--preload-seconds", "2",
+    ])
+    helicopter_engine = SnowEngine(helicopter_args, 320, 120)
+    phases = {}
+    for tick in range(1200):
+        sample_elapsed = tick * 0.02
+        state = current_sky_event_state(
+            helicopter_args, helicopter_engine, sample_elapsed)
+        if state is not None:
+            phases.setdefault(state["phase"], state)
+            helicopter_engine.step_helicopter(0.02, sample_elapsed)
+    required_phases = {"heli_approach", "heli_hover", "heli_descent",
+                       "heli_landed", "heli_takeoff", "heli_departure"}
+    check(required_phases.issubset(phases) and
+          phases["heli_approach"]["scale"] < phases["heli_hover"]["scale"] and
+          phases["heli_departure"]["orientation"] == 4,
+          "helicopter did not complete approach, landing, turn and rear departure")
+    check(helicopter_engine.supply_crates and helicopter_engine.downwash_particles and
+          helicopter_engine.downwash_snow_events > 0,
+          "helicopter did not leave cargo or couple rotor downwash into the scene")
+
+    analyser = load_native_analyser(False)
+    if analyser is not None:
+        parity_surface = render_surface(
+            build_scenery(route_args, route_engine.width, route_engine.height,
+                          route_engine.scenery_ground_y), route_engine)
+        python_stats, native_stats = {}, {}
+        python_frame = encode_surface(parity_surface, CODECS["pua4"], 90, 35,
+                                      python_stats)
+        native_frame = encode_surface_native(
+            parity_surface, CODECS["pua4"], 90, 35, analyser, native_stats)
+        check(python_frame == native_frame and python_stats == native_stats,
+              "Rust cell analysis changed Python ANSI or telemetry semantics")
+
     launcher_text = (Path(__file__).resolve().parents[2] /
                      "scripts/macos/run-demo.sh").read_text(encoding="utf-8")
     check("--snapshot)" in launcher_text and "hold-on-success" in launcher_text,
@@ -963,14 +1280,20 @@ def main():
     print("PASS: tumbleweed rolls physically, stops at high snow and promotes collapse")
     print("PASS: illustrated help covers every program and launcher control")
     print("PASS: aged tower collapses can cascade; live JSON and TUI argv round-trip")
-    print("PASS: five compact flybys, aircraft variants, kite and pilot parachute")
+    print("PASS: six compact flybys, wind-driven kite tail and enlarged moving parachute")
     print("PASS: sparse snow crystals and independently tapered 4.2 VPX tree trunks")
     print("PASS: rain streaks, bouncing hail and branched lightning render behind scenery")
     print("PASS: precipitation depth assignment, weather-off mode and isolated tab previews")
-    print("PASS: swooping UFO uses an existing rabbit; sparse beam and plasma trail animate")
-    print("PASS: rabbit depth drives scale, parallax and cabin occlusion; postman gait is cached")
+    print("PASS: Superman paths, Santa depth zoom and parallax cloud lanes animate")
+    print("PASS: swooping UFO keeps rabbit/beam depth; sparse plasma effects animate")
+    print("PASS: distant cabins; postman cycles, scales, posts and collapses path snow")
+    print("PASS: plough preserves snowfall deposited behind its completed blade path")
     print("PASS: Down-arrow escape sequence is not mistaken for the viewer quit key")
-    print("PASS: paged weather controls, eight dashboard tabs, CPU/memory and geometry-safe export")
+    print("PASS: paged live controls, in-window restart, CPU/memory and geometry-safe export")
+    print("PASS: cabin path network, grouped gifts and elongated Superman geometry")
+    print("PASS: staged helicopter landing, supply crate and volumetric rotor downwash")
+    if analyser is not None:
+        print("PASS: optional Rust cell analyser is byte-for-byte compatible with Python")
 
 
 if __name__ == "__main__":

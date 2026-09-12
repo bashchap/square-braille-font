@@ -11,7 +11,8 @@ branched lightning, true-colour weather palettes,
 wind and gusts, uneven accumulation, broad threshold-driven fall-away events,
 aged local tower collapses with bounded chain reactions, layered
 pine trees, coloured lights, optional cabin and reindeer scenery, swaying
-treetops, airborne leaves, and rolling tumbleweed.
+treetops, airborne leaves, rolling tumbleweed, parallax clouds, and varied
+distant flybys.
 
 ```text
 CLI settings
@@ -149,6 +150,7 @@ exponent is exposed rather than hard-coded:
 | `--tree-length-ratio` | 0.35–0.90 | Child length divided by parent length |
 | `--tree-trunk-thickness` | 0.5–12 VPX | Main trunk weight; default 4.2 VPX |
 | `--tree-branch-thickness-ratio` | 0.1–1.0 | Primary branch weight as a fraction of the main trunk; default 0.42 keeps branches visibly slimmer |
+| `--conifer-colour-variation` | 0–100 RGB levels | Seeded colour separation among pine/fir/spruce individuals; default 28 |
 | `--tree-thickness-exponent` | 1.2–4 | Taper law; 2 is area-preserving for equal bifurcation |
 | `--tree-segment-budget` | 0–100,000 | Frame-wide safety ceiling for formula-generated segments |
 
@@ -182,7 +184,18 @@ Every design retains its own fixed proportions, so neither a live terminal
 resize nor a deeper snow bank stretches the building.
 The A-frame uses a filled outer roof shell and inset wall triangle rather than
 a fragile one-pixel outline, keeping both diagonals and the eaves continuous
-after the image is reduced into 4×4 PUA cells.
+after the image is reduced into 4×4 PUA cells. Its door geometry is shared by
+the cabin renderer and postman target calculation and is inset from the sloped
+wall, so it cannot escape the triangular footprint.
+
+`--cabin-depth-share` assigns a repeatable fraction of cabins to the distance;
+`--cabin-depth-scale` makes those buildings smaller and raises them toward the
+horizon. Their real elevated door coordinates are also used by the postman, so
+the walk from the foreground road becomes longer and the figure scales
+continuously throughout the trip.
+Every door is connected to one shared woodland route: sparse, irregular dark
+dirt pixels form a road and a spur to each entrance. The route is deliberately
+non-colliding, may be partly covered by snow, and is also the postman's route.
 
 `--ambient auto` adds animated leaves and, once the viewport is at least 720
 virtual pixels wide, tumbleweed. Use `--ambient all` to force both at any size,
@@ -210,46 +223,83 @@ The foreground is not limited to falling snow:
   to the horizon, and can pass behind cabins and trees; near rabbits pass in
   front.
 - `--postman` schedules a postman who walks in from either edge, selects an
-  actual cabin door, pauses to hand over mail, and continues off screen.
+  actual cabin door, turns smoothly from a side view to show his back, walks
+  from the road to the house, posts a visible letter, waits, turns to face the
+  viewer, returns to the road, turns sideways and continues off screen.
+  During the approach, spaced footsteps compact the bank and release small
+  falling crumbs, leaving a local collapsed path rather than walking through
+  rigid snow.
   `--postman-interval`, `--postman-speed`, and `--postman-stop-seconds` tune the
-  visit. Eight cached jointed gait phases use opposing arms and legs; the
-  figure is constrained below door height but above rabbit height. The motion
+  visit. `--postman-delivery-frequency` multiplies visit frequency (zero
+  disables deliveries), while a rotating target index ensures every cabin is
+  visited before the route repeats. His detailed road-scale figure is 70%
+  larger than the earlier design;
+  it scales linearly down to fit the selected door during approach and back to
+  full size on the return. Cached jointed gait and turning phases use opposing
+  arms and legs, front/back colour shading, cap, uniform insignia, buttons,
+  footwear, satchel and envelope detail. The motion
   was informed by [Eadweard Muybridge's 1887 public-domain walking sequence](https://commons.wikimedia.org/wiki/File:Muybridge_human_male_walking_animated.gif)
   and the [Library of Congress record for *Animal locomotion*](https://www.loc.gov/item/92502807/);
   the demo does not copy or bundle their photographic pixels.
+  When a helicopter has left a supply crate, the next postman stops on the
+  road, opens it, collects mail, breaks the empty box into fading fragments,
+  and then continues to the scheduled cabin. The crate is never an obstacle.
 - `--sky-events auto` rotates commuter/airliner aeroplanes, a helicopter, a
-  lost kite with a moving tail, UFO, and Santa-with-reindeer flybys.
+  lost kite whose segmented tail bends and flutters under the live wind/gust
+  field, UFO, Santa-with-reindeer, and Superman flybys. Superman now has a
+  roughly doubled horizontal silhouette with face, hair, eye, extended fist,
+  chest emblem, belt, shaded suit and boots; his reduced cape still flutters.
+  `--superman-path straight|curve|arc`,
+  `--superman-frequency`, and `--superman-speed` control his route and timing.
   Use `none`, one name, or a comma list with `--flyby-interval` and
   `--flyby-speed` for a particular demonstration. All flights occupy a distant
   compositing layer and are occluded by trees, cabins, animals and snow.
   `--aeroplane-types` selects a compact rounded commuter aircraft or long
   red-striped airliner; both are half the preceding release's scale.
   `--pilot-ejection` permits a deterministic occasional ejection: the pilot
-  starts in freefall, opens a canopy, then drifts down at
+  starts in freefall, opens a larger billowing canopy, then visibly swings and
+  drifts down at
   `--parachute-fall-speed` in the furthest flight layer. Set
   `--ejection-chance 0` to disable it or `1` to demonstrate every pass.
-  `--santa-scale 0.50` is the half-size default. `--santa-arc-height` controls
-  his mid-flight rise, `--santa-trail-length` controls its spatial extent, and
+  `--santa-scale-min 0.02` and `--santa-scale-max 0.50` make the formation grow
+  smoothly from an almost single-dot distance to its nearest midpoint size,
+  then recede symmetrically. Legacy `--santa-scale` remains an alias for the
+  maximum. `--santa-arc-height` controls his mid-flight rise,
+  `--santa-trail-length` controls its spatial extent, and
   `--santa-trail-seconds` controls the fading red, blue, yellow, orange and
   green particle trail left behind the sleigh. The defaults are now `3.0`
   times the original spatial length and `5.6` seconds—twice the original
-  lifetime. Santa also drops a tumbling parcel vertically into each cottage
-  or lodge chimney he crosses. Disable deliveries with `--no-santa-presents`
-  or adjust their initial descent with `--present-fall-speed`.
+  lifetime. Santa releases `--santa-presents-min` through
+  `--santa-presents-max` parcels on the same frame over every crossed cottage
+  or lodge chimney. Each has an independent initial fall speed. Disable
+  deliveries with `--no-santa-presents` or tune the baseline with
+  `--present-fall-speed`.
+- The helicopter approaches nose-on from a point, grows into a detailed hover,
+  descends into the foreground, waits between `--helicopter-wait-min` and
+  `--helicopter-wait-max`, leaves a supply crate, lifts, passes through five
+  orientation frames, then shows its rear and recedes.
+  `--helicopter-hover-seconds` controls transition pauses.
+  `--helicopter-downwash` ranges from 0 (off) to 4 (extreme), displacing nearby
+  precipitation, adding a short-lived volumetric wake and scouring loose snow.
 - `--ufo-abduction` makes a UFO pause and activate a moving cyan, blue, violet,
   gold and white transporter column. The UFO selects one already-visible
   rabbit, swoops from a distant point toward that rabbit, and freezes directly
   above it before the beam appears. If no rabbit is visible, the flyby proceeds
   without a beam or capture; no hidden stand-in is created. The selected rabbit
   then rises vertically in front of the sparse beam and shrinks to 10% of the
-  UFO's width. `--ufo-types` rotates saucer, orb and delta vehicles, while
+  UFO's width. Both rabbit and beam retain the rabbit's original depth lane:
+  a rabbit that began in front of a cabin remains in front throughout capture,
+  while a distant rabbit and its beam remain occluded. `--ufo-types` rotates
+  saucer, orb and delta vehicles, while
   `--ufo-trail-length` and `--ufo-trail-seconds` tune their plasma wakes. After
   capture the craft accelerates away while shrinking back toward a point.
 - The snow plough is enabled by default. `--plough-interval` controls how often
   it enters, `--plough-speed` controls traversal speed, and
   `--plough-clear-to` is the shallow bank left by a completed pass. Its wheels
   remain on one horizontal road datum while the blade removes changing snow;
-  it does not climb the bank it is clearing. Use `--no-snow-plough` for a scene
+  it does not climb the bank it is clearing. There is no end-of-pass global
+  cleanup: snow that falls behind the blade remains, as it is newer than the
+  cleared path. Use `--no-snow-plough` for a scene
   that never receives a full-width clearing.
 
 To isolate the half-scale arcing Santa and his fading trail:
@@ -257,7 +307,7 @@ To isolate the half-scale arcing Santa and his fading trail:
 ```sh
 ./scripts/macos/run-demo.sh pua4 christmas-snow \
   --sky-events santa --flyby-interval 1 --flyby-speed 32 \
-  --santa-scale 0.50 --santa-arc-height 0.16 \
+  --santa-scale-min 0.02 --santa-scale-max 0.50 --santa-arc-height 0.16 \
   --santa-trail-length 3 --santa-trail-seconds 5.6
 ```
 
@@ -290,6 +340,24 @@ inside the same cell. Against terminal black, empty samples need no background
 colour, so more of a small silhouette survives crisply. This is a two-colour
 per-cell and 4x4 sampling limit, not missing depth compositing; foreground trees
 and cabins still occlude the distant flights correctly.
+
+### Parallax clouds
+
+`--clouds` enables procedural, continuously wrapping cloud bodies. No bitmap
+assets are loaded. `--cloud-depths` supplies one to eight perspective lanes;
+near lanes are larger and, through `--cloud-parallax`, move faster than distant
+lanes. Depths below `0.62` pass behind flights and depths at or above it may
+cross in front of them, while all clouds remain behind scenery. `--cloud-count`,
+`--cloud-speed`, and `--cloud-colours` control population, base movement and a
+cycled RRGGBB palette. For example:
+
+```sh
+--clouds --cloud-count 9 --cloud-speed 5 \
+  --cloud-depths 0.18,0.42,0.72,0.9 --cloud-parallax 1.4 \
+  --cloud-colours 91A9BA,C7DBE7,F4F1E8
+```
+
+The companion console exposes these together on its dedicated `CLOUDS` tab.
 
 ## Rain, hail and lightning
 
@@ -442,8 +510,8 @@ low, moderate, or high performance sensitivity. Direct input remains available
 when a value outside the convenient slider range is valid.
 
 The console is divided into related pages instead of one oversized list:
-`DISPLAY`, `WINDOW`, `LIVE`, `SNOW`, `SKY`, `WEATHER`, `GROUND`, `SCENE`,
-`TREES`, `ANIMALS`, and `FLIGHTS`. The active page is bracketed in the coloured
+`DISPLAY`, `WINDOW`, `LIVE`, `SNOW`, `SKY`, `CLOUDS`, `WEATHER`, `GROUND`,
+`SCENE`, `TREES`, `ANIMALS`, and `FLIGHTS`. The active page is bracketed in the coloured
 Unicode tab strip; narrow windows scroll the strip so the active page remains
 visible. Each tab symbol has its own colour. The right-hand inspector uses
 separate coloured sections for the current value, purpose, valid range,
@@ -459,6 +527,7 @@ Controller keys:
 | Space | Toggle an on/off option |
 | Enter | Type an exact value; type `AUTO` for auto-sized controls |
 | `V` | Launch a second window containing only the active tab's visual elements; WEATHER retains wind/gust behavior |
+| `X` | Rebuild the listening viewer with the current configuration inside its existing terminal window, preserving OS position and size |
 | `S` | Capture window geometry/font size, then save a JSON preset and adjacent standalone `.command.txt` launch command |
 | `P` | Display a complete standalone command; it is also printed on exit |
 | `R` | Restore defaults for the selected font mode |
@@ -467,11 +536,15 @@ Controller keys:
 `LIVE` options take effect on the next control poll (default 0.20 seconds).
 The isolated visual previews use a black canvas so unrelated sky/scenery does
 not mask the selected element. ANIMALS retains only a shallow flat baseline
-needed by terrain-following animals. DISPLAY, WINDOW, and LIVE contain no
+needed by terrain-following animals. The CLOUDS preview retains only its sky
+and configured depth lanes. DISPLAY, WINDOW, and LIVE contain no
 drawable scene object, so their preview is the complete scene under those
 meta-settings.
 `RESTART` options affect raster construction or process lifetime; the TUI saves
-them, but clearly identifies that the graphics viewer must be restarted. The
+them, but clearly identifies that the graphics viewer must be restarted. Press
+`X` to publish a restart token: the listening viewer recreates its engine and
+background in place, so the terminal window, font, position and current size do
+not move. The
 viewer dashboard shows `LIVE WAIT`, `LIVE R<n>`, `LIVE ERROR`, or
 `LIVE RESTART:MODE`, making the control state observable.
 The printed command uses the detected macOS, Linux PUA4, Linux Square, or
@@ -543,6 +616,7 @@ the animation. The terminal input mode is temporary and restored on exit.
 - `ANIMALS` shows rabbit states, persistent depth lanes, reactions, postman
   state/deliveries, and terrain-blocked tumbleweed counts.
 - `FLIGHTS` identifies the current distant event and aircraft type, schedule,
+  Superman path/frequency/speed, Santa depth-scale range,
   ejected-pilot count, Santa scale/arc/trail state, and UFO vehicle,
   abduction/beam and plasma-trail state.
 - `PROCESS` shows CPU sampled over quarter-second windows, raster-and-encode
@@ -596,9 +670,23 @@ Caching already happens at two useful levels:
   when dimensions or scenery-affecting controls change;
 - expensive procedural tree geometry is held in a bounded in-memory cache,
   then cheap wind-dependent sway is applied while it is composited.
-- the postman's eight direction/pose-specific procedural gait frames are held
-  in a separate bounded cache. The process dashboard reports hit/miss totals
-  for both tree geometry and postman frames.
+- the postman's direction-, gait-, turn- and scale-specific procedural frames
+  are held in a separate bounded cache. The process dashboard reports hit/miss
+  totals for both tree geometry and postman frames.
+
+An optional dependency-free Rust cell analyser now lives under
+`native/seasonal_encoder`. Build it with:
+
+```sh
+cargo build --release --manifest-path native/seasonal_encoder/Cargo.toml
+```
+
+`--native-encoder auto` uses it when present and safely falls back to Python;
+`off` forces the reference path and `on` requires Rust. It accelerates the
+per-cell priority/mask/colour/error scan while Python retains ANSI generation.
+Local repeated encoding was approximately twice as fast at both 120x36 and
+168x60 cells, including marshaling. The verifier demands byte-for-byte ANSI and
+telemetry parity whenever the release library is present.
 
 Further caching is viable, but whole pre-encoded frames would be a poor fit:
 movement, arbitrary terminal sizes, cell alignment, foreground/background
@@ -845,11 +933,18 @@ resize preservation, animated tree movement, frame dimensions, and the absence
 of reverse-video output. It also forces an aged local tower and neighbour
 cascade, applies a live JSON revision, and round-trips the TUI's effective
 options back through the production parser. Additional checks cover varied
-cabin types, tumbleweed-aware rabbits, all five sky events, complete plough
-clearing, rabbit perspective/occlusion, existing-rabbit-only UFO capture,
-helicopter/kite rotation, pilot parachute deployment, cached postman delivery,
+cabin types and depth lanes, tumbleweed-aware rabbits, all six sky events,
+parallax clouds, complete plough clearing, rabbit perspective/occlusion,
+depth-stable existing-rabbit-only UFO capture, Santa depth zoom,
+helicopter/kite/Superman rotation, enlarged moving pilot parachute, cached
+all-cabin postman delivery, connected dirt routes, simultaneous multi-speed
+Santa gifts, all helicopter landing/orientation phases, cargo/postman handling,
+rotor weather/snow coupling, and optional Rust/Python encoder parity,
 detailed reindeer and flyby pixel complexity, dashboard dimensions
 and CPU/memory labels, per-option TUI icons and guidance, snapshot-window hold
 behaviour, and an executable saved command containing literal shell
 continuation backslashes. It also cross-checks draw-time exposed-surface indexing
 and confirms that `none`, `ground` and `full` isolate their intended subsystems.
+
+For continuation architecture, limitations, native phase-two work and a
+zero-context runbook, read [HANDOVER-2026-09-12.md](HANDOVER-2026-09-12.md).

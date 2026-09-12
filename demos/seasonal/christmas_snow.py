@@ -25,6 +25,8 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 
+from christmas_snow_native import load_native_analyser
+
 try:
     import resource
 except ImportError:  # Windows does not provide the Unix resource module.
@@ -120,6 +122,7 @@ class TreeSettings:
     trunk_thickness: float
     branch_thickness_ratio: float
     thickness_exponent: float
+    conifer_colour_variation: float
 
 
 class Surface:
@@ -314,6 +317,7 @@ class Rabbit:
 @dataclass
 class Postman:
     x: float
+    y: float
     direction: int
     state: str
     timer: float
@@ -321,8 +325,16 @@ class Postman:
     target_cabin: int = -1
     target_x: float = 0.0
     door_x: float = 0.0
+    door_y: float = 0.0
+    road_x: float = 0.0
+    road_y: float = 0.0
+    turn_progress: float = 0.0
     figure_height: float = 12.0
+    road_figure_height: float = 12.0
+    door_figure_height: float = 12.0
     handed_over: bool = False
+    last_collapse_x: float = -1000000.0
+    crate_id: int = -1
 
 
 @dataclass
@@ -368,6 +380,35 @@ class PresentDrop:
     speed: float
     colour_index: int
     event_index: int
+
+
+@dataclass
+class SupplyCrate:
+    crate_id: int
+    x: float
+    y: float
+    state: str = "sealed"
+    timer: float = 0.0
+
+
+@dataclass
+class CrateDebris:
+    x: float
+    y: float
+    vx: float
+    vy: float
+    ttl: float
+    maximum_ttl: float
+
+
+@dataclass
+class DownwashParticle:
+    x: float
+    y: float
+    vx: float
+    vy: float
+    ttl: float
+    maximum_ttl: float
 
 
 @dataclass
@@ -505,8 +546,9 @@ def sky_event_list(value):
     if value.strip().lower() == "none":
         return ()
     if value.strip().lower() in ("auto", "all"):
-        return ("aeroplane", "helicopter", "kite", "ufo", "santa")
-    return choice_list(value, ("aeroplane", "helicopter", "kite", "ufo", "santa"),
+        return ("aeroplane", "helicopter", "kite", "ufo", "santa", "superman")
+    return choice_list(value, ("aeroplane", "helicopter", "kite", "ufo", "santa",
+                               "superman"),
                        "sky events")
 
 
@@ -582,7 +624,8 @@ def draw_formula_branch(surface, rng, x, y, length, angle, levels,
 
 def draw_conifer(surface, rng, centre_x, base_y, height, layer, lights,
                   tree_type, branch_count, branch_angle, trunk_thickness,
-                  branch_thickness_ratio=0.42, sway=0.0, segment_budget=None):
+                  branch_thickness_ratio=0.42, conifer_colour_variation=28.0,
+                  sway=0.0, segment_budget=None):
     height = max(8, int(height))
     profile_width = {"pine": 0.28, "fir": 0.34, "spruce": 0.22}[tree_type]
     half = max(3, int(height * profile_width))
@@ -597,9 +640,14 @@ def draw_conifer(surface, rng, centre_x, base_y, height, layer, lights,
     base_colour = species_colours[tree_type][min(4, layer)]
     # Seeded per-tree tinting avoids a flat wall of identical green while
     # preserving repeatability and cached-raster reuse.
-    tint = rng.randint(-9, 9)
-    colour = tuple(max(0, min(255, channel + tint))
-                   for channel in base_colour)
+    tint = rng.uniform(-conifer_colour_variation, conifer_colour_variation)
+    # Move green most strongly, red moderately and blue in the opposite
+    # direction so variation remains visibly chromatic after 4x4 sampling.
+    colour = (
+        max(0, min(255, int(round(base_colour[0] + tint * 0.35)))),
+        max(0, min(255, int(round(base_colour[1] + tint)))),
+        max(0, min(255, int(round(base_colour[2] - tint * 0.42)))),
+    )
     priority = 10 + layer * 4
     trunk_half = max(1, int(round(trunk_thickness * (0.45 + layer * 0.10))))
     # Only the naturally exposed foot is brown. The old full-height stationary
@@ -726,7 +774,7 @@ def draw_tree(surface, rng, centre_x, base_y, height, layer, lights,
         draw_conifer(surface, rng, centre_x, base_y, height, layer, lights,
                      tree_type, args.tree_branches, args.tree_branch_angle,
                      args.tree_trunk_thickness, args.tree_branch_thickness_ratio,
-                     sway, segment_budget)
+                     args.conifer_colour_variation, sway, segment_budget)
     else:
         draw_broadleaf(
             surface, rng, centre_x, base_y, height, layer, tree_type,
@@ -756,6 +804,7 @@ def cached_tree_pixels(tree_seed, height, layer, lights, tree_type, settings,
         tree_trunk_thickness=settings.trunk_thickness,
         tree_branch_thickness_ratio=settings.branch_thickness_ratio,
         tree_thickness_exponent=settings.thickness_exponent,
+        conifer_colour_variation=settings.conifer_colour_variation,
     )
     draw_tree(surface, rng, centre, base, height, layer, lights, tree_type,
               tree_args, sway=0.0, segment_budget=[segment_allowance])
@@ -788,7 +837,7 @@ def draw_cached_tree(surface, centre, base, height, sway, pixels):
 
 
 def cabin_layout(args, width, height, snow_line):
-    """Return fixed-aspect cabins whose count, not width, grows with viewport."""
+    """Return perspective-scaled cabins, including deterministic distant homes."""
     scale = args.cabin_scale
     cabin_height = max(10, int(round(height * 0.22 * scale)))
     cabin_width = max(18, int(round(cabin_height * 1.95)))
@@ -803,13 +852,26 @@ def cabin_layout(args, width, height, snow_line):
     margin = max(cabin_width * 0.65, width * 0.055)
     usable = max(1.0, width - margin * 2)
     placements = []
+    distant_indices = {
+        index for index in range(count)
+        if random.Random(args.seed + 4817 + index * 193).random() <
+        args.cabin_depth_share
+    }
+    if count >= 2 and args.cabin_depth_share > 0 and not distant_indices:
+        distant_indices.add((args.seed + 1) % count)
+    distant_indices = frozenset(distant_indices)
     for index in range(count):
         centre = margin + usable * (index + 0.5) / count
         variation_rng = random.Random(args.seed + 4109 + index * 97)
         variation = 1.0 + variation_rng.uniform(-args.cabin_size_variation,
                                                  args.cabin_size_variation)
-        local_height = max(10, int(round(cabin_height * variation)))
-        base = min(height - 1, snow_line + max(2, local_height // 5))
+        perspective = 1.0
+        if index in distant_indices:
+            perspective = args.cabin_depth_scale * variation_rng.uniform(0.90, 1.08)
+            perspective = max(0.25, min(0.95, perspective))
+        local_height = max(8, int(round(cabin_height * variation * perspective)))
+        horizon_lift = int(round((1.0 - perspective) * height * 0.36))
+        base = min(height - 1, snow_line - horizon_lift + max(2, local_height // 5))
         cabin_type = args.cabin_types[index % len(args.cabin_types)]
         placements.append((centre, base, local_height, index, cabin_type))
     return placements
@@ -836,17 +898,58 @@ def cabin_chimney_targets(args, width, height, snow_line):
 def cabin_door_targets(args, width, height, snow_line):
     """Return cabin door centres and heights from the shared cabin layout."""
     targets = []
-    aspects = {"cottage": 1.72, "lodge": 2.18, "a-frame": 1.48}
     for cabin_index, (centre, base, cabin_height, variant, cabin_type) in enumerate(
             cabin_layout(args, width, height, snow_line)):
-        cabin_width = max(16, int(round(cabin_height * aspects[cabin_type])))
-        left = int(round(centre - cabin_width / 2))
-        door_width = max(3, cabin_width // 7)
-        door_height = max(5, cabin_height // 2)
-        targets.append((cabin_index,
-                        left + cabin_width - door_width * 0.5 - 3,
-                        base, door_height))
+        door_left, door_top, door_right, door_bottom = cabin_door_rect(
+            centre, base, cabin_height, cabin_type)
+        targets.append((cabin_index, (door_left + door_right) * 0.5,
+                        door_bottom, door_bottom - door_top))
     return targets
+
+
+def cabin_path_network(args, width, height, snow_line):
+    """Shared dirt route: one road plus a spur to every exact cabin door."""
+    doors = cabin_door_targets(args, width, height, snow_line)
+    road_y = min(height - 2, snow_line + max(1, int(height * 0.035)))
+    spurs = []
+    for cabin_index, door_x, door_y, _ in doors:
+        junction_x = max(2.0, min(width - 3.0, door_x))
+        bend_y = road_y + (door_y - road_y) * 0.42
+        spurs.append((cabin_index, ((junction_x, road_y),
+                                    (junction_x, bend_y),
+                                    (door_x, door_y))))
+    return road_y, tuple(spurs)
+
+
+def helicopter_landing_x(args, width, height, snow_line):
+    """Choose the widest cabin gap, leaving rotor clearance at both edges."""
+    centres = sorted(item[0] for item in cabin_layout(
+        args, width, height, snow_line))
+    clearance = min(width * 0.18, 42.0)
+    boundaries = [clearance] + centres + [width - clearance]
+    gaps = [(right - left, (left + right) * 0.5)
+            for left, right in zip(boundaries, boundaries[1:])]
+    return max(gaps, default=(0.0, width * 0.5))[1]
+
+
+def cabin_door_rect(centre_x, base, cabin_height, cabin_type):
+    """Return the exact door rectangle, kept inside every cabin silhouette."""
+    aspect = {"cottage": 1.72, "lodge": 2.18, "a-frame": 1.48}[cabin_type]
+    cabin_width = max(16, int(round(cabin_height * aspect)))
+    left = int(round(centre_x - cabin_width / 2))
+    door_width = max(3, cabin_width // 7)
+    door_height = max(5, cabin_height // 2)
+    if cabin_type == "a-frame":
+        # The inset wall reaches 44% of the nominal width at the base. Keep
+        # the complete door comfortably inside that triangular wall instead
+        # of reusing the rectangular cabin's far-right placement.
+        centre = centre_x + cabin_width * 0.19
+        door_left = centre - door_width * 0.5
+        door_right = centre + door_width * 0.5
+    else:
+        door_right = left + cabin_width - 3
+        door_left = door_right - door_width
+    return door_left, base - door_height, door_right, base
 
 
 def draw_cabin(surface, centre_x, base, cabin_height, variant=0, cabin_type="cottage"):
@@ -896,12 +999,12 @@ def draw_cabin(surface, centre_x, base, cabin_height, variant=0, cabin_type="cot
                  wtop + wsize - 1, (255, 236, 157), 36)
     surface.line(wleft, wtop + wsize // 2, wleft + wsize - 1,
                  wtop + wsize // 2, (255, 236, 157), 36)
-    door_width = max(3, cabin_width // 7)
-    surface.rectangle(left + cabin_width - door_width - 3,
-                      base - max(5, cabin_height // 2),
-                      left + cabin_width - 3, base, (57, 34, 27), 34)
-    surface.pixel(left + cabin_width - 5,
-                  base - max(3, cabin_height // 4), (246, 191, 74), 37)
+    door_left, door_top, door_right, door_bottom = cabin_door_rect(
+        centre_x, base, cabin_height, cabin_type)
+    surface.rectangle(door_left, door_top, door_right, door_bottom,
+                      (57, 34, 27), 34)
+    surface.pixel(door_right - 2, (door_top + door_bottom) * 0.5,
+                  (246, 191, 74), 37)
     if cabin_type == "lodge":
         second_left = left + cabin_width // 2
         surface.rectangle(second_left, wtop, second_left + wsize,
@@ -1067,7 +1170,7 @@ def build_scenery(args, width, height, ground_y, elapsed=0.0):
             args.tree_branches, args.tree_branch_levels,
             args.tree_branch_angle, args.tree_length_ratio,
             args.tree_trunk_thickness, args.tree_branch_thickness_ratio,
-            args.tree_thickness_exponent)
+            args.tree_thickness_exponent, args.conifer_colour_variation)
         per_tree_budget = (args.tree_segment_budget // len(plans)
                            if plans else 0)
         for tree_seed, centre, base, tree_height, layer, lights, tree_type, sway in plans:
@@ -1159,12 +1262,26 @@ def rabbit_scene_ground_y(engine, rabbit):
     """Project far rabbits toward the horizon while preserving terrain motion."""
     terrain = engine.surface_y(rabbit.x) - 1
     perspective_lift = (1.0 - rabbit.depth) * engine.height * 0.11
-    return terrain - perspective_lift
+    projected = terrain - perspective_lift
+    if rabbit.depth < 0.68 and "cabin" in engine.args.scenery_set:
+        snow_line = max(0, min(
+            engine.height - 1, int(round(engine.scenery_ground_y))))
+        aspects = {"cottage": 1.72, "lodge": 2.18, "a-frame": 1.48}
+        for centre, base, cabin_height, _, cabin_type in cabin_layout(
+                engine.args, engine.width, engine.height, snow_line):
+            cabin_width = max(16, int(round(
+                cabin_height * aspects[cabin_type])))
+            half_width = cabin_width * (0.54 if cabin_type == "a-frame" else 0.5)
+            if centre - half_width <= rabbit.x <= centre + half_width:
+                # Keep the complete far rabbit inside the cabin's vertical
+                # occlusion footprint; feet must not leak below its base.
+                projected = min(projected, base - 2)
+    return projected
 
 
-@functools.lru_cache(maxsize=96)
-def cached_postman_pixels(figure_height, direction, gait_frame, delivering):
-    """Pre-rasterize eight jointed walking phases and one delivery pose."""
+@functools.lru_cache(maxsize=192)
+def cached_postman_pixels(figure_height, direction, gait_frame, pose, delivering):
+    """Pre-rasterize gait and smooth side/back/front turning poses."""
     figure_height = max(9, int(round(figure_height)))
     scale = figure_height / 16.0
     width = max(18, int(round(figure_height * 1.4)))
@@ -1173,23 +1290,34 @@ def cached_postman_pixels(figure_height, direction, gait_frame, delivering):
     base = local_height - 2
     surface = Surface(width, local_height)
     phase = math.tau * (gait_frame % 8) / 8.0
+    backness = max(0.0, min(1.0, pose / 4.0))
+    frontness = max(0.0, min(1.0, -pose / 4.0))
+    profile = 1.0 - backness - frontness
     bob = 0.0 if delivering else abs(math.sin(phase)) * 0.55 * scale
     hip_y = base - 6.0 * scale - bob
     shoulder_y = base - 11.0 * scale - bob
     skin = (224, 174, 126)
-    uniform = (194, 42, 47)
-    uniform_light = (226, 59, 57)
+    uniform = tuple(int(side * profile + back * backness + front * frontness)
+                    for side, back, front in zip(
+                        (194, 42, 47), (119, 25, 35), (211, 49, 52)))
+    uniform_light = tuple(
+        int(side * profile + back * backness + front * frontness)
+        for side, back, front in zip(
+            (226, 59, 57), (157, 36, 43), (239, 74, 67)))
     trousers = (42, 55, 80)
     boot = (43, 34, 31)
     bag = (112, 67, 38)
+    bag_light = (157, 98, 53)
     letter = (249, 243, 218)
+    postal_gold = (255, 202, 61)
 
     # Opposed arm and leg phases follow the contact/passing relationship in
     # Muybridge's public-domain human locomotion sequence.
     for side, depth in ((-1, 87), (1, 91)):
         leg_phase = phase + (math.pi if side < 0 else 0.0)
-        swing = 0.0 if delivering else math.sin(leg_phase) * 2.7 * scale
-        hip_x = centre + side * 1.4 * scale
+        swing = (0.0 if delivering else
+                 math.sin(leg_phase) * 2.7 * scale * (0.62 + profile * 0.38))
+        hip_x = centre + side * (1.4 + backness * 0.35) * scale
         knee_x = hip_x + direction * swing * 0.55
         knee_y = hip_y + 3.0 * scale
         foot_x = hip_x + direction * swing
@@ -1201,22 +1329,40 @@ def cached_postman_pixels(figure_height, direction, gait_frame, delivering):
         surface.line(foot_x - direction * scale, foot_y,
                      foot_x + direction * 1.7 * scale, foot_y, boot, depth + 1)
 
-    surface.rectangle(centre - 2.8 * scale, shoulder_y,
-                      centre + 2.8 * scale, hip_y + scale,
+    torso_half = (2.8 + max(backness, frontness) * 0.55) * scale
+    surface.rectangle(centre - torso_half, shoulder_y,
+                      centre + torso_half, hip_y + scale,
                       uniform, 92)
     surface.rectangle(centre - 2.2 * scale, shoulder_y + scale,
                       centre + 2.2 * scale, hip_y,
                       uniform_light, 93)
-    surface.line(centre - direction * 2.2 * scale, shoulder_y + scale,
-                 centre + direction * 2.2 * scale, hip_y, bag, 94)
-    bag_x = centre - direction * 3.2 * scale
-    surface.rectangle(bag_x - 1.8 * scale, hip_y - 2.4 * scale,
-                      bag_x + 1.8 * scale, hip_y + 0.8 * scale, bag, 95)
+    surface.line(centre - torso_half, hip_y - 0.4 * scale,
+                 centre + torso_half, hip_y - 0.4 * scale,
+                 trousers, 94)
+    if frontness > 0.35:
+        surface.line(centre, shoulder_y + scale, centre, hip_y - scale,
+                     uniform, 94)
+        surface.pixel(centre - scale, shoulder_y + 2 * scale,
+                      postal_gold, 96)
+        surface.pixel(centre, shoulder_y + 3 * scale,
+                      postal_gold, 96)
+    strap_start_x = centre - direction * 2.2 * scale * (profile + frontness * 0.4)
+    strap_end_x = centre + direction * 2.2 * scale * (profile + frontness * 0.4)
+    surface.line(strap_start_x, shoulder_y + scale,
+                 strap_end_x, hip_y, bag, 94)
+    bag_x = centre - direction * 3.2 * scale * (profile + frontness * 0.42)
+    bag_half = (1.8 + 0.5 * backness) * scale
+    surface.rectangle(bag_x - bag_half, hip_y - 2.4 * scale,
+                      bag_x + bag_half, hip_y + 0.8 * scale, bag, 95)
+    surface.line(bag_x - bag_half, hip_y - 1.5 * scale,
+                 bag_x + bag_half, hip_y - 1.5 * scale, bag_light, 96)
+    surface.pixel(bag_x, hip_y - 1.1 * scale, postal_gold, 97)
 
     for side, depth in ((-1, 90), (1, 95)):
         arm_phase = phase + (0.0 if side < 0 else math.pi)
-        swing = 0.0 if delivering else math.sin(arm_phase) * 2.5 * scale
-        shoulder_x = centre + side * 2.4 * scale
+        swing = (0.0 if delivering else
+                 math.sin(arm_phase) * 2.5 * scale * (0.60 + profile * 0.40))
+        shoulder_x = centre + side * (2.4 + backness * 0.35) * scale
         if delivering and side == direction:
             hand_x = centre + direction * 5.2 * scale
             hand_y = shoulder_y + 2.7 * scale
@@ -1233,19 +1379,32 @@ def cached_postman_pixels(figure_height, direction, gait_frame, delivering):
             surface.rectangle(letter_left, hand_y - scale,
                               letter_right,
                               hand_y + scale, letter, 98)
+            surface.line(letter_left, hand_y - scale,
+                         letter_right, hand_y, (202, 62, 62), 99)
 
     head_y = shoulder_y - 2.3 * scale
+    hair = (71, 47, 38)
+    head_colour = tuple(int(front * (profile + frontness) + back * backness)
+                        for front, back in zip(skin, hair))
     filled_ellipse(surface, centre, head_y, 2.1 * scale, 2.3 * scale,
-                   skin, 96)
+                   head_colour, 96)
     surface.rectangle(centre - 2.7 * scale, head_y - 2.8 * scale,
                       centre + 2.5 * scale, head_y - 1.5 * scale,
                       uniform, 97)
-    surface.rectangle(centre + direction * 1.8 * scale,
-                      head_y - 2.0 * scale,
-                      centre + direction * 3.5 * scale,
-                      head_y - 1.3 * scale, uniform, 98)
-    surface.pixel(centre + direction * 1.4 * scale,
-                  head_y - 0.5 * scale, (32, 28, 27), 99)
+    brim_left, brim_right = sorted((
+        centre + direction * profile * 1.8 * scale,
+        centre + direction * profile * 3.5 * scale))
+    if profile > 0.2:
+        surface.rectangle(brim_left, head_y - 2.0 * scale,
+                          brim_right, head_y - 1.3 * scale, uniform, 98)
+    if frontness > 0.45:
+        surface.pixel(centre - scale, head_y - 0.4 * scale,
+                      (32, 28, 27), 99)
+        surface.pixel(centre + scale, head_y - 0.4 * scale,
+                      (32, 28, 27), 99)
+    elif pose < 3:
+        surface.pixel(centre + direction * max(0.5, 1.4 * profile) * scale,
+                      head_y - 0.5 * scale, (32, 28, 27), 99)
     return tuple(
         (index % width - centre, index // width - base, pixel)
         for index, pixel in enumerate(surface.pixels) if pixel is not None
@@ -1257,11 +1416,21 @@ def draw_postman(surface, engine):
     if postman.state == "hidden":
         return
     gait_frame = int(postman.phase / math.tau * 8) % 8
-    delivering = postman.state == "delivering"
+    if postman.state == "turning_in":
+        pose = int(round(postman.turn_progress * 4))
+    elif postman.state in ("turning_from_house", "turning_out"):
+        pose = int(round(postman.turn_progress * 4))
+    elif postman.state in ("approaching", "posting", "waiting"):
+        pose = 4
+    elif postman.state == "returning":
+        pose = -4
+    else:
+        pose = 0
+    delivering = postman.state in ("posting", "opening_crate", "taking_mail")
     pixels = cached_postman_pixels(
         int(round(postman.figure_height)), postman.direction,
-        gait_frame, delivering)
-    base = int(round(engine.surface_y(postman.x) - 1))
+        gait_frame, pose, delivering)
+    base = int(round(postman.y))
     centre = int(round(postman.x))
     for dx, dy, (colour, priority) in pixels:
         surface.pixel(centre + dx, base + dy, colour, priority)
@@ -1283,11 +1452,12 @@ def aeroplane_flyby_unit(engine):
     return compact_flyby_unit(engine, 60) * 0.5
 
 
-def santa_flyby_unit(engine):
+def santa_flyby_unit(engine, scale=None):
     former = max(1.0, min(2.0, engine.height // 60))
-    # Honour the configured linear scale even in short terminals; unlike the
-    # compact aircraft/UFO helper, 0.50 must remain a true half-scale Santa.
-    return max(0.20, former * engine.args.santa_scale)
+    # The very small floor intentionally permits a nearly point-like distant
+    # formation while keeping the maximum a true configured linear scale.
+    scale = engine.args.santa_scale_max if scale is None else scale
+    return max(0.03, former * scale)
 
 
 def ufo_target_x(engine, event_index, rng):
@@ -1309,20 +1479,35 @@ def ufo_target_x(engine, event_index, rng):
     return engine.ufo_target_x_by_event[event_index]
 
 
+def sky_event_speed(args, kind):
+    return args.superman_speed if kind == "superman" else args.flyby_speed
+
+
+def sky_event_quiet_time(args, kind):
+    if kind == "superman":
+        return 60.0 / max(0.01, args.superman_frequency)
+    return args.flyby_interval
+
+
 def current_sky_event_state(args, engine, elapsed):
     """Return flyby geometry plus phase data used by interactive events."""
     if not args.sky_events:
         return None
-    interval = args.flyby_interval
-    shifted = elapsed - interval * 0.35
+    initial_quiet = sky_event_quiet_time(args, args.sky_events[0])
+    shifted = elapsed - initial_quiet * 0.35
     if shifted < 0:
         return None
     margin = sky_event_margin(engine)
-    travel_time = (engine.width + margin * 2) / args.flyby_speed
-    durations = [travel_time + interval + (
-        args.ufo_hover_seconds
-        if args.ufo_abduction and kind == "ufo" else 0.0)
-        for kind in args.sky_events]
+    travel_distance = engine.width + margin * 2
+    durations = [
+        travel_distance / sky_event_speed(args, kind) +
+        sky_event_quiet_time(args, kind) +
+        (args.ufo_hover_seconds
+         if args.ufo_abduction and kind == "ufo" else 0.0) +
+        (args.helicopter_hover_seconds * 2.0 + args.helicopter_wait_max
+         if kind == "helicopter" else 0.0)
+        for kind in args.sky_events
+    ]
     rotation_duration = sum(durations)
     rotations = int(shifted / rotation_duration)
     local = shifted - rotations * rotation_duration
@@ -1334,6 +1519,7 @@ def current_sky_event_state(args, engine, elapsed):
     event_index = rotations * len(args.sky_events) + event_offset
     rng = random.Random(args.seed + 51001 + event_index * 113)
     kind = args.sky_events[event_index % len(args.sky_events)]
+    travel_time = travel_distance / sky_event_speed(args, kind)
     direction = -1 if rng.random() < 0.5 else 1
     phase = "flight"
     phase_progress = local / max(0.001, travel_time)
@@ -1358,9 +1544,9 @@ def current_sky_event_state(args, engine, elapsed):
             phase = "departure"
             phase_progress = (progress - 0.5) * 2.0
     else:
-        if local > travel_time:
+        if local > travel_time and kind != "helicopter":
             return None
-        progress = local / max(0.001, travel_time)
+        progress = min(1.0, local / max(0.001, travel_time))
     if ufo_encounter:
         target_x = ufo_target_x(engine, event_index, rng)
         distant_x = -margin if direction > 0 else engine.width + margin
@@ -1383,14 +1569,17 @@ def current_sky_event_state(args, engine, elapsed):
         unit = aeroplane_flyby_unit(engine)
         minimum_y, maximum_y = 19 * unit, engine.height - 18 * unit
     elif kind == "helicopter":
-        unit = compact_flyby_unit(engine, 70) * 0.58
-        minimum_y, maximum_y = 12 * unit, engine.height - 16 * unit
+        unit = compact_flyby_unit(engine, 70) * 1.15
+        minimum_y, maximum_y = 14 * unit, engine.height - 22 * unit
     elif kind == "kite":
         unit = compact_flyby_unit(engine, 72) * 0.72
         minimum_y, maximum_y = 10 * unit, engine.height - 24 * unit
     elif kind == "ufo":
         unit = compact_flyby_unit(engine, 65)
         minimum_y, maximum_y = 9 * unit, engine.height - 27 * unit
+    elif kind == "superman":
+        unit = compact_flyby_unit(engine, 78) * 0.66
+        minimum_y, maximum_y = 12 * unit, engine.height - 20 * unit
     else:
         unit = santa_flyby_unit(engine)
         minimum_y, maximum_y = 22 * unit, engine.height - 10 * unit
@@ -1401,6 +1590,77 @@ def current_sky_event_state(args, engine, elapsed):
         y = rng.uniform(base_minimum, maximum_y)
         y -= math.sin(math.pi * progress) * arc_rise
         y = max(minimum_y, y)
+    elif kind == "superman":
+        y = rng.uniform(minimum_y, maximum_y)
+        if args.superman_path == "curve":
+            y += math.sin(progress * math.tau + event_index * 0.71) * engine.height * 0.10
+        elif args.superman_path == "arc":
+            y -= math.sin(math.pi * progress) * engine.height * 0.18
+        y = max(minimum_y, min(maximum_y, y))
+    elif kind == "helicopter":
+        # A complete cinematic pass: point-like nose-on approach, hover,
+        # descent, configurable ground wait, lift, five-frame turn and rear
+        # recession.  The landing location is stable for this event.
+        wait_rng = random.Random(args.seed + 82001 + event_index * 179)
+        wait_seconds = wait_rng.uniform(args.helicopter_wait_min,
+                                        args.helicopter_wait_max)
+        approach = travel_time * 0.34
+        hover = args.helicopter_hover_seconds
+        descent = max(1.0, hover * 0.72)
+        ascent = max(1.0, hover * 0.72)
+        departure = travel_time * 0.34
+        boundaries = (approach, approach + hover,
+                      approach + hover + descent,
+                      approach + hover + descent + wait_seconds,
+                      approach + hover + descent + wait_seconds + ascent)
+        landing_x = helicopter_landing_x(
+            args, engine.width, engine.height,
+            int(round(engine.scenery_ground_y)))
+        distant_x = landing_x - direction * engine.width * 0.16
+        sky_y = max(minimum_y, engine.height * 0.16)
+        hover_y = min(maximum_y, engine.height * 0.33)
+        ground_y = min(engine.height - 8 * unit,
+                       engine.scenery_ground_y - 7 * unit)
+        if local < boundaries[0]:
+            phase = "heli_approach"
+            phase_progress = local / max(0.001, approach)
+            ease = phase_progress ** 2 * (3 - 2 * phase_progress)
+            x = distant_x * (1 - ease) + landing_x * ease
+            y = sky_y * (1 - ease) + hover_y * ease
+            scale = 0.04 + 0.96 * ease
+            orientation = 0
+        elif local < boundaries[1]:
+            phase = "heli_hover"
+            phase_progress = (local - boundaries[0]) / max(0.001, hover)
+            x, y, scale, orientation = landing_x, hover_y, 1.0, 0
+        elif local < boundaries[2]:
+            phase = "heli_descent"
+            phase_progress = (local - boundaries[1]) / max(0.001, descent)
+            ease = phase_progress ** 2 * (3 - 2 * phase_progress)
+            x, y, scale = landing_x, hover_y * (1 - ease) + ground_y * ease, 1.0
+            orientation = 0
+        elif local < boundaries[3]:
+            phase = "heli_landed"
+            phase_progress = (local - boundaries[2]) / max(0.001, wait_seconds)
+            x, y, scale, orientation = landing_x, ground_y, 1.0, 0
+        elif local < boundaries[4]:
+            phase = "heli_takeoff"
+            phase_progress = (local - boundaries[3]) / max(0.001, ascent)
+            ease = phase_progress ** 2 * (3 - 2 * phase_progress)
+            x, y, scale = landing_x, ground_y * (1 - ease) + hover_y * ease, 1.0
+            orientation = min(4, int(phase_progress * 5.0))
+        else:
+            depart_local = local - boundaries[4]
+            if depart_local > departure:
+                return None
+            phase = "heli_departure"
+            phase_progress = depart_local / max(0.001, departure)
+            ease = phase_progress ** 2 * (3 - 2 * phase_progress)
+            x = landing_x + direction * engine.width * 0.18 * ease
+            y = hover_y * (1 - ease) + sky_y * ease
+            scale = 1.0 - 0.96 * ease
+            orientation = 4
+        progress = min(1.0, local / max(0.001, boundaries[4] + departure))
     else:
         y = rng.uniform(minimum_y, maximum_y)
         if kind == "kite":
@@ -1408,6 +1668,11 @@ def current_sky_event_state(args, engine, elapsed):
                   engine.height * 0.055)
             y += math.sin(progress * math.tau * 9.0) * engine.height * 0.018
             y = max(minimum_y, min(maximum_y, y))
+    if kind == "santa":
+        depth_curve = math.sin(math.pi * progress)
+        depth_curve = depth_curve * depth_curve * (3.0 - 2.0 * depth_curve)
+        scale = (args.santa_scale_min +
+                 (args.santa_scale_max - args.santa_scale_min) * depth_curve)
     if ufo_encounter and phase in ("approach", "departure"):
         ease = phase_progress * phase_progress * (3.0 - 2.0 * phase_progress)
         if phase == "departure":
@@ -1422,6 +1687,7 @@ def current_sky_event_state(args, engine, elapsed):
         "event_index": event_index, "phase": phase,
         "phase_progress": max(0.0, min(1.0, phase_progress)),
         "scale": scale,
+        "orientation": orientation if kind == "helicopter" else None,
         "aircraft_type": (
             args.aeroplane_types[event_index % len(args.aeroplane_types)]
             if kind == "aeroplane" else None),
@@ -1483,7 +1749,90 @@ def draw_lightning(surface, engine):
         surface.line(mid_x, mid_y, end_x, end_y, bolt_colour, 58)
 
 
-def draw_sky_event(surface, engine, elapsed):
+def draw_clouds(surface, engine, elapsed, near):
+    """Draw deterministic depth lanes with scale and speed parallax."""
+    args = engine.args
+    if not args.clouds or args.cloud_count <= 0:
+        return
+    viewport = max(0.55, min(1.8, engine.height / 120.0))
+    travel_margin = engine.width * 0.18 + 24
+    track = engine.width + travel_margin * 2
+    wind_direction = -1 if args.wind < 0 else 1
+    for index in range(args.cloud_count):
+        rng = random.Random(args.seed + 63011 + index * 149)
+        depth = args.cloud_depths[index % len(args.cloud_depths)]
+        if (depth >= 0.62) != near:
+            continue
+        scale = viewport * (0.34 + depth * 0.78) * rng.uniform(0.78, 1.18)
+        parallax = 0.18 + depth * max(0.0, args.cloud_parallax)
+        speed = args.cloud_speed * parallax
+        start = rng.random() * track
+        x = ((start + wind_direction * elapsed * speed + travel_margin) % track -
+             travel_margin)
+        y_band = engine.height * (0.08 + (1.0 - depth) * 0.26)
+        y = y_band + rng.uniform(-engine.height * 0.045, engine.height * 0.045)
+        colour = args.cloud_colours[index % len(args.cloud_colours)]
+        shade = tuple(max(0, int(channel * 0.82)) for channel in colour)
+        priority = 76 if near else 42
+        filled_ellipse(surface, x, y, 15 * scale, 5.2 * scale,
+                       shade, priority)
+        filled_ellipse(surface, x - 8 * scale, y - 2 * scale,
+                       8 * scale, 6 * scale, colour, priority + 1)
+        filled_ellipse(surface, x + 2 * scale, y - 4 * scale,
+                       10 * scale, 8 * scale, colour, priority + 1)
+        filled_ellipse(surface, x + 11 * scale, y - scale,
+                       7 * scale, 5 * scale, colour, priority + 1)
+
+
+def draw_ufo_beam(surface, engine, elapsed, event):
+    """Draw only the transporter so render_surface can assign its depth lane."""
+    if (event is None or event["kind"] != "ufo" or
+            not engine.ufo_beam_active or
+            engine.abduction_event_index != event["event_index"]):
+        return
+    x, y = event["x"], event["y"]
+    unit = compact_flyby_unit(engine, 65) * event.get("scale", 1.0)
+    target_y = engine.ufo_beam_target_y
+    top_y = y + 7 * unit
+    beam_depth = max(2.0, target_y - top_y)
+    beam_palette = ((44, 236, 255), (51, 121, 255),
+                    (184, 75, 255), (255, 205, 54),
+                    (224, 255, 249))
+    segments = max(12, int(beam_depth / max(1.0, 2.8 * unit)))
+    motion = int(elapsed * 14)
+    for ribbon in range(2):
+        previous = None
+        phase = elapsed * (5.2 + ribbon * 0.55) + ribbon * math.pi
+        for segment in range(segments + 1):
+            fraction = segment / segments
+            ribbon_y = top_y + beam_depth * fraction
+            span = (2.0 + 5.0 * fraction) * unit
+            ribbon_x = x + math.sin(phase + fraction * math.tau * 2.0) * span
+            if previous is not None and (segment + motion + ribbon * 2) % 5 < 2:
+                surface.line(*previous, ribbon_x, ribbon_y,
+                             beam_palette[ribbon], 53)
+            previous = (ribbon_x, ribbon_y)
+    ring_spacing = max(6.0, beam_depth / 4.0)
+    scan_y = top_y + (elapsed * 14.0) % ring_spacing
+    ring_index = 0
+    while scan_y < target_y:
+        fraction = (scan_y - top_y) / beam_depth
+        span = (3.0 + 5.0 * fraction) * unit
+        colour = beam_palette[(ring_index + int(elapsed * 5)) % len(beam_palette)]
+        surface.line(x - span, scan_y, x + span, scan_y, colour, 55)
+        scan_y += ring_spacing
+        ring_index += 1
+    spark_rng = random.Random(event["event_index"] * 1009 + int(elapsed * 12))
+    for _ in range(4):
+        fraction = spark_rng.random()
+        spark_y = top_y + beam_depth * fraction
+        span = (4.0 + 8.0 * fraction) * unit
+        spark_x = x + spark_rng.uniform(-span, span)
+        surface.pixel(spark_x, spark_y,
+                      beam_palette[spark_rng.randrange(len(beam_palette))], 56)
+
+
+def draw_sky_event(surface, engine, elapsed, include_beam=True):
     plasma_colours = ((39, 244, 255), (80, 114, 255), (202, 66, 255),
                       (255, 77, 193), (181, 255, 247))
     for particle in engine.ufo_trail:
@@ -1591,34 +1940,70 @@ def draw_sky_event(surface, engine, elapsed):
             surface.line(start_x, start_y, end_x, end_y,
                          (143, 164, 180), 54)
     elif kind == "helicopter":
-        unit = compact_flyby_unit(engine, 70) * 0.58
-        olive, olive_light = (80, 103, 48), (112, 132, 67)
-        dark, glass = (31, 38, 32), (50, 68, 75)
-        # Tail boom and tail rotor sit behind the rounded cabin.
-        thick_line(surface, *point(-7 * unit, unit),
-                   *point(-31 * unit, -2 * unit), 4 * unit, olive, 64)
-        surface.line(*point(-31 * unit, -8 * unit),
-                     *point(-31 * unit, 5 * unit), dark, 67)
-        surface.line(*point(-37 * unit, -2 * unit),
-                     *point(-25 * unit, -2 * unit), dark, 67)
-        filled_ellipse(surface, x + direction * 3 * unit, y,
-                       14 * unit, 8 * unit, olive, 66)
-        filled_polygon(surface, [point(dx * unit, dy * unit) for dx, dy in (
-            (5, -6), (15, -3), (16, 3), (5, 5),
-        )], glass, 68)
-        filled_ellipse(surface, x - direction * 4 * unit, y - 3 * unit,
-                       6 * unit, 4 * unit, olive_light, 67)
-        rotor_span = (31 + 5 * abs(math.sin(elapsed * 13.0))) * unit
-        surface.line(x - rotor_span, y - 10 * unit,
-                     x + rotor_span, y - 10 * unit, dark, 70)
-        thick_line(surface, x, y - 9 * unit, x, y - 5 * unit,
-                   max(1.0, unit), dark, 69)
-        surface.line(*point(-8 * unit, 9 * unit),
-                     *point(14 * unit, 9 * unit), dark, 69)
-        surface.line(*point(-5 * unit, 6 * unit),
-                     *point(-8 * unit, 9 * unit), dark, 69)
-        surface.line(*point(11 * unit, 6 * unit),
-                     *point(14 * unit, 9 * unit), dark, 69)
+        unit = compact_flyby_unit(engine, 70) * 1.15 * event.get("scale", 1.0)
+        olive, olive_light = (69, 91, 40), (126, 146, 65)
+        dark, glass, glass_light = (25, 31, 26), (31, 58, 66), (82, 128, 133)
+        orientation = event.get("orientation", 0)
+        rotor_span = (32 + 4 * abs(math.sin(elapsed * 15.0))) * unit
+        if orientation in (0, 4):
+            # Detailed axial views: broad rotor, paired intakes, segmented
+            # canopy and landing gear. Rear view substitutes the tail housing.
+            rear = orientation == 4
+            filled_ellipse(surface, x, y, 13 * unit, 10 * unit, olive, 66)
+            filled_polygon(surface, (
+                (x - 8 * unit, y - 6 * unit), (x + 8 * unit, y - 6 * unit),
+                (x + 6 * unit, y + 3 * unit), (x - 6 * unit, y + 3 * unit),
+            ), dark if rear else glass, 68)
+            if not rear:
+                surface.line(x, y - 6 * unit, x, y + 3 * unit,
+                             glass_light, 69)
+                filled_ellipse(surface, x - 9 * unit, y - 4 * unit,
+                               3 * unit, 3 * unit, dark, 69)
+                filled_ellipse(surface, x + 9 * unit, y - 4 * unit,
+                               3 * unit, 3 * unit, dark, 69)
+                surface.rectangle(x - 2 * unit, y + unit,
+                                  x + 2 * unit, y + 7 * unit,
+                                  olive_light, 69)
+            else:
+                filled_ellipse(surface, x, y - 2 * unit,
+                               4 * unit, 4 * unit, dark, 69)
+                thick_line(surface, x, y - 7 * unit, x, y - 16 * unit,
+                           max(1.0, unit * 2), olive, 67)
+            surface.line(x - 17 * unit, y + 2 * unit,
+                         x + 17 * unit, y + 2 * unit, olive_light, 67)
+            surface.line(x - 14 * unit, y + 2 * unit,
+                         x - 17 * unit, y + 7 * unit, dark, 69)
+            surface.line(x + 14 * unit, y + 2 * unit,
+                         x + 17 * unit, y + 7 * unit, dark, 69)
+            surface.line(x - 9 * unit, y + 10 * unit,
+                         x + 9 * unit, y + 10 * unit, dark, 70)
+        else:
+            # Three intermediate turn frames interpolate the boom and cabin,
+            # avoiding a single-frame snap from head-on to profile.
+            side = orientation / 4.0
+            tail = 18 + 17 * side
+            thick_line(surface, *point(-7 * unit, unit),
+                       *point(-tail * unit, -2 * unit), 5 * unit,
+                       olive, 64)
+            surface.line(*point(-tail * unit, -9 * unit),
+                         *point(-tail * unit, 6 * unit), dark, 68)
+            filled_ellipse(surface, x + direction * 4 * unit, y,
+                           (13 + 3 * side) * unit, 9 * unit, olive, 66)
+            filled_polygon(surface, [point(dx * unit, dy * unit) for dx, dy in (
+                (4, -7), (16, -4), (17, 3), (5, 6),
+            )], glass, 68)
+            surface.line(*point(-10 * unit, 10 * unit),
+                         *point(16 * unit, 10 * unit), dark, 70)
+            tail_x, tail_y = point(-tail * unit, -2 * unit)
+            tail_radius = 7 * unit
+            surface.line(tail_x - tail_radius, tail_y,
+                         tail_x + tail_radius, tail_y, dark, 69)
+            surface.line(tail_x, tail_y - tail_radius,
+                         tail_x, tail_y + tail_radius, dark, 69)
+        surface.line(x - rotor_span, y - 12 * unit,
+                     x + rotor_span, y - 12 * unit, dark, 71)
+        thick_line(surface, x, y - 11 * unit, x, y - 6 * unit,
+                   max(1.0, unit), dark, 70)
     elif kind == "kite":
         unit = compact_flyby_unit(engine, 72) * 0.72
         red, gold, blue, dark = ((235, 52, 68), (255, 198, 55),
@@ -1632,10 +2017,19 @@ def draw_sky_event(surface, engine, elapsed):
         surface.line(*point(0, -10 * unit), *point(0, 12 * unit), dark, 69)
         surface.line(*point(-8 * unit, 0), *point(8 * unit, 0), dark, 69)
         previous = point(0, 12 * unit)
+        effective_wind = max(-40.0, min(
+            40.0, engine.args.wind + gust_at(engine.args, elapsed)))
+        wind_energy = min(1.0, abs(effective_wind) / 18.0)
         for tail_index in range(1, 8):
-            tail_x, tail_y = point(
-                math.sin(elapsed * 5 + tail_index) * 3 * unit,
-                (12 + tail_index * 5) * unit)
+            fraction = tail_index / 7.0
+            flutter = math.sin(
+                elapsed * (5.0 + wind_energy * 6.0) + tail_index * 1.18)
+            local_x = flutter * (2.0 + wind_energy * 2.5) * unit
+            tail_x, tail_y = point(local_x, (12 + tail_index * 5) * unit)
+            # The tail is flexible: cumulative wind and the live sinusoidal
+            # gust bend its lower sections downwind much more than its root.
+            tail_x += effective_wind * unit * 0.13 * tail_index * fraction
+            tail_y += math.cos(elapsed * 4.2 + tail_index) * wind_energy * unit
             surface.line(*previous, tail_x, tail_y, dark, 65)
             bow_colour = blue if tail_index % 2 else gold
             surface.line(tail_x - 2 * unit, tail_y - unit,
@@ -1643,6 +2037,49 @@ def draw_sky_event(surface, engine, elapsed):
             surface.line(tail_x - 2 * unit, tail_y + unit,
                          tail_x + 2 * unit, tail_y - unit, bow_colour, 67)
             previous = (tail_x, tail_y)
+    elif kind == "superman":
+        unit = compact_flyby_unit(engine, 78) * 0.66
+        blue, blue_shade = (34, 92, 205), (24, 55, 143)
+        red, gold = (218, 38, 52), (255, 202, 49)
+        skin, hair = (234, 174, 132), (28, 24, 29)
+        flap = math.sin(elapsed * 8.0 + event_index) * 3.0 * unit
+        def spoint(dx, dy):
+            # Deliberately stretch the recognisable horizontal pose without
+            # doubling height: it survives small fonts as a flying person.
+            return point(dx * unit * 1.85, dy * unit)
+
+        filled_polygon(surface, [spoint(dx, dy) for dx, dy in (
+            (-4, -4), (-20, -9 + flap / unit), (-18, 4 + flap / unit * 0.28),
+            (-3, 4), (5, 2), (5, -3),
+        )], red, 65)
+        thick_line(surface, *spoint(-7, 0), *spoint(12, 0),
+                   6 * unit, blue, 67)
+        filled_ellipse(surface, *spoint(12, -3),
+                       4 * unit, 4 * unit, skin, 69)
+        filled_polygon(surface, [spoint(dx, dy) for dx, dy in (
+            (9, -7), (15, -7), (17, -4), (10, -4),
+        )], hair, 70)
+        surface.pixel(*spoint(15, -3), (25, 24, 28), 72)
+        thick_line(surface, *spoint(11, -1), *spoint(27, -3),
+                   3 * unit, blue, 68)
+        filled_ellipse(surface, *spoint(29, -3),
+                       2.5 * unit, 2 * unit, skin, 70)
+        thick_line(surface, *spoint(2, 1), *spoint(-11, 6),
+                   3 * unit, blue_shade, 66)
+        thick_line(surface, *spoint(-4, 2), *spoint(-21, 4),
+                   3 * unit, blue, 67)
+        filled_polygon(surface, [spoint(dx, dy) for dx, dy in (
+            (1, -4), (6, 0), (1, 4), (-4, 0),
+        )], red, 69)
+        surface.line(*spoint(-2, 0), *spoint(4, 0), gold, 70)
+        surface.line(*spoint(0, -2), *spoint(3, 1), gold, 71)
+        surface.line(*spoint(3, 1), *spoint(5, -2), gold, 71)
+        filled_polygon(surface, [spoint(dx, dy) for dx, dy in (
+            (-18, 1), (-29, 2), (-29, 6), (-16, 5),
+        )], red, 69)
+        filled_polygon(surface, [spoint(dx, dy) for dx, dy in (
+            (-9, 2), (-23, 7), (-28, 7), (-20, 3),
+        )], red, 68)
     elif kind == "ufo":
         unit = compact_flyby_unit(engine, 65) * event.get("scale", 1.0)
         metal = (132, 194, 216)
@@ -1691,54 +2128,12 @@ def draw_sky_event(surface, engine, elapsed):
             lamp_colour = glow if (lamp_index + int(elapsed * 6)) % 2 else (68, 180, 252)
             filled_ellipse(surface, x + lamp * unit, y + 4 * unit,
                            max(1, unit), max(1, unit), lamp_colour, 71)
-        # The tractor beam is an event, not permanent UFO decoration. It is
-        # visible only while a rabbit is actively rising into a hovering craft.
-        if engine.ufo_beam_active and engine.abduction_event_index == event_index:
-            target_y = engine.ufo_beam_target_y
-            top_y = y + 7 * unit
-            beam_depth = max(2.0, target_y - top_y)
-            beam_palette = ((44, 236, 255), (51, 121, 255),
-                            (184, 75, 255), (255, 205, 54),
-                            (224, 255, 249))
-            # Two broken, counter-rotating ribbons and a few moving scan bars
-            # leave enough negative space to see the rabbit rising through the
-            # transporter rather than turning the beam into a solid cage.
-            segments = max(12, int(beam_depth / max(1.0, 2.8 * unit)))
-            motion = int(elapsed * 14)
-            for ribbon in range(2):
-                previous = None
-                phase = elapsed * (5.2 + ribbon * 0.55) + ribbon * math.pi
-                for segment in range(segments + 1):
-                    fraction = segment / segments
-                    ribbon_y = top_y + beam_depth * fraction
-                    span = (2.0 + 5.0 * fraction) * unit
-                    ribbon_x = x + math.sin(phase + fraction * math.tau * 2.0) * span
-                    if previous is not None and (segment + motion + ribbon * 2) % 5 < 2:
-                        surface.line(*previous, ribbon_x, ribbon_y,
-                                     beam_palette[ribbon], 53)
-                    previous = (ribbon_x, ribbon_y)
-            ring_spacing = max(6.0, beam_depth / 4.0)
-            ring_offset = (elapsed * 14.0) % ring_spacing
-            scan_y = top_y + ring_offset
-            ring_index = 0
-            while scan_y < target_y:
-                fraction = (scan_y - top_y) / beam_depth
-                span = (3.0 + 5.0 * fraction) * unit
-                colour = beam_palette[(ring_index + int(elapsed * 5)) % len(beam_palette)]
-                surface.line(x - span, scan_y, x + span, scan_y,
-                             colour, 55)
-                scan_y += ring_spacing
-                ring_index += 1
-            spark_rng = random.Random(event_index * 1009 + int(elapsed * 12))
-            for _ in range(4):
-                fraction = spark_rng.random()
-                spark_y = top_y + beam_depth * fraction
-                span = (4.0 + 8.0 * fraction) * unit
-                spark_x = x + spark_rng.uniform(-span, span)
-                surface.pixel(spark_x, spark_y,
-                              beam_palette[spark_rng.randrange(len(beam_palette))], 56)
+        # The beam is separable because its depth belongs to the target rabbit,
+        # while the craft itself always remains in the distant flight layer.
+        if include_beam:
+            draw_ufo_beam(surface, engine, elapsed, event)
     else:  # Santa's sleigh and reindeer team.
-        unit = santa_flyby_unit(engine)
+        unit = santa_flyby_unit(engine, event.get("scale"))
         red, deep_red = (218, 42, 53), (139, 25, 42)
         gold, brown, dark_brown = (255, 198, 54), (166, 92, 48), (83, 48, 38)
         cream, white = (250, 226, 194), (247, 249, 244)
@@ -1927,19 +2322,25 @@ def draw_present_drops(surface, engine):
 
 def draw_parachutists(surface, engine):
     """Draw pilots entirely within the far-distance flight layer."""
-    scale = max(0.55, min(1.0, engine.height / 220.0))
+    scale = max(0.68, min(1.25, engine.height / 185.0))
     for pilot in engine.parachutists:
-        x, y = pilot.x, pilot.y
+        pendulum = (math.sin(pilot.phase) * 2.4 * scale
+                    if pilot.canopy_open else 0.0)
+        x, y = pilot.x + pendulum, pilot.y
         if pilot.canopy_open:
             canopy = (231, 72, 66)
             canopy_light = (247, 222, 174)
-            filled_ellipse(surface, x, y - 8 * scale,
-                           6 * scale, 2.8 * scale, canopy, 58)
-            surface.line(x - 5 * scale, y - 8 * scale,
+            billow = 1.0 + 0.10 * math.sin(pilot.phase * 1.7)
+            canopy_x = pilot.x - pendulum * 0.20
+            canopy_y = y - 10 * scale
+            filled_ellipse(surface, canopy_x, canopy_y,
+                           8.5 * scale * billow, 3.8 * scale, canopy, 58)
+            surface.line(canopy_x - 7.5 * scale, canopy_y,
                          x - scale, y - 2 * scale, canopy_light, 57)
-            surface.line(x + 5 * scale, y - 8 * scale,
+            surface.line(canopy_x + 7.5 * scale, canopy_y,
                          x + scale, y - 2 * scale, canopy_light, 57)
-            surface.line(x, y - 10 * scale, x, y - 6 * scale,
+            surface.line(canopy_x, canopy_y - 2.5 * scale,
+                         canopy_x, canopy_y + 2.5 * scale,
                          canopy_light, 59)
         body = (56, 67, 83)
         helmet = (239, 181, 83)
@@ -2034,6 +2435,8 @@ def draw_ambient(surface, engine, elapsed):
 class SnowEngine:
     def __init__(self, args, width, height):
         self.args = args
+        self.native_analyser = load_native_analyser(
+            required=args.native_encoder == "on") if args.native_encoder != "off" else None
         if args.size_weights is None:
             args.size_weights = tuple(DEFAULT_FLAKE_WEIGHTS[name]
                                       for name in args.flake_sizes)
@@ -2083,6 +2486,18 @@ class SnowEngine:
         self.present_delivery_count = 0
         self.last_santa_event_index = -1
         self.last_santa_sleigh_x = None
+        self.supply_crates = []
+        self.crate_debris = []
+        self.helicopter_crate_events = set()
+        self.downwash_particles = []
+        self.downwash_credit = 0.0
+        self.downwash_snow_events = 0
+        self.supply_crates = []
+        self.crate_debris = []
+        self.helicopter_crate_events = set()
+        self.downwash_particles = []
+        self.downwash_credit = 0.0
+        self.downwash_snow_events = 0
         self.lightning_timer = args.lightning_interval * self.rng.uniform(0.25, 0.85)
         self.lightning_remaining = 0.0
         self.lightning_seed = self.rng.randrange(0, 2 ** 31)
@@ -2105,11 +2520,14 @@ class SnowEngine:
         self.rabbits = []
         self.rabbit_reactions = 0
         self.postman = Postman(
-            x=-20.0, direction=1, state="hidden",
-            timer=args.postman_interval * self.rng.uniform(0.25, 0.65),
+            x=-20.0, y=height - 1, direction=1, state="hidden",
+            timer=(args.postman_interval / max(0.01, args.postman_delivery_frequency) *
+                   self.rng.uniform(0.25, 0.65)),
             phase=0.0,
         )
         self.postman_delivery_count = 0
+        self.postman_snow_collapses = 0
+        self.postman_next_cabin = 0
         self.sync_rabbits(initial=True)
         self.sync_tumbleweeds(initial=True)
         self.plough = SnowPlough(
@@ -2176,11 +2594,46 @@ class SnowEngine:
             present.y *= scale_y
             present.target_x *= scale_x
             present.target_y *= scale_y
+        for crate in self.supply_crates:
+            crate.x *= scale_x
+            crate.y *= scale_y
+        for piece in self.crate_debris:
+            piece.x *= scale_x
+            piece.y *= scale_y
+            piece.vx *= scale_x
+            piece.vy *= scale_y
+        for particle in self.downwash_particles:
+            particle.x *= scale_x
+            particle.y *= scale_y
+            particle.vx *= scale_x
+            particle.vy *= scale_y
+        for crate in self.supply_crates:
+            crate.x *= scale_x
+            crate.y *= scale_y
+        for debris in self.crate_debris:
+            debris.x *= scale_x
+            debris.y *= scale_y
+            debris.vx *= scale_x
+            debris.vy *= scale_y
+        for particle in self.downwash_particles:
+            particle.x *= scale_x
+            particle.y *= scale_y
+            particle.vx *= scale_x
+            particle.vy *= scale_y
         self.plough.x *= scale_x
         self.plough.y *= scale_y
         self.postman.x *= scale_x
+        self.postman.y *= scale_y
         self.postman.target_x *= scale_x
+        self.postman.door_x *= scale_x
+        self.postman.door_y *= scale_y
+        self.postman.road_x *= scale_x
+        self.postman.road_y *= scale_y
+        if self.postman.last_collapse_x > -100000:
+            self.postman.last_collapse_x *= scale_x
         self.postman.figure_height *= scale_y
+        self.postman.road_figure_height *= scale_y
+        self.postman.door_figure_height *= scale_y
         self.ufo_target_x_by_event = {
             key: value * scale_x for key, value in self.ufo_target_x_by_event.items()
         }
@@ -2650,12 +3103,14 @@ class SnowEngine:
             if particle.ttl > 0:
                 survivors.append(particle)
         self.santa_trail = survivors
-        event = current_sky_event(self.args, self, elapsed)
-        if event is None or event[0] != "santa" or self.args.santa_trail_seconds <= 0:
+        state = current_sky_event_state(self.args, self, elapsed)
+        if (state is None or state["kind"] != "santa" or
+                self.args.santa_trail_seconds <= 0):
             self.santa_trail_credit = 0.0
             return
-        _, x, y, direction, event_index = event
-        unit = santa_flyby_unit(self)
+        x, y = state["x"], state["y"]
+        direction, event_index = state["direction"], state["event_index"]
+        unit = santa_flyby_unit(self, state.get("scale"))
         sleigh_x = x - direction * 29 * unit
         trail_length = max(0.1, self.args.santa_trail_length)
         self.santa_trail_credit += dt * 18.0 * min(4.0, trail_length)
@@ -2670,6 +3125,93 @@ class SnowEngine:
                 ttl=ttl, maximum_ttl=ttl,
                 colour_index=(event_index + index + len(self.santa_trail)) % 5))
         self.santa_trail = self.santa_trail[-int(240 * max(1.0, trail_length)):]
+
+    def step_helicopter(self, dt, elapsed):
+        """Create landed cargo and couple rotor energy into air and loose snow."""
+        state = current_sky_event_state(self.args, self, elapsed)
+        active = state is not None and state["kind"] == "helicopter"
+        intensity = 0.0
+        if active:
+            phase = state["phase"]
+            intensity = {
+                "heli_approach": 0.12,
+                "heli_hover": 0.32,
+                "heli_descent": 0.45 + state["phase_progress"] * 0.55,
+                "heli_landed": 1.0,
+                "heli_takeoff": 1.0 - state["phase_progress"] * 0.58,
+                "heli_departure": 0.18,
+            }.get(phase, 0.0) * self.args.helicopter_downwash
+            if (phase == "heli_landed" and state["phase_progress"] >= 0.34 and
+                    state["event_index"] not in self.helicopter_crate_events):
+                self.helicopter_crate_events.add(state["event_index"])
+                snow_line = max(0, min(
+                    self.height - 1, int(round(self.scenery_ground_y))))
+                ground_y, _ = cabin_path_network(
+                    self.args, self.width, self.height, snow_line)
+                self.supply_crates.append(SupplyCrate(
+                    crate_id=state["event_index"],
+                    x=state["x"] + state["direction"] * 17,
+                    y=ground_y))
+                self.supply_crates = self.supply_crates[-8:]
+
+            radius = max(10.0, min(self.width * 0.18,
+                                   34.0 * state.get("scale", 1.0)))
+            # Airborne precipitation is pushed radially away and slightly up.
+            if intensity > 0.02:
+                for particle in self.flakes:
+                    dx = particle.x - state["x"]
+                    dy = particle.y - state["y"]
+                    distance = math.hypot(dx, dy)
+                    if 0.5 < distance < radius * 1.8:
+                        coupling = (1.0 - distance / (radius * 1.8)) * intensity
+                        particle.x += dx / distance * coupling * 28.0 * dt
+                        particle.y -= coupling * 10.0 * dt
+                self.downwash_credit += dt * 46.0 * intensity
+                count = min(18, int(self.downwash_credit))
+                self.downwash_credit -= count
+                for _ in range(count):
+                    angle = self.rng.uniform(0.12, math.pi - 0.12)
+                    speed = self.rng.uniform(16.0, 42.0) * intensity
+                    self.downwash_particles.append(DownwashParticle(
+                        x=state["x"] + self.rng.uniform(-4, 4),
+                        y=state["y"] + self.rng.uniform(4, 10),
+                        vx=math.cos(angle) * speed,
+                        vy=abs(math.sin(angle)) * speed * 0.45,
+                        ttl=self.rng.uniform(0.55, 1.35),
+                        maximum_ttl=1.35))
+                # Near-ground downwash scours a shallow bowl and ejects snow.
+                if phase in ("heli_descent", "heli_landed", "heli_takeoff"):
+                    centre = int(round(state["x"]))
+                    span = max(4, int(radius * 0.72))
+                    for offset in range(-span, span + 1):
+                        index = max(0, min(self.width - 1, centre + offset))
+                        taper = max(0.0, 1.0 - abs(offset) / span)
+                        removed = min(self.depths[index],
+                                      dt * intensity * taper * 1.6)
+                        self.depths[index] -= removed
+                    self.downwash_snow_events += 1
+        else:
+            self.downwash_credit = 0.0
+
+        particles = []
+        for particle in self.downwash_particles:
+            particle.ttl -= dt
+            particle.x += particle.vx * dt
+            particle.y += particle.vy * dt
+            particle.vx *= max(0.0, 1.0 - dt * 1.2)
+            if particle.ttl > 0 and -8 < particle.x < self.width + 8:
+                particles.append(particle)
+        self.downwash_particles = particles[-360:]
+
+        debris = []
+        for piece in self.crate_debris:
+            piece.ttl -= dt
+            piece.x += piece.vx * dt
+            piece.y += piece.vy * dt
+            piece.vy += SeasonalPhysics.GRAVITY * 0.28 * dt
+            if piece.ttl > 0:
+                debris.append(piece)
+        self.crate_debris = debris
 
     def step_ufo_trail(self, dt, elapsed):
         survivors = []
@@ -2706,6 +3248,7 @@ class SnowEngine:
         for present in self.present_drops:
             present.speed += SeasonalPhysics.GRAVITY * 0.45 * dt
             present.y += present.speed * dt
+            present.x += (present.target_x - present.x) * min(1.0, dt * 4.5)
             if present.y >= present.target_y:
                 self.present_delivery_count += 1
             else:
@@ -2719,7 +3262,7 @@ class SnowEngine:
             self.last_santa_event_index = -1
             self.last_santa_sleigh_x = None
             return
-        unit = santa_flyby_unit(self)
+        unit = santa_flyby_unit(self, state.get("scale"))
         sleigh_x = state["x"] - state["direction"] * 29 * unit
         event_index = state["event_index"]
         if self.last_santa_event_index != event_index:
@@ -2739,13 +3282,22 @@ class SnowEngine:
             if key in self.present_drop_keys or not left <= chimney_x <= right:
                 continue
             self.present_drop_keys.add(key)
-            self.present_drops.append(PresentDrop(
-                x=chimney_x, y=state["y"] - 3 * unit,
-                target_x=chimney_x, target_y=chimney_y,
-                speed=self.args.present_fall_speed,
-                colour_index=(event_index + cabin_index) % 5,
-                event_index=event_index,
-            ))
+            drop_rng = random.Random(
+                self.args.seed + event_index * 4001 + cabin_index * 131)
+            parcel_count = drop_rng.randint(
+                self.args.santa_presents_min, self.args.santa_presents_max)
+            # Every parcel leaves the sleigh on this exact frame, while its
+            # initial velocity and tiny horizontal offset remain individual.
+            for parcel in range(parcel_count):
+                self.present_drops.append(PresentDrop(
+                    x=chimney_x,
+                    y=state["y"] - 3 * unit,
+                    target_x=chimney_x, target_y=chimney_y,
+                    speed=self.args.present_fall_speed *
+                    drop_rng.uniform(0.62, 1.46),
+                    colour_index=(event_index + cabin_index + parcel) % 5,
+                    event_index=event_index,
+                ))
 
     def sync_rabbits(self, initial=False):
         while len(self.rabbits) < self.args.rabbit_count:
@@ -2829,13 +3381,44 @@ class SnowEngine:
             if rabbit.x < -20 or rabbit.x > self.width + 20:
                 self.hide_rabbit(rabbit)
 
+    def collapse_postman_path(self, postman):
+        """Compact and slump fresh bank snow under spaced delivery footsteps."""
+        if not self.physics.ground_enabled or not self.args.accumulate:
+            return
+        spacing = max(1.5, postman.figure_height * 0.16)
+        if abs(postman.x - postman.last_collapse_x) < spacing:
+            return
+        centre = max(0, min(self.width - 1, int(round(postman.x))))
+        radius = max(1, int(round(postman.figure_height * 0.10)))
+        strength = max(0.35, postman.figure_height * 0.075)
+        removed = []
+        for offset in range(-radius, radius + 1):
+            x = max(0, min(self.width - 1, centre + offset))
+            taper = 1.0 - 0.55 * abs(offset) / max(1, radius)
+            old = self.depths[x]
+            self.depths[x] = max(0.0, old - strength * taper)
+            self.tower_ages[x] = 0.0
+            if old - self.depths[x] > 0.2:
+                removed.append((x, self.height - old))
+        if removed:
+            x, y = removed[len(removed) // 2]
+            self.chunks.append(FallingChunk(
+                x=x, y=y, speed=self.args.fall_speed * 0.45,
+                drift=self.rng.uniform(-0.8, 0.8), shape="tiny",
+                colour=self.rng.choice(self.palette["bank"][:2])))
+            self.postman_snow_collapses += 1
+        postman.last_collapse_x = postman.x
+
     def step_postman(self, dt):
-        """Walk to a cabin, pause for a visible handover, then continue."""
+        """Leave the road, post at a cabin, return, turn and continue."""
         postman = self.postman
-        enabled = self.args.postman and "cabin" in self.args.scenery_set
+        enabled = (self.args.postman and self.args.postman_delivery_frequency > 0 and
+                   "cabin" in self.args.scenery_set)
         snow_line = max(0, min(
             self.height - 1, int(round(self.scenery_ground_y))))
         targets = cabin_door_targets(
+            self.args, self.width, self.height, snow_line)
+        path_road_y, _ = cabin_path_network(
             self.args, self.width, self.height, snow_line)
         if not enabled or not targets:
             postman.state = "hidden"
@@ -2844,52 +3427,199 @@ class SnowEngine:
             postman.timer -= dt
             if postman.timer > 0:
                 return
-            cabin_index, door_x, _, door_height = self.rng.choice(targets)
+            target = targets[self.postman_next_cabin % len(targets)]
+            self.postman_next_cabin += 1
+            cabin_index, door_x, door_bottom, door_height = target
             postman.direction = self.rng.choice((-1, 1))
             postman.x = (-18.0 if postman.direction > 0
                          else self.width + 18.0)
+            postman.y = path_road_y
             postman.target_cabin = cabin_index
-            postman.target_x = (
-                door_x - postman.direction * max(2.0, door_height * 0.22))
             postman.door_x = door_x
             rabbit_height = 11.0 * max(
                 1.0, min(2.0, self.height // 80))
-            postman.figure_height = max(
+            former_height = max(
                 9.0, min(door_height * 0.94, rabbit_height * 1.12))
+            postman.road_figure_height = former_height * 1.70
+            postman.door_figure_height = min(
+                postman.road_figure_height, door_height * 0.88)
+            postman.figure_height = postman.road_figure_height
+            postman.road_x = (door_x - postman.direction * max(
+                4.0, postman.figure_height * 0.72))
+            postman.road_y = path_road_y
+            postman.target_x = postman.road_x
+            # A distant cabin's actual elevated door is the destination. The
+            # road remains on the foreground terrain, producing a genuinely
+            # long perspective walk and continuous scale change.
+            postman.door_y = min(postman.road_y - 2.0, door_bottom)
             postman.phase = 0.0
+            postman.turn_progress = 0.0
             postman.handed_over = False
-            postman.state = "walking_to"
+            postman.last_collapse_x = -1000000.0
+            sealed = next((crate for crate in self.supply_crates
+                           if crate.state == "sealed"), None)
+            if sealed is not None:
+                postman.crate_id = sealed.crate_id
+                postman.target_x = sealed.x
+                postman.state = "walking_to_crate"
+            else:
+                postman.crate_id = -1
+                postman.state = "walking_to"
             return
 
-        if postman.state == "delivering":
+        if postman.state in ("opening_crate", "taking_mail", "breaking_crate"):
             postman.timer -= dt
-            if (not postman.handed_over and
-                    postman.timer <= self.args.postman_stop_seconds * 0.55):
-                postman.handed_over = True
-                self.postman_delivery_count += 1
-            if postman.timer <= 0:
+            postman.phase += dt * (4.0 if postman.state == "breaking_crate" else 2.0)
+            crate = next((item for item in self.supply_crates
+                          if item.crate_id == postman.crate_id), None)
+            if crate is None:
+                postman.state = "walking_to"
+                postman.target_x = postman.road_x
+                return
+            if postman.state == "opening_crate":
+                crate.state = "open"
+                if postman.timer <= 0:
+                    postman.state = "taking_mail"
+                    postman.timer = 1.25
+            elif postman.state == "taking_mail":
+                if postman.timer <= 0:
+                    crate.state = "empty"
+                    postman.state = "breaking_crate"
+                    postman.timer = 1.0
+            elif postman.timer <= 0:
+                crate.state = "removed"
+                for piece in range(9):
+                    angle = math.tau * piece / 9.0 + self.rng.uniform(-0.25, 0.25)
+                    ttl = self.rng.uniform(2.5, 5.0)
+                    self.crate_debris.append(CrateDebris(
+                        x=crate.x, y=crate.y - 2,
+                        vx=math.cos(angle) * self.rng.uniform(2.0, 7.0),
+                        vy=-abs(math.sin(angle)) * self.rng.uniform(2.0, 7.0),
+                        ttl=ttl, maximum_ttl=ttl))
+                postman.state = "walking_to"
+                postman.target_x = postman.road_x
+                postman.crate_id = -1
+            return
+
+        turn_seconds = 0.72
+        if postman.state == "turning_in":
+            postman.turn_progress = min(
+                1.0, postman.turn_progress + dt / turn_seconds)
+            if postman.turn_progress >= 1.0:
+                postman.state = "approaching"
+                postman.phase = 0.0
+            return
+
+        if postman.state == "turning_out":
+            postman.turn_progress = min(
+                0.0, postman.turn_progress + dt / turn_seconds)
+            if postman.turn_progress >= 0.0:
                 postman.state = "walking_on"
                 postman.phase = 0.0
             return
 
+        if postman.state == "turning_from_house":
+            postman.turn_progress = max(
+                -1.0, postman.turn_progress - dt / (turn_seconds * 1.35))
+            if postman.turn_progress <= -1.0:
+                postman.state = "returning"
+                postman.phase = 0.0
+            return
+
+        if postman.state in ("approaching", "returning"):
+            destination_x = (postman.door_x if postman.state == "approaching"
+                             else postman.road_x)
+            destination_y = (postman.door_y if postman.state == "approaching"
+                             else postman.road_y)
+            dx, dy = destination_x - postman.x, destination_y - postman.y
+            distance = math.hypot(dx, dy)
+            speed = self.args.postman_speed * (
+                0.46 if postman.state == "approaching" else 0.56)
+            movement = speed * dt
+            postman.phase += dt * speed * 0.70
+            if distance <= max(0.25, movement):
+                postman.x, postman.y = destination_x, destination_y
+                if postman.state == "approaching":
+                    postman.figure_height = postman.door_figure_height
+                    postman.state = "posting"
+                    postman.timer = max(
+                        0.65, min(1.2, self.args.postman_stop_seconds * 0.25))
+                    postman.phase = 0.0
+                else:
+                    postman.figure_height = postman.road_figure_height
+                    postman.state = "turning_out"
+                    postman.turn_progress = -1.0
+                return
+            postman.x += dx / distance * movement
+            postman.y += dy / distance * movement
+            if postman.state == "approaching":
+                self.collapse_postman_path(postman)
+            total_distance = max(0.001, math.hypot(
+                postman.door_x - postman.road_x,
+                postman.door_y - postman.road_y))
+            if postman.state == "approaching":
+                progress = 1.0 - math.hypot(
+                    postman.door_x - postman.x,
+                    postman.door_y - postman.y) / total_distance
+                start_height = postman.road_figure_height
+                end_height = postman.door_figure_height
+            else:
+                progress = 1.0 - math.hypot(
+                    postman.road_x - postman.x,
+                    postman.road_y - postman.y) / total_distance
+                start_height = postman.door_figure_height
+                end_height = postman.road_figure_height
+            progress = max(0.0, min(1.0, progress))
+            postman.figure_height = (
+                start_height + (end_height - start_height) * progress)
+            return
+
+        if postman.state == "posting":
+            postman.timer -= dt
+            if (not postman.handed_over and
+                    postman.timer <= 0.35):
+                postman.handed_over = True
+                self.postman_delivery_count += 1
+            if postman.timer <= 0:
+                postman.state = "waiting"
+                postman.timer = self.args.postman_stop_seconds
+            return
+
+        if postman.state == "waiting":
+            postman.timer -= dt
+            if postman.timer <= 0:
+                postman.state = "turning_from_house"
+                postman.turn_progress = 1.0
+            return
+
         old_x = postman.x
         postman.x += postman.direction * self.args.postman_speed * dt
+        postman.y = path_road_y
         postman.phase += dt * self.args.postman_speed * 0.62
-        if postman.state == "walking_to":
+        if postman.state in ("walking_to", "walking_to_crate"):
             crossed = ((postman.direction > 0 and
                         old_x <= postman.target_x <= postman.x) or
                        (postman.direction < 0 and
                         postman.x <= postman.target_x <= old_x))
             if crossed:
-                postman.x = postman.target_x
-                postman.state = "delivering"
-                postman.timer = self.args.postman_stop_seconds
-                postman.phase = 0.0
+                if postman.state == "walking_to_crate":
+                    postman.x = postman.target_x
+                    postman.y = path_road_y
+                    postman.state = "opening_crate"
+                    postman.timer = 1.1
+                else:
+                    postman.x = postman.road_x
+                    postman.y = postman.road_y
+                    postman.state = "turning_in"
+                    postman.turn_progress = 0.0
+                    postman.phase = 0.0
                 return
         if postman.x < -24 or postman.x > self.width + 24:
             postman.state = "hidden"
             postman.timer = (
-                self.args.postman_interval * self.rng.uniform(0.75, 1.25))
+                self.args.postman_interval /
+                max(0.01, self.args.postman_delivery_frequency) *
+                self.rng.uniform(0.75, 1.25))
 
     def step_ufo_abduction(self, elapsed):
         """Stage a rabbit under a swooping UFO, then lift it vertically."""
@@ -3063,9 +3793,9 @@ class SnowEngine:
                     colour=self.rng.choice(self.palette["bank"][:2]),
                 ))
         if plough.x < -30 or plough.x > self.width + 30:
-            # Finish the sweep cleanly: snow that fell behind the moving blade
-            # during the pass must not leave an unexplained uncleared strip.
-            self.depths = [min(depth, target) for depth in self.depths]
+            # Do not run a second full-width cleanup here. The blade already
+            # cleared every crossed column; snow deposited behind it during
+            # the pass is newer than the blade and must remain visible.
             plough.active = False
             plough.timer = self.rng.uniform(self.args.plough_interval * 0.75,
                                              self.args.plough_interval * 1.25)
@@ -3137,6 +3867,7 @@ class SnowEngine:
         self.step_tumbleweeds(dt, elapsed)
         self.step_santa_trail(dt, elapsed)
         self.step_ufo_trail(dt, elapsed)
+        self.step_helicopter(dt, elapsed)
         self.step_santa_presents(dt, elapsed)
         self.step_parachutists(dt, elapsed)
         self.step_lightning(dt)
@@ -3166,7 +3897,8 @@ LIVE_OPTION_DESTS = frozenset({
     "fps", "physics", "snow_rate", "max_flakes", "flake_sizes", "size_weights",
     "fall_speed", "speed_variation", "wind", "gust_strength", "gust_period",
     "drift", "wobble", "palette", "sky", "sky_colours", "sky_stops",
-    "sky_blend", "weather", "weather_foreground_share",
+    "sky_blend", "clouds", "cloud_count", "cloud_speed", "cloud_depths",
+    "cloud_parallax", "cloud_colours", "weather", "weather_foreground_share",
     "rain_share", "hail_share", "rain_speed",
     "rain_length", "rain_colour", "hail_size", "hail_bounce", "hail_colour",
     "lightning", "lightning_interval", "lightning_flash",
@@ -3178,22 +3910,28 @@ LIVE_OPTION_DESTS = frozenset({
     "scenery", "cabin", "reindeer", "no_trees", "tree_density", "max_trees",
     "tree_sway", "tree_types", "tree_branches", "tree_branch_levels",
     "tree_branch_angle", "tree_length_ratio", "tree_trunk_thickness",
-    "tree_branch_thickness_ratio",
+    "tree_branch_thickness_ratio", "conifer_colour_variation",
     "tree_thickness_exponent", "tree_segment_budget", "lights",
     "object_snow", "object_snow_capture", "object_snow_max",
     "object_snow_hold", "object_snow_hold_jitter", "object_snow_adhesion",
     "cabin_count", "max_cabins", "cabin_scale",
-    "cabin_types", "cabin_size_variation",
+    "cabin_types", "cabin_size_variation", "cabin_depth_share",
+    "cabin_depth_scale",
     "ambient", "leaf_count", "tumbleweed_count", "ambient_speed",
     "tumbleweed_climb", "tumbleweed_collapse_pressure",
     "rabbit_count", "rabbit_interval", "rabbit_speed", "sky_events",
     "postman", "postman_interval", "postman_speed", "postman_stop_seconds",
-    "flyby_interval", "flyby_speed", "aeroplane_types", "pilot_ejection",
+    "postman_delivery_frequency", "flyby_interval", "flyby_speed",
+    "superman_path", "superman_frequency", "superman_speed",
+    "helicopter_hover_seconds", "helicopter_wait_min",
+    "helicopter_wait_max", "helicopter_downwash",
+    "aeroplane_types", "pilot_ejection",
     "ejection_chance", "parachute_fall_speed",
     "ufo_types", "ufo_trail_seconds", "ufo_trail_length",
     "snow_plough", "plough_interval",
-    "santa_scale", "santa_arc_height", "santa_trail_seconds",
-    "santa_trail_length", "santa_presents", "present_fall_speed",
+    "santa_scale_min", "santa_scale_max", "santa_arc_height", "santa_trail_seconds",
+    "santa_trail_length", "santa_presents", "santa_presents_min",
+    "santa_presents_max", "present_fall_speed",
     "ufo_abduction", "ufo_hover_seconds",
     "plough_speed", "plough_clear_to",
     "scenery_set", "ambient_set",
@@ -3208,6 +3946,8 @@ class ControlListener:
         self.poll_seconds = poll_seconds
         self.last_check = 0.0
         self.last_revision = None
+        self.restart_token = None
+        self.restart_requested = False
         self.status = "WAIT"
 
     def poll(self, args, engine, force=False):
@@ -3239,6 +3979,12 @@ class ControlListener:
             for name in LIVE_OPTION_DESTS:
                 setattr(args, name, getattr(controlled, name))
             engine.sync_runtime_options()
+            restart_token = int(payload.get("restart", 0))
+            if self.restart_token is None:
+                self.restart_token = restart_token
+            elif restart_token != self.restart_token:
+                self.restart_token = restart_token
+                self.restart_requested = True
             self.last_revision = revision
             self.status = f"R{revision}"
             return True
@@ -3300,6 +4046,79 @@ def draw_accumulation(surface, engine):
             surface.pixel(x, y, colour, 70)
 
 
+def draw_cabin_paths(surface, engine):
+    """Expose an irregular, non-obstructing dirt route through the snow."""
+    if "cabin" not in engine.args.scenery_set:
+        return
+    snow_line = max(0, min(engine.height - 1,
+                          int(round(engine.scenery_ground_y))))
+    road_y, spurs = cabin_path_network(
+        engine.args, engine.width, engine.height, snow_line)
+    segments = [((0.0, road_y), (engine.width - 1.0, road_y))]
+    for _, points in spurs:
+        segments.extend(zip(points, points[1:]))
+    colours = ((79, 57, 40), (104, 73, 47), (57, 47, 39))
+    for segment_index, (start, end) in enumerate(segments):
+        distance = max(1, int(math.ceil(math.hypot(
+            end[0] - start[0], end[1] - start[1]))))
+        rng = random.Random(engine.args.seed + 71011 + segment_index * 313)
+        for step in range(distance + 1):
+            if rng.random() > 0.64:
+                continue
+            amount = step / distance
+            x = start[0] + (end[0] - start[0]) * amount
+            y = start[1] + (end[1] - start[1]) * amount
+            spread = 1.0 + 1.8 * math.sin(math.pi * amount)
+            x += rng.uniform(-spread, spread)
+            y += rng.uniform(-1.0, 1.0)
+            surface.pixel(x, y, colours[rng.randrange(len(colours))], 74)
+
+
+def draw_crates(surface, engine):
+    """Draw landed supplies and short-lived broken timber without collision."""
+    for crate in engine.supply_crates:
+        if crate.state == "removed":
+            continue
+        size = max(3.0, min(7.0, engine.height / 28.0))
+        wood, edge, straw = (151, 93, 43), (79, 48, 31), (220, 173, 72)
+        surface.rectangle(crate.x - size, crate.y - size * 1.45,
+                          crate.x + size, crate.y, wood, 88)
+        surface.line(crate.x - size, crate.y - size * 1.45,
+                     crate.x + size, crate.y, edge, 90)
+        surface.line(crate.x + size, crate.y - size * 1.45,
+                     crate.x - size, crate.y, edge, 90)
+        surface.rectangle(crate.x - size, crate.y - size * 0.85,
+                          crate.x + size, crate.y - size * 0.62, edge, 89)
+        if crate.state in ("open", "empty"):
+            surface.line(crate.x - size, crate.y - size * 1.45,
+                         crate.x - size * 1.55, crate.y - size * 2.15,
+                         edge, 91)
+            surface.line(crate.x + size, crate.y - size * 1.45,
+                         crate.x + size * 1.55, crate.y - size * 2.15,
+                         edge, 91)
+            if crate.state == "open":
+                surface.rectangle(crate.x - size * 0.45, crate.y - size * 1.3,
+                                  crate.x + size * 0.45, crate.y - size * 0.85,
+                                  straw, 92)
+    for debris in engine.crate_debris:
+        fade = max(0.0, debris.ttl / debris.maximum_ttl)
+        colour = tuple(int(channel * (0.25 + 0.75 * fade))
+                       for channel in (132, 79, 39))
+        surface.line(debris.x - 2 * fade, debris.y,
+                     debris.x + 2 * fade, debris.y + debris.vy * 0.2,
+                     colour, 86)
+
+
+def draw_downwash(surface, engine):
+    for particle in engine.downwash_particles:
+        fade = max(0.0, particle.ttl / particle.maximum_ttl)
+        colour = tuple(int(channel * (0.28 + 0.72 * fade))
+                       for channel in (215, 239, 246))
+        surface.line(particle.x, particle.y,
+                     particle.x - particle.vx * 0.06,
+                     particle.y - particle.vy * 0.06, colour, 84)
+
+
 def draw_object_snow(surface, engine):
     for patch in engine.resting_snow:
         shape = "small" if patch.mass >= 1.8 else patch.shape
@@ -3333,17 +4152,22 @@ def render_surface(background, engine):
     surface = Surface(background.width, background.height)
     draw_sky_gradient(surface, engine.args)
     draw_lightning(surface, engine)
-    draw_sky_event(surface, engine, getattr(engine, "elapsed", 0.0))
+    elapsed = getattr(engine, "elapsed", 0.0)
+    draw_clouds(surface, engine, elapsed, near=False)
+    event = current_sky_event_state(engine.args, engine, elapsed)
+    draw_sky_event(surface, engine, elapsed, include_beam=False)
+    draw_clouds(surface, engine, elapsed, near=True)
     draw_parachutists(surface, engine)
     draw_present_drops(surface, engine)
     surface.pixels = [(pixel[0], 3) if pixel is not None else None
                       for pixel in surface.pixels]
     draw_precipitation(surface, engine, "background")
-    # The abducted rabbit is nearer than the transporter and distant weather,
-    # but remains behind foreground scenery. Keeping its original priority
-    # here prevents cell-level beam colours from swallowing its silhouette.
+    # A capture retains the rabbit's original lane. Its transporter is painted
+    # in that same lane, immediately before the rabbit, so neither can jump
+    # behind or in front of a cabin when the capture state begins.
     for rabbit in engine.rabbits:
-        if rabbit.state == "abducting":
+        if rabbit.state == "abducting" and rabbit.depth < 0.68:
+            draw_ufo_beam(surface, engine, elapsed, event)
             draw_rabbit(surface, engine, rabbit)
     # Far-lane rabbits occupy the scenery layer: cabins and trees overwrite
     # them naturally, which lets them pass behind buildings without masks.
@@ -3354,8 +4178,25 @@ def render_surface(background, engine):
         if pixel is not None:
             surface.pixels[index] = pixel
     draw_accumulation(surface, engine)
+    draw_cabin_paths(surface, engine)
+    if (event is not None and event["kind"] == "helicopter" and
+            event["phase"] in ("heli_descent", "heli_landed", "heli_takeoff")):
+        # Once the aircraft commits to landing it moves into the foreground;
+        # copy its pixels with an explicitly promoted priority. The distant
+        # copy was already occluded naturally by the scenery.
+        landing_layer = Surface(surface.width, surface.height)
+        draw_sky_event(landing_layer, engine, elapsed, include_beam=False)
+        for index, pixel in enumerate(landing_layer.pixels):
+            if pixel is not None:
+                surface.pixels[index] = (pixel[0], max(85, pixel[1]))
     draw_object_snow(surface, engine)
     draw_ambient(surface, engine, getattr(engine, "elapsed", 0.0))
+    draw_downwash(surface, engine)
+    draw_crates(surface, engine)
+    for rabbit in engine.rabbits:
+        if rabbit.state == "abducting" and rabbit.depth >= 0.68:
+            draw_ufo_beam(surface, engine, elapsed, event)
+            draw_rabbit(surface, engine, rabbit)
     for rabbit in engine.rabbits:
         if (rabbit.state not in ("abducting", "hidden") and
                 rabbit.depth >= 0.68):
@@ -3511,6 +4352,67 @@ def encode_surface(surface, codec, columns, rows, stats=None):
     return "\n".join(lines)
 
 
+def encode_surface_native(surface, codec, columns, rows, analyser, stats=None):
+    """Build ANSI from Rust-analysed cell records; output semantics match Python."""
+    records = analyser.analyse(surface, codec, columns, rows)
+    lines = []
+    blank_cells = populated_cells = background_cells = 0
+    masks_used, coloured_cells = set(), set()
+    part0_cells = part1_cells = 0
+    active_colour = active_background = None
+    for cell_y in range(rows):
+        parts = []
+        for cell_x in range(columns):
+            index = (cell_y * columns + cell_x) * 10
+            record = records[index:index + 10]
+            if not record[9]:
+                blank_cells += 1
+                if active_colour is not None:
+                    parts.append(FG_DEFAULT)
+                    active_colour = None
+                if active_background is not None:
+                    parts.append("\x1b[49m")
+                    active_background = None
+                parts.append(" ")
+                continue
+            mask = record[0] | record[1] << 8
+            colour = tuple(record[2:5])
+            background = tuple(record[5:8]) if record[8] else None
+            if colour != active_colour:
+                parts.append("\x1b[38;2;%d;%d;%dm" % colour)
+                active_colour = colour
+            populated_cells += 1
+            masks_used.add(mask)
+            coloured_cells.add((mask, colour, background))
+            if background is not None:
+                background_cells += 1
+            if codec.name == "pua4":
+                if mask < 0x8000:
+                    part0_cells += 1
+                else:
+                    part1_cells += 1
+            if background != active_background:
+                parts.append("\x1b[49m" if background is None else
+                             "\x1b[48;2;%d;%d;%dm" % background)
+                active_background = background
+            parts.append(chr(codec.codepoint(mask)))
+        parts.append(RESET)
+        active_colour = active_background = None
+        lines.append("".join(parts))
+    if stats is not None:
+        stats.update({
+            "cells": columns * rows, "blank_cells": blank_cells,
+            "populated_cells": populated_cells,
+            "background_cells": background_cells,
+            "unique_masks": len(masks_used),
+            "reused_masks": max(0, populated_cells - len(masks_used)),
+            "unique_coloured_cells": len(coloured_cells),
+            "part0_cells": part0_cells, "part1_cells": part1_cells,
+            "mask_values": masks_used,
+        })
+    return "\n".join(lines)
+
+
 def dashboard_rows(args):
     if args.no_dashboard:
         return 0
@@ -3598,7 +4500,9 @@ def detailed_dashboard_lines(args, engine, codec, stats, columns):
             f" ◒ SKY {'ON' if args.sky else 'OFF'} | BLEND {args.sky_blend.upper()} | FULL-SCENE DISTANT LAYER",
             f" ◈ COLOURS {colours}",
             f" ↕ STOPS {stops}",
-            " ◇ ORDER SKY → FLIGHTS → TREES/CABINS → BANK/ANIMALS → FALLING SNOW",
+            (f" ☁ CLOUDS {'ON' if args.clouds else 'OFF'} ×{args.cloud_count} | "
+             f"DEPTH {','.join(f'{depth:.2f}' for depth in args.cloud_depths)} | "
+             f"SPEED {args.cloud_speed:.1f} PARALLAX {args.cloud_parallax:.1f}"),
         ]
     elif tab == "weather":
         kinds = {kind: sum(particle.kind == kind for particle in engine.flakes)
@@ -3624,6 +4528,7 @@ def detailed_dashboard_lines(args, engine, codec, stats, columns):
              f"{args.tree_branch_thickness_ratio:.0%} | TAPER EXPONENT {args.tree_thickness_exponent:.2f} | "
              f"SEGMENT BUDGET {args.tree_segment_budget:,}"),
             (f" 〰 SWAY {args.tree_sway:.2f} | LIGHTS {args.lights:.2f} | "
+             f"COLOUR Δ{args.conifer_colour_variation:.0f} | "
              f"OBJECT SNOW {'ON' if args.object_snow else 'OFF'} (SPARSE, MASS-SHED)"),
         ]
     elif tab == "animals":
@@ -3634,7 +4539,8 @@ def detailed_dashboard_lines(args, engine, codec, stats, columns):
             f" ♙ RABBITS {visible_rabbits}/{len(engine.rabbits)} | STATES {states} | DEPTH {depth_lanes}",
             f" ↔ SPEED {args.rabbit_speed:.1f} VPX/s | PERSPECTIVE SCALE/PARALLAX ON | REACTIONS {engine.rabbit_reactions}",
             (f" ✉ POSTMAN {engine.postman.state.upper()} | DELIVERIES {engine.postman_delivery_count} | "
-             f"SPEED {args.postman_speed:.1f} | INTERVAL {args.postman_interval:.1f}s"),
+             f"SPEED {args.postman_speed:.1f} | INTERVAL {args.postman_interval:.1f}s "
+             f"×{args.postman_delivery_frequency:.1f} | FOOT SLUMPS {engine.postman_snow_collapses}"),
             (f" ✺ TUMBLEWEEDS {len(engine.tumbleweeds)} | BLOCKS {engine.tumbleweed_blocks} | "
              f"PRESSURE COLLAPSES {engine.tumbleweed_collapses} | CLIMB {args.tumbleweed_climb:.2f}")
         ]
@@ -3645,10 +4551,15 @@ def detailed_dashboard_lines(args, engine, codec, stats, columns):
             (f" ✈ ROTATION {','.join(args.sky_events).upper() or 'NONE'} | CURRENT {current} | "
              f"AIRCRAFT {','.join(args.aeroplane_types).upper()}"),
             (f" → SPEED {args.flyby_speed:.1f} VPX/s | QUIET {args.flyby_interval:.1f}s | "
-             f"EJECTIONS {engine.pilot_ejection_count} / ACTIVE {len(engine.parachutists)}"),
-            (f" ☄ SANTA SCALE {args.santa_scale:.2f} | ARC {args.santa_arc_height:.0%} HEIGHT | "
+             f"EJECTIONS {engine.pilot_ejection_count} / ACTIVE {len(engine.parachutists)} | "
+             f"HELI WAIT {args.helicopter_wait_min:.1f}–{args.helicopter_wait_max:.1f}s "
+             f"DOWNWASH ×{args.helicopter_downwash:.1f} CRATES {len(engine.supply_crates)}"),
+            (f" ◆ SUPERMAN {args.superman_path.upper()} {args.superman_speed:.1f} VPX/s "
+             f"{args.superman_frequency:.1f}/min | SANTA SCALE "
+             f"{args.santa_scale_min:.2f}↔{args.santa_scale_max:.2f} | "
              f"TRAIL ×{args.santa_trail_length:.1f}, {args.santa_trail_seconds:.1f}s / "
-             f"{len(engine.santa_trail)} SPARKS | GIFTS {engine.present_delivery_count} DELIVERED"),
+             f"{len(engine.santa_trail)} SPARKS | GIFTS {args.santa_presents_min}–"
+             f"{args.santa_presents_max}/DROP, {engine.present_delivery_count} DELIVERED"),
             (f" ⌁ UFO {','.join(args.ufo_types).upper()} | ABDUCTION {'ON' if args.ufo_abduction else 'OFF'} | "
              f"BEAM {'ACTIVE' if engine.ufo_beam_active else 'HIDDEN'} | "
              f"CAPTURES {engine.ufo_abduction_count} | PLASMA {len(engine.ufo_trail)}"),
@@ -3663,7 +4574,8 @@ def detailed_dashboard_lines(args, engine, codec, stats, columns):
             f" ◆ MEMORY {memory} | GRID CELLS {stats['cells']:,} | ACTIVE {populated:,}",
             (f" ◆ LOAD: FLAKES {len(engine.flakes):,} TREES≤{args.max_trees} | "
              f"TREE CACHE {cache.hits:,}H/{cache.misses:,}M | POSTMAN {postman_cache.hits:,}H/{postman_cache.misses:,}M"),
-            " ◆ PERFORMANCE: LOWER FPS/PARTICLES/BRANCH DEPTH/BUDGET OR TERMINAL DIMENSIONS IF OVER BUDGET",
+            (f" ◆ ENCODER {'RUST NATIVE' if engine.native_analyser else 'PYTHON'} | "
+             "LOWER FPS/PARTICLES/BRANCH DEPTH/BUDGET OR TERMINAL DIMENSIONS IF OVER BUDGET"),
         ]
     lines = [dashboard_tab_strip(engine), *page]
     colours = ("\x1b[38;2;75;225;240m", "\x1b[38;2;255;182;72m",
@@ -3735,8 +4647,12 @@ def complete_frame(args, codec, scene_rows, engine, background, columns, frame,
     engine.elapsed = elapsed
     stats = {}
     render_started = time.perf_counter()
-    picture = encode_surface(render_surface(background, engine), codec, columns,
-                             scene_rows, stats)
+    rendered = render_surface(background, engine)
+    if engine.native_analyser is not None:
+        picture = encode_surface_native(rendered, codec, columns,
+                                        scene_rows, engine.native_analyser, stats)
+    else:
+        picture = encode_surface(rendered, codec, columns, scene_rows, stats)
     engine.glyphs_seen.update(stats["mask_values"])
     engine.render_ms = (time.perf_counter() - render_started) * 1000.0
     if args.no_dashboard:
@@ -3831,6 +4747,17 @@ def animate(args):
             if listener:
                 listener.poll(args, engine)
                 args.control_status = listener.status
+                if listener.restart_requested:
+                    # Recreate simulation state in this process and terminal.
+                    # The OS window, font, live position and dimensions remain
+                    # untouched while restart-only options take effect.
+                    columns, rows = terminal_size(args)
+                    codec, scene_rows, engine, background = make_runtime(
+                        args, columns, rows)
+                    listener.restart_requested = False
+                    elapsed = 0.0
+                    frame = 0
+                    deadline = time.monotonic()
             dt = 1.0 / args.fps
             deadline += dt
             resized = False
@@ -3911,6 +4838,19 @@ def fraction_list(value):
     return fractions
 
 
+def depth_list(value):
+    try:
+        depths = tuple(float(item) for item in value.split(","))
+    except ValueError as error:
+        raise argparse.ArgumentTypeError(
+            "cloud depths must be comma-separated fractions") from error
+    if (not 1 <= len(depths) <= 8 or
+            any(not 0.05 <= item <= 1.0 for item in depths)):
+        raise argparse.ArgumentTypeError(
+            "cloud depths need 1 to 8 fractions in [0.05,1]")
+    return depths
+
+
 def window_position(value):
     if not re.fullmatch(r"(?:(?:screen|main|active):)?-?\d+,-?\d+", value):
         raise argparse.ArgumentTypeError("window position must look like 80,40 or active:80,40")
@@ -3961,6 +4901,9 @@ def build_parser():
     display.add_argument("--physics", choices=("none", "ground", "full"),
                          default="full",
                          help="none: legacy simple snow; ground: bank slumping and terrain bodies; full: also retain snow on scenery")
+    display.add_argument("--native-encoder", choices=("auto", "off", "on"),
+                         default="auto",
+                         help="use the optional Rust cell analyser when built; ON requires it")
 
     window = parser.add_argument_group("launcher window reproduction")
     window.add_argument("--terminal-columns", type=int,
@@ -4020,6 +4963,23 @@ def build_parser():
     sky.add_argument("--sky-blend", choices=("linear", "smooth", "cosine"),
                      default="smooth",
                      help="method used to merge each adjacent pair of gradient colours")
+
+    clouds = parser.add_argument_group("clouds and parallax")
+    clouds.add_argument("--clouds", action=argparse.BooleanOptionalAction,
+                        default=False,
+                        help="move layered procedural clouds through the distant sky")
+    clouds.add_argument("--cloud-count", type=int, default=7,
+                        help="number of continuously wrapping cloud bodies")
+    clouds.add_argument("--cloud-speed", type=float, default=4.0,
+                        help="base cloud movement in virtual pixels per second")
+    clouds.add_argument("--cloud-depths", type=depth_list,
+                        default=depth_list("0.22,0.48,0.78"),
+                        help="comma-separated perspective lanes from far 0.05 to near 1")
+    clouds.add_argument("--cloud-parallax", type=float, default=1.0,
+                        help="depth-to-speed multiplier; 0 makes every lane move similarly")
+    clouds.add_argument("--cloud-colours", type=colour_list,
+                        default=colour_list("A9C9DD,DCECF2,FFF5E1"),
+                        help="comma-separated RRGGBB cloud colours cycled across lanes")
 
     weather = parser.add_argument_group("rain hail and lightning")
     weather.add_argument("--weather", choices=("none", "snow", "rain", "hail", "mixed", "storm"),
@@ -4121,6 +5081,8 @@ def build_parser():
                          help="base procedural trunk thickness in virtual pixels")
     scenery.add_argument("--tree-branch-thickness-ratio", type=float, default=0.42,
                          help="primary branch thickness as a fraction of main trunk thickness")
+    scenery.add_argument("--conifer-colour-variation", type=float, default=28.0,
+                         help="maximum seeded pine/fir/spruce colour separation in RGB levels")
     scenery.add_argument("--tree-thickness-exponent", type=float, default=2.0,
                          help="branch area exponent; 2 applies Leonardo area preservation")
     scenery.add_argument("--tree-segment-budget", type=int, default=12000,
@@ -4152,6 +5114,10 @@ def build_parser():
                          help="comma list of deterministic cabin archetypes")
     scenery.add_argument("--cabin-size-variation", type=float, default=0.28,
                          help="fractional size variation among complete cabins")
+    scenery.add_argument("--cabin-depth-share", type=float, default=0.34,
+                         help="fraction of cabins placed in a smaller elevated distance lane")
+    scenery.add_argument("--cabin-depth-scale", type=float, default=0.56,
+                         help="perspective scale applied to distant cabins")
     scenery.add_argument("--ambient", default="auto",
                          help="auto, none, leaves, tumbleweed, all, or a comma list")
     scenery.add_argument("--leaf-count", type=int,
@@ -4180,14 +5146,31 @@ def build_parser():
     events.add_argument("--postman-speed", type=float, default=10.0,
                         help="postman walking speed in virtual pixels per second")
     events.add_argument("--postman-stop-seconds", type=float, default=4.0,
-                        help="seconds spent handing over a letter or parcel")
+                        help="seconds spent waiting at the door after posting")
+    events.add_argument("--postman-delivery-frequency", type=float, default=1.0,
+                        help="visit-frequency factor across every cabin; 0 disables deliveries")
     events.add_argument("--sky-events", type=sky_event_list,
                         default=sky_event_list("auto"),
-                        help="none, auto/all, or comma list: aeroplane,helicopter,kite,ufo,santa")
+                        help="none, auto/all, or comma list: aeroplane,helicopter,kite,ufo,santa,superman")
     events.add_argument("--flyby-interval", type=float, default=48.0,
                         help="quiet seconds between occasional sky crossings")
     events.add_argument("--flyby-speed", type=float, default=32.0,
                         help="sky-event horizontal virtual pixels per second")
+    events.add_argument("--superman-path", choices=("straight", "curve", "arc"),
+                        default="arc",
+                        help="flight geometry used by each Superman crossing")
+    events.add_argument("--superman-frequency", type=float, default=1.0,
+                        help="Superman appearances per minute within the event rotation")
+    events.add_argument("--superman-speed", type=float, default=46.0,
+                        help="Superman horizontal virtual pixels per second")
+    events.add_argument("--helicopter-hover-seconds", type=float, default=3.0,
+                        help="seconds spent hovering before descent and before departure")
+    events.add_argument("--helicopter-wait-min", type=float, default=4.0,
+                        help="minimum seconds landed before leaving the supply crate")
+    events.add_argument("--helicopter-wait-max", type=float, default=8.0,
+                        help="maximum seconds landed before leaving the supply crate")
+    events.add_argument("--helicopter-downwash", type=float, default=1.0,
+                        help="rotor coupling into precipitation and loose ground snow")
     events.add_argument("--aeroplane-types", type=aeroplane_type_list,
                         default=aeroplane_type_list("all"),
                         help="auto/all or comma list: commuter,airliner")
@@ -4198,8 +5181,11 @@ def build_parser():
                         help="repeatable chance [0,1] of ejection during each aeroplane pass")
     events.add_argument("--parachute-fall-speed", type=float, default=5.0,
                         help="opened-parachute descent speed in virtual pixels per second")
-    events.add_argument("--santa-scale", type=float, default=0.50,
-                        help="Santa formation scale relative to its original design")
+    events.add_argument("--santa-scale-max", "--santa-scale",
+                        dest="santa_scale_max", type=float, default=0.50,
+                        help="nearest Santa formation scale; --santa-scale remains an alias")
+    events.add_argument("--santa-scale-min", type=float, default=0.02,
+                        help="furthest Santa formation scale at entry and exit")
     events.add_argument("--santa-arc-height", type=float, default=0.16,
                         help="Santa arc rise as a fraction of scene height")
     events.add_argument("--santa-trail-seconds", type=float, default=5.6,
@@ -4208,7 +5194,11 @@ def build_parser():
                         help="spatial trail multiplier; 3 is three times the original length")
     events.add_argument("--santa-presents", action=argparse.BooleanOptionalAction,
                         default=True,
-                        help="drop a parcel vertically into each chimney Santa crosses")
+                        help="drop simultaneous parcels vertically into each crossed chimney")
+    events.add_argument("--santa-presents-min", type=int, default=2,
+                        help="minimum simultaneous parcels dropped at each chimney")
+    events.add_argument("--santa-presents-max", type=int, default=5,
+                        help="maximum simultaneous parcels dropped at each chimney")
     events.add_argument("--present-fall-speed", type=float, default=12.0,
                         help="initial parcel fall speed in virtual pixels per second")
     events.add_argument("--ufo-abduction", action=argparse.BooleanOptionalAction,
@@ -4487,6 +5477,9 @@ def parse_args(argv=None):
                 ("postman-stop-seconds", args.postman_stop_seconds),
                 ("flyby-interval", args.flyby_interval),
                 ("flyby-speed", args.flyby_speed),
+                ("superman-frequency", args.superman_frequency),
+                ("superman-speed", args.superman_speed),
+                ("helicopter-hover-seconds", args.helicopter_hover_seconds),
                 ("parachute-fall-speed", args.parachute_fall_speed),
                 ("rain-speed", args.rain_speed),
                 ("lightning-interval", args.lightning_interval),
@@ -4499,14 +5492,19 @@ def parse_args(argv=None):
     nonnegative = (
         args.duration, args.frames, args.preload_seconds, args.drift, args.wobble,
         args.gust_strength, args.accumulation, args.tree_density, args.tree_sway,
-        args.lights, args.ambient_speed, args.max_cabins,
+        args.lights, args.conifer_colour_variation, args.ambient_speed, args.max_cabins,
         args.tower_age, args.tower_age_jitter, args.rabbit_count,
         args.snow_repose_slope, args.snow_relaxation, args.object_snow_max,
         args.object_snow_hold, args.object_snow_hold_jitter,
         args.object_snow_adhesion,
         args.tumbleweed_climb, args.tumbleweed_collapse_pressure,
-        args.santa_scale, args.santa_arc_height, args.santa_trail_seconds,
+        args.cloud_count, args.cloud_speed, args.cloud_parallax,
+        args.postman_delivery_frequency,
+        args.santa_scale_min, args.santa_scale_max,
+        args.santa_arc_height, args.santa_trail_seconds,
         args.santa_trail_length,
+        args.helicopter_wait_min, args.helicopter_wait_max,
+        args.helicopter_downwash,
         args.ufo_trail_seconds, args.ufo_trail_length,
         args.lightning_flash,
     )
@@ -4520,6 +5518,8 @@ def parse_args(argv=None):
         parser.error("leaf-count cannot be negative")
     if args.tumbleweed_count is not None and args.tumbleweed_count < 0:
         parser.error("tumbleweed-count cannot be negative")
+    if args.cloud_count < 0:
+        parser.error("cloud-count cannot be negative")
     if not 0 <= args.tumbleweed_climb <= 2:
         parser.error("tumbleweed-climb must be in [0, 2]")
     if args.max_trees < 0:
@@ -4536,6 +5536,8 @@ def parse_args(argv=None):
         parser.error("tree-trunk-thickness must be in [0.5, 12]")
     if not 0.1 <= args.tree_branch_thickness_ratio <= 1:
         parser.error("tree-branch-thickness-ratio must be in [0.1, 1]")
+    if args.conifer_colour_variation > 100:
+        parser.error("conifer-colour-variation must be in [0, 100]")
     if not 1.2 <= args.tree_thickness_exponent <= 4:
         parser.error("tree-thickness-exponent must be in [1.2, 4]")
     if not 0 <= args.tree_segment_budget <= 100000:
@@ -4546,8 +5548,20 @@ def parse_args(argv=None):
         parser.error("ejection-chance must be in [0, 1]")
     if args.cabin_scale <= 0:
         parser.error("cabin-scale must be positive")
-    if not 0.2 <= args.santa_scale <= 2:
-        parser.error("santa-scale must be in [0.2, 2]")
+    if not 0.01 <= args.santa_scale_min <= 2:
+        parser.error("santa-scale-min must be in [0.01, 2]")
+    if not 0.01 <= args.santa_scale_max <= 2:
+        parser.error("santa-scale-max must be in [0.01, 2]")
+    if args.santa_scale_min > args.santa_scale_max:
+        parser.error("santa-scale-min cannot exceed santa-scale-max")
+    if args.santa_presents_min < 1 or args.santa_presents_max < 1:
+        parser.error("santa present counts must be at least 1")
+    if args.santa_presents_min > args.santa_presents_max:
+        parser.error("santa-presents-min cannot exceed santa-presents-max")
+    if args.helicopter_wait_min > args.helicopter_wait_max:
+        parser.error("helicopter-wait-min cannot exceed helicopter-wait-max")
+    if args.helicopter_downwash > 4:
+        parser.error("helicopter-downwash must be in [0, 4]")
     if not 0 <= args.santa_arc_height <= 0.5:
         parser.error("santa-arc-height must be in [0, 0.5]")
     if not 1 <= args.rain_length <= 40:
@@ -4578,6 +5592,10 @@ def parse_args(argv=None):
         parser.error("sky-stops must begin at 0 and end at 1")
     if not 0 <= args.cabin_size_variation <= 0.75:
         parser.error("cabin-size-variation must be in [0, 0.75]")
+    if not 0 <= args.cabin_depth_share <= 1:
+        parser.error("cabin-depth-share must be in [0, 1]")
+    if not 0.25 <= args.cabin_depth_scale <= 0.95:
+        parser.error("cabin-depth-scale must be in [0.25, 0.95]")
     if not 0 <= args.object_snow_capture <= 1:
         parser.error("object-snow-capture must be in [0, 1]")
     if not 0 <= args.speed_variation < 1:
