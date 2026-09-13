@@ -3,6 +3,7 @@
 
 import argparse
 import math
+from pathlib import Path
 import random
 import select
 import shutil
@@ -11,6 +12,8 @@ import termios
 import time
 import tty
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "demos"))
+from native_terminal import terminal_picture
 from pua4x4 import mask_to_codepoint
 from pua4x4_demo import Canvas
 
@@ -257,10 +260,7 @@ def make_stars(count=520, seed=0x51A7):
 
 def ansi_frame(canvas, color=True):
     part0 = part1 = blank = 0
-    lines = []
     for masks, colors in zip(canvas.masks, canvas.colors):
-        output = []
-        current_color = None
         for mask, color_index in zip(masks, colors):
             if mask == 0:
                 blank += 1
@@ -268,15 +268,15 @@ def ansi_frame(canvas, color=True):
                 part0 += 1
             else:
                 part1 += 1
-            if color and color_index != current_color:
-                red, green, blue = PALETTE[color_index]
-                output.append(f"\x1b[38;2;{red};{green};{blue}m")
-                current_color = color_index
-            output.append(chr(mask_to_codepoint(mask)))
-        if color:
-            output.append("\x1b[0m")
-        lines.append("".join(output))
-    return "\n".join(lines), part0, part1, blank
+    if color:
+        colors = [[PALETTE[index] for index in row] for row in canvas.colors]
+    else:
+        colors = [[(255, 255, 255)] * len(row) for row in canvas.colors]
+    picture = terminal_picture(
+        canvas.masks, colors, len(canvas.masks[0]), len(canvas.masks),
+        mapping="pua4", colour_mode="rgb" if color else "none",
+        blank_glyph=True, reset_at_end=color)
+    return picture, part0, part1, blank
 
 
 class Keyboard:

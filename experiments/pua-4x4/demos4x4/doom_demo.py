@@ -3,11 +3,14 @@
 
 import argparse
 import math
+from pathlib import Path
 import random
 import shutil
 import sys
 import time
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "demos"))
+from native_terminal import terminal_picture
 
 from pua4x4_backend import DOT_BIT, mask_to_codepoint
 FOV = math.radians(66)
@@ -286,10 +289,9 @@ def quantize(color):
 
 
 def to_terminal(canvas, width, height, columns, rows):
-    lines = []
-    active = None
+    masks = [[0] * columns for _ in range(rows)]
+    cell_colours = [[(0, 0, 0)] * columns for _ in range(rows)]
     for cell_y in range(rows):
-        parts = []
         for cell_x in range(columns):
             mask = 0
             colors = []
@@ -307,15 +309,11 @@ def to_terminal(canvas, width, height, columns, rows):
                         colors.append(color)
             if colors:
                 color = quantize(tuple(sum(c[i] for c in colors) // len(colors) for i in range(3)))
-                if color != active:
-                    parts.append("\x1b[38;2;%d;%d;%dm" % color)
-                    active = color
-            elif active is not None:
-                parts.append("\x1b[39m")
-                active = None
-            parts.append(chr(mask_to_codepoint(mask)))
-        lines.append("".join(parts))
-    return "\n".join(lines)
+                cell_colours[cell_y][cell_x] = color
+            masks[cell_y][cell_x] = mask
+    return terminal_picture(
+        masks, cell_colours, columns, rows, mapping="pua4",
+        blank_glyph=True, reset_at_end=False)
 
 
 def main():

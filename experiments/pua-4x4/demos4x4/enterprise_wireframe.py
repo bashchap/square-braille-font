@@ -15,6 +15,7 @@ import argparse
 import json
 import math
 import os
+from pathlib import Path
 import shutil
 import subprocess
 import sys
@@ -23,6 +24,9 @@ from pathlib import Path
 
 import numpy as np
 from PIL import Image
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "demos"))
+from native_terminal import terminal_picture
 
 from pua4x4_backend import DOT_WEIGHTS as WEIGHT_ROWS, mask_to_codepoint
 
@@ -233,22 +237,9 @@ def image_to_terminal(rgb, quantization=16):
     pick = np.argmax(light.reshape(rows, columns, 16), axis=2)
     colors = np.take_along_axis(blocks.reshape(rows, columns, 16, 3), pick[..., None, None], axis=2)[:, :, 0]
     colors = (colors // quantization) * quantization
-    lines, active = [], None
-    for row in range(rows):
-        pieces = []
-        for column in range(columns):
-            mask = int(masks[row, column])
-            if mask:
-                color = tuple(int(v) for v in colors[row, column])
-                if color != active:
-                    pieces.append("\x1b[38;2;%d;%d;%dm" % color)
-                    active = color
-            elif active is not None:
-                pieces.append("\x1b[39m")
-                active = None
-            pieces.append(chr(mask_to_codepoint(mask)))
-        lines.append("".join(pieces))
-    return "\n".join(lines)
+    return terminal_picture(
+        masks, colors, columns, rows, mapping="pua4",
+        blank_glyph=True, reset_at_end=False)
 
 
 def ansi_frame(picture):

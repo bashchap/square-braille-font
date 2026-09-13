@@ -1,0 +1,36 @@
+{
+  "name": "PUA 4x4 v0.4 Candidate 3",
+  "version": "0.4-candidate.3",
+  "mapping": "unchanged: bit = 4 * local_y + (3 - local_x)",
+  "cmap": "unchanged from candidate.1",
+  "advance_width": 500,
+  "core_grid": "unchanged x=0..500, y=-200..800, internal boundaries unchanged",
+  "deliberate_difference": "coordinates on x=0, x=500, y=-200 or y=800 are moved 100 font units outward; hmtx LSB follows the transformed xMin",
+  "reason": "100 was the first tested threshold with zero nonwhite seam pixels at every 8..20 point, 96-DPI probe",
+  "parts": [
+    {
+      "part": 0,
+      "source": "PUA4x4Part0V04Candidate.ttf",
+      "filename": "PUA4x4Part0V04Candidate3.ttf",
+      "family": "PUA 4x4 Part 0 v0.4 Candidate 3",
+      "postscript": "PUA4x4Part0V04Candidate3-Regular",
+      "codepoint_start": 983040,
+      "codepoint_end": 1015807,
+      "source_sha256": "d88567706074a28e6f28be6a2a4b88d0b124f2651852b8217132e5ab05df1ad0",
+      "sha256": "94847138178994d016d3a0e315be0aa10604c1ea85e01b6d98eb8f41421ac9d8",
+      "glyphs_with_exterior_guard": 32752
+    },
+    {
+      "part": 1,
+      "source": "PUA4x4Part1V04Candidate.ttf",
+      "filename": "PUA4x4Part1V04Candidate3.ttf",
+      "family": "PUA 4x4 Part 1 v0.4 Candidate 3",
+      "postscript": "PUA4x4Part1V04Candidate3-Regular",
+      "codepoint_start": 1048576,
+      "codepoint_end": 1081343,
+      "source_sha256": "76366d90c3321612f596956d7a5a09e0a570f5df0b4f51dc04e3d7104f3a7723",
+      "sha256": "a979a9568dbe5c0b90bb54eb6bc0e4a70caf536bd4c2e791d589796a984f0ec1",
+      "glyphs_with_exterior_guard": 32768
+    }
+  ]
+}

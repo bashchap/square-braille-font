@@ -4,12 +4,15 @@
 import argparse
 import math
 import os
+from pathlib import Path
 import random
 import shutil
 import signal
 import sys
 import time
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "demos"))
+from native_terminal import terminal_picture
 
 from pua4x4_backend import DOT_BIT, mask_to_codepoint
 
@@ -60,17 +63,10 @@ def frame_text(flakes, columns, rows):
         draw_flake(buffer, shades, px_width, px_height, flake)
     # Each complete 16-bit mask selects its matching Part 0/Part 1 glyph.
     palette = (39, 51, 231)  # blue, cyan, white
-    lines = []
-    for row_masks, row_shades in zip(buffer, shades):
-        parts = []
-        active_shade = None
-        for mask, shade in zip(row_masks, row_shades):
-            if mask and shade != active_shade:
-                parts.append("\x1b[38;5;%dm" % palette[shade])
-                active_shade = shade
-            parts.append(chr(mask_to_codepoint(mask)))
-        lines.append("".join(parts))
-    return "\n".join(lines)
+    colors = [[palette[shade] for shade in row] for row in shades]
+    return terminal_picture(
+        buffer, colors, columns, rows, mapping="pua4",
+        colour_mode="indexed", blank_glyph=True, reset_at_end=False)
 
 
 def terminal_size(args):

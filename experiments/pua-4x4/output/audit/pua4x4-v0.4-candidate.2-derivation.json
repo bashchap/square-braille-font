@@ -1,0 +1,38 @@
+{
+  "audit": "candidate.1 to candidate.2 controlled derivation",
+  "status": "PASS_CONTROLLED_HINT_ONLY_DIFFERENCE",
+  "codepoints_compared": 65536,
+  "hinted_nonempty_glyphs": 65535,
+  "parts": [
+    {
+      "source": "/Users/tara/Documents/Codex/2026-07-29/i-want-you-to-create-me/github/square-braille-font/experiments/pua-4x4/build-v0.4-candidate.1/PUA4x4Part0V04Candidate.ttf",
+      "source_sha256": "d88567706074a28e6f28be6a2a4b88d0b124f2651852b8217132e5ab05df1ad0",
+      "candidate": "/Users/tara/Documents/Codex/2026-07-29/i-want-you-to-create-me/github/square-braille-font/experiments/pua-4x4/build-v0.4-candidate.2-hinted/PUA4x4Part0V04Candidate2.ttf",
+      "candidate_sha256": "350df17c69770d42b52f4f224db4cf210219d0bffa5d43604b98d3d56736f9c9",
+      "codepoints_compared": 32768,
+      "hinted_nonempty_glyphs": 32767,
+      "cmap_equal": true,
+      "hmtx_equal": true,
+      "raw_coordinates_equal": true
+    },
+    {
+      "source": "/Users/tara/Documents/Codex/2026-07-29/i-want-you-to-create-me/github/square-braille-font/experiments/pua-4x4/build-v0.4-candidate.1/PUA4x4Part1V04Candidate.ttf",
+      "source_sha256": "76366d90c3321612f596956d7a5a09e0a570f5df0b4f51dc04e3d7104f3a7723",
+      "candidate": "/Users/tara/Documents/Codex/2026-07-29/i-want-you-to-create-me/github/square-braille-font/experiments/pua-4x4/build-v0.4-candidate.2-hinted/PUA4x4Part1V04Candidate2.ttf",
+      "candidate_sha256": "35d55a31210c19168a80c2c04fb9cb5e7aba2ca9a0b47da57bd5fec76d62ff47",
+      "codepoints_compared": 32768,
+      "hinted_nonempty_glyphs": 32768,
+      "cmap_equal": true,
+      "hmtx_equal": true,
+      "raw_coordinates_equal": true
+    }
+  ],
+  "permitted_differences": [
+    "name records",
+    "glyph instruction programs",
+    "head integer-ppem flag",
+    "gasp table",
+    "maxp instruction maxima"
+  ],
+  "prohibited_differences_found": []
+}

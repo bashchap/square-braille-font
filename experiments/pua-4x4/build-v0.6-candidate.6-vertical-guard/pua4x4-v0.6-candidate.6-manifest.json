@@ -1,0 +1,43 @@
+{
+  "name": "PUA 4x4 v0.6 Candidate 6",
+  "version": "0.6-candidate.6",
+  "mapping": "bit = 4 * local_y + (3 - local_x)",
+  "codepoints": "mask < 0x8000: U+0F0000 + mask; otherwise U+100000 + (mask - 0x8000)",
+  "source_geometry": "Candidate 4 strict hinted geometry",
+  "geometry_change": "vertical exterior only: y=-200 to -300 and y=800 to 900; x coordinates and internal 4x4 boundaries unchanged",
+  "horizontal_cell_bounds": "x=0..500; advance=500",
+  "vertical_guard_bounds": "y=-300..900",
+  "horizontal_overfill": 0,
+  "encoding_invariant": "full occupancy remains foreground mask 0xFFFF at U+107FFF; no background or reverse-video substitution",
+  "known_limit": "MATE Terminal can expose horizontal seams at its two smallest Ctrl-minus zoom levels; normal and enlarged supported sizes pass",
+  "parts": [
+    {
+      "part": 0,
+      "source": "PUA4x4Part0V05Candidate4.ttf",
+      "filename": "PUA4x4Part0V06Candidate6.ttf",
+      "family": "PUA 4x4 Part 0 v0.6 Candidate 6",
+      "postscript": "PUA4x4Part0V06Candidate6-Regular",
+      "codepoint_start": 983040,
+      "codepoint_end": 1015807,
+      "source_sha256": "7ca7994c0ad220f3115d01c73915b619e89813713d835cc8ba3430c8dfef5d9e",
+      "sha256": "2a473fc9fab1d1399fd46a04f85b9ff04a97962500a05d67c9677cb5bfe999af",
+      "changed_glyphs": 32512,
+      "changed_points": 147456,
+      "x_coordinates_changed": 0
+    },
+    {
+      "part": 1,
+      "source": "PUA4x4Part1V05Candidate4.ttf",
+      "filename": "PUA4x4Part1V06Candidate6.ttf",
+      "family": "PUA 4x4 Part 1 v0.6 Candidate 6",
+      "postscript": "PUA4x4Part1V06Candidate6-Regular",
+      "codepoint_start": 1048576,
+      "codepoint_end": 1081343,
+      "source_sha256": "f1b183d7d7ac4f6dc506612efb64db0225f3b6bbfb6b80828e07451fa0c35fe3",
+      "sha256": "f023c3f4c74b69858b2a8083479589166d11c0562b6afe7261263127eb43dfe0",
+      "changed_glyphs": 32768,
+      "changed_points": 180224,
+      "x_coordinates_changed": 0
+    }
+  ]
+}

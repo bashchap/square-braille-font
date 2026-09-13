@@ -244,7 +244,8 @@ The foreground is not limited to falling snow:
   When a helicopter has left a supply crate, the next postman stops on the
   road, opens it, collects mail, breaks the empty box into fading fragments,
   and then continues to the scheduled cabin. The crate is never an obstacle.
-- `--sky-events auto` rotates commuter/airliner aeroplanes, a helicopter, a
+- `--sky-events auto` rotates commuter/airliner aeroplanes, AH-64 and
+  Airwolf-style helicopters, a
   lost kite whose segmented tail bends and flutters under the live wind/gust
   field, UFO, Santa-with-reindeer, and Superman flybys. Superman now has a
   roughly doubled horizontal silhouette with face, hair, eye, extended fist,
@@ -261,6 +262,19 @@ The foreground is not limited to falling snow:
   drifts down at
   `--parachute-fall-speed` in the furthest flight layer. Set
   `--ejection-chance 0` to disable it or `1` to demonstrate every pass.
+  With `--aircraft-crash` (the default), the abandoned aircraft then rolls
+  continuously into a steep gravity-driven arc with a fire-and-smoke wake.
+  `--aircraft-crash-depth auto|away|toward` chooses whether it shrinks toward
+  the horizon or grows toward the viewer; descent, arc, spin and smoke each
+  have independent controls. Impact creates a persistent `fiery` or `nuclear`
+  animated explosion selected by `--explosion-types`, with configurable scale
+  and lifetime. The enlarged red/yellow fireball and nuclear mushroom cloud
+  retain a hot core, ground front and embers before fading smoothly near the
+  end of their lifetime. A `toward` crash that reaches the foreground melts a
+  tapered cavity in both bank and retained object snow for as long as the
+  explosion remains hot; a distant `away` impact cannot alter foreground
+  terrain. `all` alternates both forms; `--no-aircraft-crash` restores a
+  non-destructive ejection flyby.
   `--santa-scale-min 0.02` and `--santa-scale-max 0.50` make the formation grow
   smoothly from an almost single-dot distance to its nearest midpoint size,
   then recede symmetrically. Legacy `--santa-scale` remains an alias for the
@@ -274,13 +288,41 @@ The foreground is not limited to falling snow:
   or lodge chimney. Each has an independent initial fall speed. Disable
   deliveries with `--no-santa-presents` or tune the baseline with
   `--present-fall-speed`.
-- The helicopter approaches nose-on from a point, grows into a detailed hover,
+- The doubled-size AH-64-inspired helicopter and independently selectable
+  black/red `airwolf` type approach nose-on from a point,
+  grows into a detailed hover at a repeatably varied horizontal position,
   descends into the foreground, waits between `--helicopter-wait-min` and
-  `--helicopter-wait-max`, leaves a supply crate, lifts, passes through five
-  orientation frames, then shows its rear and recedes.
+  `--helicopter-wait-max`, leaves a supply crate, rises vertically until its
+  complete lower silhouette clears the highest cabin roof/chimney, passes
+  through thirteen stationary orientation frames, then shows its rear and
+  recedes lower toward the artificial horizon. A scale-aware clearance plane
+  prevents the shrinking craft from crossing back over cabin roofs. Its
+  canopy, paired engines, stub wings, weapon pods,
+  chin sensor, landing gear and flashing warning lamps remain procedural. The
+  Airwolf variant has a longer pointed nose, dark streamlined body, silver
+  canopy treatment and continuous red lower stripe, while using the same
+  flight, cargo and downwash simulation.
+  Thirteen axial/profile orientations and four thin projected rotor blades remove
+  the former turn snap and make rotor phase visible.
   `--helicopter-hover-seconds` controls transition pauses.
   `--helicopter-downwash` ranges from 0 (off) to 4 (extreme), displacing nearby
-  precipitation, adding a short-lived volumetric wake and scouring loose snow.
+  precipitation and loose chunks, adding a short-lived volumetric wake and
+  scouring loose snow. `--helicopter-downwash-width` independently expands the
+  affected radius from 0.25 to 4 times the normal rotor field.
+  The wake is emitted outside and below the fuselage, moves outward, and is
+  composited behind the aircraft so it cannot paint through the cockpit.
+  A landing target is rejected while a visible rabbit or postman is underneath;
+  throughout hover, descent, landing and takeoff, the active rotor radius forms a hard
+  exclusion zone which turns rabbits and tumbleweed away and stops the postman
+  at its boundary. Nose-on panes, canopy frames, twin intakes and the central
+  sensor are redrawn at high priority so front detail survives PUA4 quantizing.
+  Generate an exact PUA4/ANSI-quantized contact sheet of all thirteen yaw
+  frames with:
+
+  ```sh
+  python3 demos/seasonal/render_helicopter_mockup.py
+  python3 demos/seasonal/render_helicopter_mockup.py --style airwolf
+  ```
 - `--ufo-abduction` makes a UFO pause and activate a moving cyan, blue, violet,
   gold and white transporter column. The UFO selects one already-visible
   rabbit, swoops from a distant point toward that rabbit, and freezes directly
@@ -291,6 +333,8 @@ The foreground is not limited to falling snow:
   a rabbit that began in front of a cabin remains in front throughout capture,
   while a distant rabbit and its beam remain occluded. `--ufo-types` rotates
   saucer, orb and delta vehicles, while
+  `--ufo-beam-style spiral|rings|lattice|stargate` selects four moving,
+  deliberately sparse transporter treatments, and
   `--ufo-trail-length` and `--ufo-trail-seconds` tune their plasma wakes. After
   capture the craft accelerates away while shrinking back toward a point.
 - The snow plough is enabled by default. `--plough-interval` controls how often
@@ -383,7 +427,8 @@ rain/hail combination.
 
 Rain and hail colours accept six hexadecimal RGB digits through
 `--rain-colour` and `--hail-colour`. Lightning brightens the distant sky and
-draws behind trees, cabins and other foreground scenery. Its interval, flash
+draws a white core, cyan glow and strong blue edge behind trees, cabins and
+other foreground scenery. Its interval, flash
 lifetime and branch count are live controls.
 
 Every newly created snowflake, raindrop, and hailstone is assigned permanently
@@ -666,15 +711,21 @@ existing PUA4 codepoint, and emits ANSI foreground/background colours.
 
 Caching already happens at two useful levels:
 
-- the static scenery `Surface` is retained between frames and rebuilt only
-  when dimensions or scenery-affecting controls change;
 - expensive procedural tree geometry is held in a bounded in-memory cache,
-  then cheap wind-dependent sway is applied while it is composited.
+  then wind-dependent sway is applied while it is composited. Sway displacement
+  is calculated once per tree scanline and reused by all pixels on that row,
+  avoiding repeated clamp/multiply/round work in the inner pixel loop.
 - the postman's direction-, gait-, turn- and scale-specific procedural frames
   are held in a separate bounded cache. The process dashboard reports hit/miss
   totals for both tree geometry and postman frames.
 
-An optional dependency-free Rust cell analyser now lives under
+The composed scenery surface itself is currently rebuilt each frame because
+tree sway depends on live wind and time. Dirt and distant huts are deterministic
+within that rebuild, not retained as a separate bitmap; splitting immutable
+and swaying scenery into two cached layers is therefore a worthwhile next
+optimization.
+
+An optional dependency-free Rust terminal encoder now lives under
 `native/seasonal_encoder`. Build it with:
 
 ```sh
@@ -683,23 +734,39 @@ cargo build --release --manifest-path native/seasonal_encoder/Cargo.toml
 
 `--native-encoder auto` uses it when present and safely falls back to Python;
 `off` forces the reference path and `on` requires Rust. It accelerates the
-per-cell priority/mask/colour/error scan while Python retains ANSI generation.
+per-cell priority/mask/colour/error scan. Its shared ABI also performs complete
+RGB, ANSI-256 and no-colour terminal emission for the older basic, vector, 3D,
+PUA4 motion, Voyager and layered Voyager framebuffer demos.
 Local repeated encoding was approximately twice as fast at both 120x36 and
 168x60 cells, including marshaling. The verifier demands byte-for-byte ANSI and
 telemetry parity whenever the release library is present.
 
+The shared migration covers geometry, snow, starfield, trail, vector tunnel
+(and its Elite/Defender users), Doom, Enterprise flyby/wireframe (and the
+Spaceship importer), PUA4 Vortex/motion, Voyager recordings/model viewer, and
+the two-colour layered Grand Tour. Triangle and vertical seam probes, font
+catalogues/probes and the interactive editor intentionally retain their direct
+terminal writers: they diagnose cursor placement or font behaviour rather
+than encode a framebuffer, so routing them through the cell encoder would
+change what they test. The animation/simulation logic remains Python; Rust owns
+the repeated cell-to-terminal hot path, which preserves one behavioural
+reference instead of duplicating every demo in two languages.
+
 Further caching is viable, but whole pre-encoded frames would be a poor fit:
 movement, arbitrary terminal sizes, cell alignment, foreground/background
 occlusion, live colours, and snow depth change the final cells continuously.
-The best next optimization candidate is a small virtual-pixel sprite-frame
-atlas for aircraft, UFO, Santa, reindeer, rabbits, and the plough, indexed by
-direction, scale, and animation phase. The cached sprite would still be
-composited dynamically, preserving correct occlusion and PUA4 selection.
-Continuous effects such as precipitation, deforming snow, tree sway, the
-abduction scale transition, and tumbleweed rotation should remain procedural
-or use deliberately quantized cache steps. Benchmarking should determine
-whether geometry drawing or final cell encoding is the actual bottleneck
-before adding that memory/complexity tradeoff.
+A 303x46 full-physics comparison against the previous per-pixel sway algorithm
+measured scenery at 44.465 -> 33.139 ms (25.5% lower) and the complete frame at
+120.966 -> 110.645 ms (8.5% lower). The benchmark now uses the native encoder
+when `--native-encoder auto` successfully loads it, matching the viewer.
+
+The next optimization boundary is the tuple-based virtual-pixel `Surface`.
+A packed priority/RGB buffer shared with Rust would remove per-frame tuple
+marshalling and provide a native target for filled polygons, thick lines and
+cached-tree compositing. A sprite atlas remains a possible later optimization
+for discrete poses, but profiling shows the shared raster/store path is the
+broader target. Continuous effects such as precipitation, deforming snow and
+tree sway should remain procedural or use deliberately quantized cache steps.
 
 ## Snow controls
 
@@ -933,13 +1000,17 @@ resize preservation, animated tree movement, frame dimensions, and the absence
 of reverse-video output. It also forces an aged local tower and neighbour
 cascade, applies a live JSON revision, and round-trips the TUI's effective
 options back through the production parser. Additional checks cover varied
-cabin types and depth lanes, tumbleweed-aware rabbits, all six sky events,
+cabin types and depth lanes, tumbleweed-aware rabbits, all seven sky events,
 parallax clouds, complete plough clearing, rabbit perspective/occlusion,
 depth-stable existing-rabbit-only UFO capture, Santa depth zoom,
 helicopter/kite/Superman rotation, enlarged moving pilot parachute, cached
 all-cabin postman delivery, connected dirt routes, simultaneous multi-speed
 Santa gifts, all helicopter landing/orientation phases, cargo/postman handling,
-rotor weather/snow coupling, and optional Rust/Python encoder parity,
+rotor weather/snow coupling and actor exclusion, AH-64/Airwolf yaw frames,
+abandoned-aircraft crash arcs, heat-melted foreground snow, gradually fading
+fiery and nuclear impacts, all transporter styles, blue-edged lightning, artificial
+horizon structure, height-countdown snow release, and optional Rust/Python
+encoder parity,
 detailed reindeer and flyby pixel complexity, dashboard dimensions
 and CPU/memory labels, per-option TUI icons and guidance, snapshot-window hold
 behaviour, and an executable saved command containing literal shell

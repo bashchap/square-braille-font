@@ -1,0 +1,30 @@
+{
+  "schema": "pua4x4-v0.4-demo-launcher-profile-v1",
+  "captured_utc": "2026-08-08T10:06:27.359794+00:00",
+  "host": "vmfm1",
+  "platform": "Linux-6.8.0-137-generic-aarch64-with-glibc2.39",
+  "default_launcher": "launch-linux-v04-candidate3.sh",
+  "legacy_route": "PUA4X4_USE_V03=1 -> launch-linux-v03.sh",
+  "demo_profile": "PUA 4x4 v0.4 Candidate 3",
+  "profile_font": "PUA 4x4 v0.4 Candidate 3 12",
+  "package_dir": "/home/tara/dev/FontMaker/pua4x4/rc1-package",
+  "parts": [
+    {
+      "filename": "PUA4x4Part0V04Candidate3.ttf",
+      "charset_probe": "f0001",
+      "expected_family": "PUA 4x4 Part 0 v0.4 Candidate 3",
+      "selected": "PUA 4x4 Part 0 v0.4 Candidate 3\t/home/tara/.local/share/fonts/PUA4x4Part0V04Candidate3.ttf",
+      "source_sha256": "94847138178994d016d3a0e315be0aa10604c1ea85e01b6d98eb8f41421ac9d8",
+      "installed_sha256": "94847138178994d016d3a0e315be0aa10604c1ea85e01b6d98eb8f41421ac9d8"
+    },
+    {
+      "filename": "PUA4x4Part1V04Candidate3.ttf",
+      "charset_probe": "100000",
+      "expected_family": "PUA 4x4 Part 1 v0.4 Candidate 3",
+      "selected": "PUA 4x4 Part 1 v0.4 Candidate 3\t/home/tara/.local/share/fonts/PUA4x4Part1V04Candidate3.ttf",
+      "source_sha256": "a979a9568dbe5c0b90bb54eb6bc0e4a70caf536bd4c2e791d589796a984f0ec1",
+      "installed_sha256": "a979a9568dbe5c0b90bb54eb6bc0e4a70caf536bd4c2e791d589796a984f0ec1"
+    }
+  ],
+  "result": "PASS"
+}

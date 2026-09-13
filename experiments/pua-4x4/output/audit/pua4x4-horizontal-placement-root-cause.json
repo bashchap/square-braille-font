@@ -1,0 +1,210 @@
+{
+  "audit": "PUA 4x4 horizontal placement root-cause proof",
+  "status": "ROOT_CAUSE_CONFIRMED_AND_CANDIDATE_CORRECTED",
+  "true_type_formula": "effective_x = raw_x - (xMin - leftSideBearing); therefore effective_xMin = leftSideBearing",
+  "mathematical_requirement": "effective rendered x positions must equal local_x * 125",
+  "v0.3": {
+    "label": "v0.3 released composite fonts",
+    "files": [
+      {
+        "file": "/Users/tara/Documents/Codex/2026-07-29/i-want-you-to-create-me/github/square-braille-font/experiments/pua-4x4/build-v0.3/PUA4x4Part0.ttf",
+        "sha256": "b34587617903d8115d8df788b6430b172c614d8fa9d1689eb403a5c8d26f8c6d"
+      },
+      {
+        "file": "/Users/tara/Documents/Codex/2026-07-29/i-want-you-to-create-me/github/square-braille-font/experiments/pua-4x4/build-v0.3/PUA4x4Part1.ttf",
+        "sha256": "ccfad9f530ceda3f33791aec877b81b81472604e68c5e1633c50bb6d2da2681a"
+      }
+    ],
+    "nonempty_patterns_checked": 65535,
+    "raw_outline_x_min_mismatches": 0,
+    "effective_horizontal_placement_mismatches": 4095,
+    "mismatch_masks_first_32": [
+      "0x0001",
+      "0x0002",
+      "0x0003",
+      "0x0004",
+      "0x0005",
+      "0x0006",
+      "0x0007",
+      "0x0010",
+      "0x0011",
+      "0x0012",
+      "0x0013",
+      "0x0014",
+      "0x0015",
+      "0x0016",
+      "0x0017",
+      "0x0020",
+      "0x0021",
+      "0x0022",
+      "0x0023",
+      "0x0024",
+      "0x0025",
+      "0x0026",
+      "0x0027",
+      "0x0030",
+      "0x0031",
+      "0x0032",
+      "0x0033",
+      "0x0034",
+      "0x0035",
+      "0x0036",
+      "0x0037",
+      "0x0040"
+    ],
+    "samples": [
+      {
+        "mask_hex": "0x0001",
+        "codepoint_hex": "U+0F0001",
+        "raw_outline_x_min": 375,
+        "hmtx_left_side_bearing": 0,
+        "left_phantom_point_x": 375,
+        "effective_origin_shift_x": -375,
+        "effective_rendered_x_min": 0,
+        "mathematical_expected_x_min": 375,
+        "matches": false
+      },
+      {
+        "mask_hex": "0x0002",
+        "codepoint_hex": "U+0F0002",
+        "raw_outline_x_min": 250,
+        "hmtx_left_side_bearing": 0,
+        "left_phantom_point_x": 250,
+        "effective_origin_shift_x": -250,
+        "effective_rendered_x_min": 0,
+        "mathematical_expected_x_min": 250,
+        "matches": false
+      },
+      {
+        "mask_hex": "0x0004",
+        "codepoint_hex": "U+0F0004",
+        "raw_outline_x_min": 125,
+        "hmtx_left_side_bearing": 0,
+        "left_phantom_point_x": 125,
+        "effective_origin_shift_x": -125,
+        "effective_rendered_x_min": 0,
+        "mathematical_expected_x_min": 125,
+        "matches": false
+      },
+      {
+        "mask_hex": "0x0008",
+        "codepoint_hex": "U+0F0008",
+        "raw_outline_x_min": 0,
+        "hmtx_left_side_bearing": 0,
+        "left_phantom_point_x": 0,
+        "effective_origin_shift_x": 0,
+        "effective_rendered_x_min": 0,
+        "mathematical_expected_x_min": 0,
+        "matches": true
+      },
+      {
+        "mask_hex": "0x0400",
+        "codepoint_hex": "U+0F0400",
+        "raw_outline_x_min": 125,
+        "hmtx_left_side_bearing": 0,
+        "left_phantom_point_x": 125,
+        "effective_origin_shift_x": -125,
+        "effective_rendered_x_min": 0,
+        "mathematical_expected_x_min": 125,
+        "matches": false
+      },
+      {
+        "mask_hex": "0x8000",
+        "codepoint_hex": "U+100000",
+        "raw_outline_x_min": 0,
+        "hmtx_left_side_bearing": 0,
+        "left_phantom_point_x": 0,
+        "effective_origin_shift_x": 0,
+        "effective_rendered_x_min": 0,
+        "mathematical_expected_x_min": 0,
+        "matches": true
+      }
+    ]
+  },
+  "v0.4_candidate": {
+    "label": "v0.4 candidate direct-union fonts",
+    "files": [
+      {
+        "file": "/Users/tara/Documents/Codex/2026-07-29/i-want-you-to-create-me/github/square-braille-font/experiments/pua-4x4/build-v0.4-candidate.1/PUA4x4Part0V04Candidate.ttf",
+        "sha256": "d88567706074a28e6f28be6a2a4b88d0b124f2651852b8217132e5ab05df1ad0"
+      },
+      {
+        "file": "/Users/tara/Documents/Codex/2026-07-29/i-want-you-to-create-me/github/square-braille-font/experiments/pua-4x4/build-v0.4-candidate.1/PUA4x4Part1V04Candidate.ttf",
+        "sha256": "76366d90c3321612f596956d7a5a09e0a570f5df0b4f51dc04e3d7104f3a7723"
+      }
+    ],
+    "nonempty_patterns_checked": 65535,
+    "raw_outline_x_min_mismatches": 0,
+    "effective_horizontal_placement_mismatches": 0,
+    "mismatch_masks_first_32": [],
+    "samples": [
+      {
+        "mask_hex": "0x0001",
+        "codepoint_hex": "U+0F0001",
+        "raw_outline_x_min": 375,
+        "hmtx_left_side_bearing": 375,
+        "left_phantom_point_x": 0,
+        "effective_origin_shift_x": 0,
+        "effective_rendered_x_min": 375,
+        "mathematical_expected_x_min": 375,
+        "matches": true
+      },
+      {
+        "mask_hex": "0x0002",
+        "codepoint_hex": "U+0F0002",
+        "raw_outline_x_min": 250,
+        "hmtx_left_side_bearing": 250,
+        "left_phantom_point_x": 0,
+        "effective_origin_shift_x": 0,
+        "effective_rendered_x_min": 250,
+        "mathematical_expected_x_min": 250,
+        "matches": true
+      },
+      {
+        "mask_hex": "0x0004",
+        "codepoint_hex": "U+0F0004",
+        "raw_outline_x_min": 125,
+        "hmtx_left_side_bearing": 125,
+        "left_phantom_point_x": 0,
+        "effective_origin_shift_x": 0,
+        "effective_rendered_x_min": 125,
+        "mathematical_expected_x_min": 125,
+        "matches": true
+      },
+      {
+        "mask_hex": "0x0008",
+        "codepoint_hex": "U+0F0008",
+        "raw_outline_x_min": 0,
+        "hmtx_left_side_bearing": 0,
+        "left_phantom_point_x": 0,
+        "effective_origin_shift_x": 0,
+        "effective_rendered_x_min": 0,
+        "mathematical_expected_x_min": 0,
+        "matches": true
+      },
+      {
+        "mask_hex": "0x0400",
+        "codepoint_hex": "U+0F0400",
+        "raw_outline_x_min": 125,
+        "hmtx_left_side_bearing": 125,
+        "left_phantom_point_x": 0,
+        "effective_origin_shift_x": 0,
+        "effective_rendered_x_min": 125,
+        "mathematical_expected_x_min": 125,
+        "matches": true
+      },
+      {
+        "mask_hex": "0x8000",
+        "codepoint_hex": "U+100000",
+        "raw_outline_x_min": 0,
+        "hmtx_left_side_bearing": 0,
+        "left_phantom_point_x": 0,
+        "effective_origin_shift_x": 0,
+        "effective_rendered_x_min": 0,
+        "mathematical_expected_x_min": 0,
+        "matches": true
+      }
+    ]
+  },
+  "conclusion": "v0.3 stored the correct raw x coordinates but wrote lsb=0 for every pattern. All 4,095 nonempty Part 0 masks without a set left-edge pixel were shifted left at render time. The candidate writes lsb=xMin and has zero effective placement mismatches."
+}

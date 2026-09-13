@@ -1,0 +1,442 @@
+{
+  "audit": "Installed Pango horizontal placement and seam comparison",
+  "gate": "E - installed Pango raster",
+  "status": "MEASURED_WITHOUT_CANDIDATE1_ASSERTIONS",
+  "exact_circumstance": {
+    "renderer": "pango-view --pixels --margin=0 --spacing=0",
+    "one_bit_size_pixels": 40,
+    "one_bit_sequence": [
+      "0x0008",
+      "0x0004",
+      "0x0002",
+      "0x0001"
+    ],
+    "expected_local_x_ranges": [
+      [
+        0,
+        5
+      ],
+      [
+        5,
+        10
+      ],
+      [
+        10,
+        15
+      ],
+      [
+        15,
+        20
+      ]
+    ],
+    "expected_global_x_ranges": [
+      [
+        0,
+        5
+      ],
+      [
+        25,
+        30
+      ],
+      [
+        50,
+        55
+      ],
+      [
+        75,
+        80
+      ]
+    ],
+    "antialias_allowance": "at most one pixel outside each exact vector edge"
+  },
+  "v0.3": {
+    "font": "PUA 4x4",
+    "image": "output/audit/pango-v0.4-candidate3/v03-one-bit-horizontal.png",
+    "dimensions": [
+      80,
+      40
+    ],
+    "records": [
+      {
+        "mask_hex": "0x0008",
+        "expected_x_range": [
+          0,
+          5
+        ],
+        "measured_local_ink_bbox": [
+          0,
+          0,
+          20,
+          10
+        ]
+      },
+      {
+        "mask_hex": "0x0004",
+        "expected_x_range": [
+          5,
+          10
+        ],
+        "measured_local_ink_bbox": [
+          0,
+          0,
+          20,
+          10
+        ]
+      },
+      {
+        "mask_hex": "0x0002",
+        "expected_x_range": [
+          10,
+          15
+        ],
+        "measured_local_ink_bbox": [
+          0,
+          0,
+          20,
+          10
+        ]
+      },
+      {
+        "mask_hex": "0x0001",
+        "expected_x_range": [
+          15,
+          20
+        ],
+        "measured_local_ink_bbox": [
+          0,
+          0,
+          6,
+          10
+        ]
+      }
+    ],
+    "measured_global_ink_runs": [
+      [
+        0,
+        6
+      ],
+      [
+        19,
+        26
+      ],
+      [
+        39,
+        46
+      ],
+      [
+        59,
+        66
+      ]
+    ],
+    "result": "FAIL: all four horizontal one-bit positions render at x=0..5"
+  },
+  "v0.4_candidate": {
+    "font": "PUA 4x4 v0.4 Candidate 3",
+    "image": "output/audit/pango-v0.4-candidate3/v04-candidate3-one-bit-horizontal.png",
+    "dimensions": [
+      80,
+      40
+    ],
+    "records": [
+      {
+        "mask_hex": "0x0008",
+        "expected_x_range": [
+          0,
+          5
+        ],
+        "measured_local_ink_bbox": [
+          0,
+          0,
+          6,
+          10
+        ]
+      },
+      {
+        "mask_hex": "0x0004",
+        "expected_x_range": [
+          5,
+          10
+        ],
+        "measured_local_ink_bbox": [
+          4,
+          0,
+          11,
+          10
+        ]
+      },
+      {
+        "mask_hex": "0x0002",
+        "expected_x_range": [
+          10,
+          15
+        ],
+        "measured_local_ink_bbox": [
+          9,
+          0,
+          16,
+          10
+        ]
+      },
+      {
+        "mask_hex": "0x0001",
+        "expected_x_range": [
+          15,
+          20
+        ],
+        "measured_local_ink_bbox": [
+          14,
+          0,
+          20,
+          10
+        ]
+      }
+    ],
+    "measured_global_ink_runs": [
+      [
+        0,
+        6
+      ],
+      [
+        24,
+        31
+      ],
+      [
+        49,
+        56
+      ],
+      [
+        74,
+        80
+      ]
+    ],
+    "result": "PASS: measured x positions equal the approved mapping"
+  },
+  "candidate_solid_seam_matrix": [
+    {
+      "size_pixels": 8,
+      "image": "output/audit/pango-v0.4-candidate3/candidate-solid-08.png",
+      "dimensions": [
+        256,
+        129
+      ],
+      "black_pixels": 0,
+      "status": "PASS"
+    },
+    {
+      "size_pixels": 9,
+      "image": "output/audit/pango-v0.4-candidate3/candidate-solid-09.png",
+      "dimensions": [
+        320,
+        145
+      ],
+      "black_pixels": 0,
+      "status": "PASS"
+    },
+    {
+      "size_pixels": 10,
+      "image": "output/audit/pango-v0.4-candidate3/candidate-solid-10.png",
+      "dimensions": [
+        320,
+        160
+      ],
+      "black_pixels": 0,
+      "status": "PASS"
+    },
+    {
+      "size_pixels": 11,
+      "image": "output/audit/pango-v0.4-candidate3/candidate-solid-11.png",
+      "dimensions": [
+        384,
+        177
+      ],
+      "black_pixels": 0,
+      "status": "PASS"
+    },
+    {
+      "size_pixels": 12,
+      "image": "output/audit/pango-v0.4-candidate3/candidate-solid-12.png",
+      "dimensions": [
+        384,
+        193
+      ],
+      "black_pixels": 0,
+      "status": "PASS"
+    },
+    {
+      "size_pixels": 13,
+      "image": "output/audit/pango-v0.4-candidate3/candidate-solid-13.png",
+      "dimensions": [
+        448,
+        209
+      ],
+      "black_pixels": 0,
+      "status": "PASS"
+    },
+    {
+      "size_pixels": 14,
+      "image": "output/audit/pango-v0.4-candidate3/candidate-solid-14.png",
+      "dimensions": [
+        448,
+        225
+      ],
+      "black_pixels": 0,
+      "status": "PASS"
+    },
+    {
+      "size_pixels": 16,
+      "image": "output/audit/pango-v0.4-candidate3/candidate-solid-16.png",
+      "dimensions": [
+        512,
+        257
+      ],
+      "black_pixels": 0,
+      "status": "PASS"
+    },
+    {
+      "size_pixels": 18,
+      "image": "output/audit/pango-v0.4-candidate3/candidate-solid-18.png",
+      "dimensions": [
+        576,
+        289
+      ],
+      "black_pixels": 0,
+      "status": "PASS"
+    },
+    {
+      "size_pixels": 20,
+      "image": "output/audit/pango-v0.4-candidate3/candidate-solid-20.png",
+      "dimensions": [
+        640,
+        320
+      ],
+      "black_pixels": 0,
+      "status": "PASS"
+    }
+  ],
+  "candidate_terminal_point_seam_matrix": [
+    {
+      "size_points": 8,
+      "dpi": 96,
+      "image": "output/audit/pango-v0.4-candidate3/candidate-solid-08pt-96dpi.png",
+      "dimensions": [
+        400,
+        221
+      ],
+      "black_pixels": 0,
+      "nonwhite_pixels": 0,
+      "status": "PASS"
+    },
+    {
+      "size_points": 9,
+      "dpi": 96,
+      "image": "output/audit/pango-v0.4-candidate3/candidate-solid-09pt-96dpi.png",
+      "dimensions": [
+        480,
+        241
+      ],
+      "black_pixels": 0,
+      "nonwhite_pixels": 0,
+      "status": "PASS"
+    },
+    {
+      "size_points": 10,
+      "dpi": 96,
+      "image": "output/audit/pango-v0.4-candidate3/candidate-solid-10pt-96dpi.png",
+      "dimensions": [
+        560,
+        280
+      ],
+      "black_pixels": 0,
+      "nonwhite_pixels": 0,
+      "status": "PASS"
+    },
+    {
+      "size_points": 11,
+      "dpi": 96,
+      "image": "output/audit/pango-v0.4-candidate3/candidate-solid-11pt-96dpi.png",
+      "dimensions": [
+        560,
+        300
+      ],
+      "black_pixels": 0,
+      "nonwhite_pixels": 0,
+      "status": "PASS"
+    },
+    {
+      "size_points": 12,
+      "dpi": 96,
+      "image": "output/audit/pango-v0.4-candidate3/candidate-solid-12pt-96dpi.png",
+      "dimensions": [
+        640,
+        321
+      ],
+      "black_pixels": 0,
+      "nonwhite_pixels": 0,
+      "status": "PASS"
+    },
+    {
+      "size_points": 13,
+      "dpi": 96,
+      "image": "output/audit/pango-v0.4-candidate3/candidate-solid-13pt-96dpi.png",
+      "dimensions": [
+        720,
+        360
+      ],
+      "black_pixels": 0,
+      "nonwhite_pixels": 0,
+      "status": "PASS"
+    },
+    {
+      "size_points": 14,
+      "dpi": 96,
+      "image": "output/audit/pango-v0.4-candidate3/candidate-solid-14pt-96dpi.png",
+      "dimensions": [
+        720,
+        380
+      ],
+      "black_pixels": 0,
+      "nonwhite_pixels": 0,
+      "status": "PASS"
+    },
+    {
+      "size_points": 16,
+      "dpi": 96,
+      "image": "output/audit/pango-v0.4-candidate3/candidate-solid-16pt-96dpi.png",
+      "dimensions": [
+        880,
+        441
+      ],
+      "black_pixels": 0,
+      "nonwhite_pixels": 0,
+      "status": "PASS"
+    },
+    {
+      "size_points": 18,
+      "dpi": 96,
+      "image": "output/audit/pango-v0.4-candidate3/candidate-solid-18pt-96dpi.png",
+      "dimensions": [
+        960,
+        481
+      ],
+      "black_pixels": 0,
+      "nonwhite_pixels": 0,
+      "status": "PASS"
+    },
+    {
+      "size_points": 20,
+      "dpi": 96,
+      "image": "output/audit/pango-v0.4-candidate3/candidate-solid-20pt-96dpi.png",
+      "dimensions": [
+        1040,
+        541
+      ],
+      "black_pixels": 0,
+      "nonwhite_pixels": 0,
+      "status": "PASS"
+    }
+  ],
+  "not_proven_by_this_gate": [
+    "MATE Terminal cell placement",
+    "MATE Terminal colored triangle output"
+  ]
+}

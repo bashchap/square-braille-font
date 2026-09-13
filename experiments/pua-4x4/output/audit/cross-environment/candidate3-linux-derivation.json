@@ -1,0 +1,27 @@
+{
+  "audit": "candidate.1 to candidate.3 controlled seam-guard derivation",
+  "status": "PASS_EXACT_DECLARED_TRANSFORM",
+  "codepoints_compared": 65536,
+  "glyphs_with_guard": 65520,
+  "formula_and_cmap_changes": 0,
+  "unexpected_outline_changes": 0,
+  "guard_transform": "x: 0->-100, 500->600; y: -200->-300, 800->900; all other coordinates unchanged",
+  "parts": [
+    {
+      "source": "/home/tara/dev/FontMaker/pua4x4/build-v0.4-candidate.1/PUA4x4Part0V04Candidate.ttf",
+      "source_sha256": "d88567706074a28e6f28be6a2a4b88d0b124f2651852b8217132e5ab05df1ad0",
+      "candidate": "build-v0.4-candidate.3-linux-rebuild/PUA4x4Part0V04Candidate3.ttf",
+      "candidate_sha256": "94847138178994d016d3a0e315be0aa10604c1ea85e01b6d98eb8f41421ac9d8",
+      "codepoints": 32768,
+      "guarded_glyphs": 32752
+    },
+    {
+      "source": "/home/tara/dev/FontMaker/pua4x4/build-v0.4-candidate.1/PUA4x4Part1V04Candidate.ttf",
+      "source_sha256": "76366d90c3321612f596956d7a5a09e0a570f5df0b4f51dc04e3d7104f3a7723",
+      "candidate": "build-v0.4-candidate.3-linux-rebuild/PUA4x4Part1V04Candidate3.ttf",
+      "candidate_sha256": "a979a9568dbe5c0b90bb54eb6bc0e4a70caf536bd4c2e791d589796a984f0ec1",
+      "codepoints": 32768,
+      "guarded_glyphs": 32768
+    }
+  ]
+}

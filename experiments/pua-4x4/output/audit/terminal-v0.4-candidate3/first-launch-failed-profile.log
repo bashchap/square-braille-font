@@ -1,0 +1,10 @@
+Installed candidate.3 side-by-side: /home/tara/.local/share/fonts/PUA4x4Part0V04Candidate3.ttf
+Installed candidate.3 side-by-side: /home/tara/.local/share/fonts/PUA4x4Part1V04Candidate3.ttf
+Configured isolated alias: PUA 4x4 v0.4 Candidate 3
+PASS: candidate binaries installed byte-identically beside v0.3
+PASS: wcwidth is one column throughout both PUA ranges
+PASS: Fontconfig alias selects candidate Part 0 and Part 1
+PASS: Pango selects text plus both candidates with zero unknown glyphs
+/home/tara/dev/FontMaker/pua4x4/output/audit/pua4x4-v0.4-candidate3-linux-runtime.json
+Candidate.3 profile ready: PUA 4x4 v0.4 Candidate 3 at 14 pt
+No such profile "(null)", using default profile

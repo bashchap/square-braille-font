@@ -1,0 +1,3 @@
+94847138178994d016d3a0e315be0aa10604c1ea85e01b6d98eb8f41421ac9d8  /home/tara/.local/share/fonts/PUA4x4Part0V04Candidate3.ttf
+a979a9568dbe5c0b90bb54eb6bc0e4a70caf536bd4c2e791d589796a984f0ec1  /home/tara/.local/share/fonts/PUA4x4Part1V04Candidate3.ttf
+b3785c5f4699e45b2a8e92a86000b11982372383bab81fabaf2861dc6d9b8eb2  /home/tara/dev/FontMaker/pua4x4/output/audit/terminal-v0.4-candidate3/triangle-14pt.png

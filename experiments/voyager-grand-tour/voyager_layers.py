@@ -18,6 +18,7 @@ from dataclasses import dataclass
 import numpy as np
 
 from voyager_core import BRAILLE_BITS, PUA4_BITS, pua4_codepoint
+from native_terminal import terminal_picture_v2 as native_terminal_picture_v2
 
 
 BACKGROUND_VALID = np.uint8(1)
@@ -157,7 +158,7 @@ def expand_frame(frame: CellFrame, mode: int, default_background=(0, 0, 0)):
     return output
 
 
-def terminal_picture_v2(frame: CellFrame, mode: int) -> str:
+def _python_terminal_picture_v2(frame: CellFrame, mode: int) -> str:
     """Emit true-colour ANSI text using both colour planes and the real glyph."""
     rows, columns = frame.masks.shape
     lines = []
@@ -204,6 +205,15 @@ def terminal_picture_v2(frame: CellFrame, mode: int) -> str:
         active_foreground = None
         active_background = None
     return "\n".join(lines)
+
+
+def terminal_picture_v2(frame: CellFrame, mode: int) -> str:
+    """Emit a layered frame through Rust when built, with Python fallback."""
+    rows, columns = frame.masks.shape
+    return native_terminal_picture_v2(
+        frame.masks, frame.foreground, frame.background, frame.flags,
+        columns, rows, mapping="braille" if mode == 2 else "pua4",
+        fallback=lambda: _python_terminal_picture_v2(frame, mode))
 
 
 def draw_occluded_ring(scene, rear, near, mode, centre, ring_radii, rotation,

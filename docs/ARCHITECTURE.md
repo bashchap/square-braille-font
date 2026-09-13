@@ -1,5 +1,9 @@
 # Architecture and history
 
+This document describes the released Square Braille 2×4 font. For the complete
+system—including PUA 4×4 Candidate 6, Voyager/VGR and FontPlotter—start with
+the [zero-context handover package](handover/README.md).
+
 ## Original objective
 
 Represent the 256 patterns from Unicode Braille Patterns `U+2800–U+28FF` as a
@@ -64,3 +68,18 @@ terminal rasterization seams.
 
 The full engineering record is available as PDF and DOCX in this directory.
 Exact macOS reproduction commands are in [DEMOS-MACOS.md](DEMOS-MACOS.md).
+
+## System evolution after the released font
+
+```mermaid
+flowchart LR
+  A["Square Braille 2x4\nreleased text + graphics font"] --> B["PUA 4x4\n65,536 masks in P0/P1"]
+  B --> C["Voyager renderers\nHLR, capture and VGR"]
+  C --> D["FontPlotter\nRAM depth-aware framebuffer"]
+  D --> E["Terminal-cell reducer\nmask + foreground + optional background"]
+```
+
+The released 2×4 font is stable and independent of the experimental 4×4
+family. The current 4×4 Linux release candidate is v0.6 Candidate 6; see
+[PUA-4X4.md](PUA-4X4.md). FontPlotter is currently maintained as a sibling
+working tree, not as a committed directory of this repository.

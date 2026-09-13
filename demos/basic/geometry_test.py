@@ -2,20 +2,22 @@
 """Color test for cell tiling and 2x4 virtual-pixel addressing."""
 
 import argparse
+from pathlib import Path
 import shutil
 import sys
 import time
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from native_terminal import terminal_picture
 
 PUA_START = 0xE000
 DOT_BIT = ((0, 3), (1, 4), (2, 5), (6, 7))
 
 
 def full_frame(columns, rows, mode, tick):
-    lines = []
+    masks = [[0] * columns for _ in range(rows)]
+    colors = [[0] * columns for _ in range(rows)]
     for cy in range(rows):
-        parts = []
-        last_color = None
         for cx in range(columns):
             if mode == "solid":
                 color, mask = 201, 0xFF
@@ -29,12 +31,11 @@ def full_frame(columns, rows, mode, tick):
                         px, py = cx * 2 + sx, cy * 4 + sy
                         if (px - py - tick) % 13 in (0, 1):
                             mask |= 1 << DOT_BIT[sy][sx]
-            if color != last_color:
-                parts.append("\x1b[38;5;%dm" % color)
-                last_color = color
-            parts.append(chr(PUA_START + mask))
-        lines.append("".join(parts))
-    return "\n".join(lines)
+            masks[cy][cx] = mask
+            colors[cy][cx] = color
+    return terminal_picture(
+        masks, colors, columns, rows, mapping="square-alias",
+        colour_mode="indexed", blank_glyph=True, reset_at_end=False)
 
 
 def main():

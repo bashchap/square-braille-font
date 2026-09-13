@@ -9,6 +9,7 @@ addresses a 2 x 4 array of square virtual pixels in U+E000..U+E0FF.
 import argparse
 import math
 import os
+from pathlib import Path
 import shutil
 import subprocess
 import sys
@@ -16,6 +17,9 @@ import time
 
 import numpy as np
 from PIL import Image
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from native_terminal import terminal_picture
 
 
 PUA_START = 0xE000
@@ -487,23 +491,9 @@ def image_to_terminal(rgb, quantization=16):
     colors = np.take_along_axis(flat_colors, flat_index[..., None, None], axis=2)[:, :, 0]
     colors = (colors // quantization) * quantization
 
-    lines = []
-    active = None
-    for row in range(rows):
-        pieces = []
-        for column in range(columns):
-            mask = int(masks[row, column])
-            if mask:
-                color = tuple(int(value) for value in colors[row, column])
-                if color != active:
-                    pieces.append("\x1b[38;2;%d;%d;%dm" % color)
-                    active = color
-            elif active is not None:
-                pieces.append("\x1b[39m")
-                active = None
-            pieces.append(chr(PUA_START + mask))
-        lines.append("".join(pieces))
-    return "\n".join(lines)
+    return terminal_picture(
+        masks, colors, columns, rows, mapping="square-alias",
+        blank_glyph=True, reset_at_end=False)
 
 
 def choose_detail(columns, rows, requested):

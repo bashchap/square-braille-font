@@ -3,10 +3,13 @@
 
 import argparse
 import math
+from pathlib import Path
 import shutil
 import sys
 import time
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "demos"))
+from native_terminal import terminal_picture
 
 from pua4x4_backend import DOT_BIT, mask_to_codepoint
 NEAR = 0.35
@@ -104,22 +107,11 @@ class FrameBuffer:
             ax, ay = next_x, next_y
 
     def terminal_picture(self):
-        lines = []
-        active = None
-        for row_masks, row_colors in zip(self.masks, self.colors):
-            parts = []
-            for mask, color in zip(row_masks, row_colors):
-                if mask:
-                    quantized = tuple((channel // 8) * 8 for channel in color)
-                    if quantized != active:
-                        parts.append("\x1b[38;2;%d;%d;%dm" % quantized)
-                        active = quantized
-                elif active is not None:
-                    parts.append("\x1b[39m")
-                    active = None
-                parts.append(chr(mask_to_codepoint(mask)))
-            lines.append("".join(parts))
-        return "\n".join(lines)
+        colors = [[tuple((channel // 8) * 8 for channel in color)
+                   for color in row] for row in self.colors]
+        return terminal_picture(
+            self.masks, colors, self.columns, self.rows,
+            mapping="pua4", blank_glyph=True, reset_at_end=False)
 
 
 def tunnel_center(z):

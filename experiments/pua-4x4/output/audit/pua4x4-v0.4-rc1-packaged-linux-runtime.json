@@ -1,0 +1,80 @@
+{
+  "audit": "PUA 4x4 v0.4 candidate Linux runtime selection",
+  "gate": "D - installed identity and shaping selection",
+  "status": "PASS_LINUX_SELECTION_ONLY",
+  "not_proven_by_this_gate": [
+    "Pango raster pixel identity",
+    "MATE Terminal cell placement",
+    "MATE Terminal raster output"
+  ],
+  "wcwidth": [
+    {
+      "mask_hex": "0x0000",
+      "width": 1
+    },
+    {
+      "mask_hex": "0x0001",
+      "width": 1
+    },
+    {
+      "mask_hex": "0x0400",
+      "width": 1
+    },
+    {
+      "mask_hex": "0x7FFF",
+      "width": 1
+    },
+    {
+      "mask_hex": "0x8000",
+      "width": 1
+    },
+    {
+      "mask_hex": "0x9669",
+      "width": 1
+    },
+    {
+      "mask_hex": "0xFFFF",
+      "width": 1
+    }
+  ],
+  "fontconfig_matches": [
+    {
+      "pattern": "PUA 4x4 v0.4 Candidate 3:charset=f0001",
+      "family": "PUA 4x4 Part 0 v0.4 Candidate 3",
+      "file": "/home/tara/.local/share/fonts/PUA4x4Part0V04Candidate3.ttf"
+    },
+    {
+      "pattern": "PUA 4x4 v0.4 Candidate 3:charset=100000",
+      "family": "PUA 4x4 Part 1 v0.4 Candidate 3",
+      "file": "/home/tara/.local/share/fonts/PUA4x4Part1V04Candidate3.ttf"
+    }
+  ],
+  "installed_binary_identity": [
+    {
+      "build": "/home/tara/dev/FontMaker/pua4x4/rc1-package/PUA4x4Part0V04Candidate3.ttf",
+      "installed": "/home/tara/.local/share/fonts/PUA4x4Part0V04Candidate3.ttf",
+      "sha256": "94847138178994d016d3a0e315be0aa10604c1ea85e01b6d98eb8f41421ac9d8",
+      "identical": true
+    },
+    {
+      "build": "/home/tara/dev/FontMaker/pua4x4/rc1-package/PUA4x4Part1V04Candidate3.ttf",
+      "installed": "/home/tara/.local/share/fonts/PUA4x4Part1V04Candidate3.ttf",
+      "sha256": "a979a9568dbe5c0b90bb54eb6bc0e4a70caf536bd4c2e791d589796a984f0ec1",
+      "identical": true
+    }
+  ],
+  "pango": {
+    "unknown_glyphs": 0,
+    "expected_families": [
+      "Square Braille Unicode Text Seamless",
+      "PUA 4x4 Part 0 v0.4 Candidate 3",
+      "PUA 4x4 Part 1 v0.4 Candidate 3"
+    ],
+    "measured_run_descriptions": [
+      "PUA 4x4 Part 0 v0.4 Candidate 3 24",
+      "PUA 4x4 Part 1 v0.4 Candidate 3 24",
+      "Square Braille Unicode Text Seamless 24"
+    ],
+    "serialized_layout": "output/audit/pua4x4-v0.4-rc1-packaged-pango-layout.json"
+  }
+}

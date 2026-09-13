@@ -1,0 +1,139 @@
+{
+  "audit": "candidate.3 isolated one-bit exterior overhang",
+  "circumstance": "pango-view, 40 pixel font, three cells: empty + tested mask + empty",
+  "core_expected_x_ranges_in_middle_cell": {
+    "0x0008": [
+      20,
+      25
+    ],
+    "0x0004": [
+      25,
+      30
+    ],
+    "0x0002": [
+      30,
+      35
+    ],
+    "0x0001": [
+      35,
+      40
+    ]
+  },
+  "candidate1_exact_core": [
+    {
+      "mask": "0x0008",
+      "image": "/home/tara/dev/FontMaker/pua4x4/output/audit/candidate3-onebit-overhang/candidate1-mask-0008-40px.png",
+      "dimensions": [
+        60,
+        40
+      ],
+      "ink_runs": [
+        [
+          19,
+          26
+        ]
+      ]
+    },
+    {
+      "mask": "0x0004",
+      "image": "/home/tara/dev/FontMaker/pua4x4/output/audit/candidate3-onebit-overhang/candidate1-mask-0004-40px.png",
+      "dimensions": [
+        60,
+        40
+      ],
+      "ink_runs": [
+        [
+          24,
+          31
+        ]
+      ]
+    },
+    {
+      "mask": "0x0002",
+      "image": "/home/tara/dev/FontMaker/pua4x4/output/audit/candidate3-onebit-overhang/candidate1-mask-0002-40px.png",
+      "dimensions": [
+        60,
+        40
+      ],
+      "ink_runs": [
+        [
+          29,
+          36
+        ]
+      ]
+    },
+    {
+      "mask": "0x0001",
+      "image": "/home/tara/dev/FontMaker/pua4x4/output/audit/candidate3-onebit-overhang/candidate1-mask-0001-40px.png",
+      "dimensions": [
+        60,
+        40
+      ],
+      "ink_runs": [
+        [
+          34,
+          41
+        ]
+      ]
+    }
+  ],
+  "candidate3_seam_guard_100": [
+    {
+      "mask": "0x0008",
+      "image": "/home/tara/dev/FontMaker/pua4x4/output/audit/candidate3-onebit-overhang/candidate3-mask-0008-40px.png",
+      "dimensions": [
+        60,
+        40
+      ],
+      "ink_runs": [
+        [
+          15,
+          26
+        ]
+      ]
+    },
+    {
+      "mask": "0x0004",
+      "image": "/home/tara/dev/FontMaker/pua4x4/output/audit/candidate3-onebit-overhang/candidate3-mask-0004-40px.png",
+      "dimensions": [
+        60,
+        40
+      ],
+      "ink_runs": [
+        [
+          24,
+          31
+        ]
+      ]
+    },
+    {
+      "mask": "0x0002",
+      "image": "/home/tara/dev/FontMaker/pua4x4/output/audit/candidate3-onebit-overhang/candidate3-mask-0002-40px.png",
+      "dimensions": [
+        60,
+        40
+      ],
+      "ink_runs": [
+        [
+          29,
+          36
+        ]
+      ]
+    },
+    {
+      "mask": "0x0001",
+      "image": "/home/tara/dev/FontMaker/pua4x4/output/audit/candidate3-onebit-overhang/candidate3-mask-0001-40px.png",
+      "dimensions": [
+        60,
+        40
+      ],
+      "ink_runs": [
+        [
+          34,
+          44
+        ]
+      ]
+    }
+  ],
+  "expected_declared_difference": "left-edge mask 0x0008 may ink before x=20 and right-edge mask 0x0001 may ink after x=40; interior masks remain candidate.1-identical"
+}

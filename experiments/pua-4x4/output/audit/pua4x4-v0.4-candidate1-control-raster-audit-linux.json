@@ -1,0 +1,5000 @@
+{
+  "audit": "PUA 4x4 Candidate 1 exact-core control full mapping/outline/multi-colour raster audit",
+  "generated_at": "2026-08-14T09:40:33.247619+00:00",
+  "python": "3.12.3 (main, Jun 19 2026, 12:46:00) [GCC 13.3.0]",
+  "structural": {
+    "scope": "all 65,536 masks; both font parts",
+    "mapping_formula": "bit = 4 * local_y + (3 - local_x)",
+    "codepoint_formula": "mask < 0x8000: U+0F0000 + mask; otherwise U+100000 + (mask - 0x8000)",
+    "nominal_cell_font_units": {
+      "x_min": 0,
+      "x_max": 500,
+      "y_min": -200,
+      "y_max": 800
+    },
+    "declared_candidate3_transform": "x=0->-100, x=500->600, y=-200->-300, y=800->900",
+    "parts": [
+      {
+        "part": 0,
+        "range": "U+0F0000-U+0F7FFF",
+        "candidate1": {
+          "path": "/home/tara/dev/FontMaker/pua4x4/build-v0.4-candidate.1/PUA4x4Part0V04Candidate.ttf",
+          "sha256": "d88567706074a28e6f28be6a2a4b88d0b124f2651852b8217132e5ab05df1ad0",
+          "required_missing": 0
+        },
+        "candidate3": {
+          "path": "/home/tara/dev/FontMaker/pua4x4/build-v0.4-candidate.3-seamguard100/PUA4x4Part0V04Candidate3.ttf",
+          "sha256": "94847138178994d016d3a0e315be0aa10604c1ea85e01b6d98eb8f41421ac9d8",
+          "required_missing": 0
+        },
+        "counts": {
+          "glyphs_checked": 32768,
+          "logical_masks_passed": 32768,
+          "declared_transform_passed": 32768,
+          "advance_width_passed": 32768,
+          "masks_with_right_edge_bits": 30720,
+          "glyphs_crossing_right_boundary": 30720,
+          "masks_with_top_edge_bits": 30720,
+          "glyphs_crossing_top_boundary": 30720,
+          "masks_with_left_edge_bits": 28672,
+          "glyphs_crossing_left_boundary": 28672,
+          "masks_with_bottom_edge_bits": 28672,
+          "glyphs_crossing_bottom_boundary": 28672
+        }
+      },
+      {
+        "part": 1,
+        "range": "U+100000-U+107FFF",
+        "candidate1": {
+          "path": "/home/tara/dev/FontMaker/pua4x4/build-v0.4-candidate.1/PUA4x4Part1V04Candidate.ttf",
+          "sha256": "76366d90c3321612f596956d7a5a09e0a570f5df0b4f51dc04e3d7104f3a7723",
+          "required_missing": 0
+        },
+        "candidate3": {
+          "path": "/home/tara/dev/FontMaker/pua4x4/build-v0.4-candidate.3-seamguard100/PUA4x4Part1V04Candidate3.ttf",
+          "sha256": "a979a9568dbe5c0b90bb54eb6bc0e4a70caf536bd4c2e791d589796a984f0ec1",
+          "required_missing": 0
+        },
+        "counts": {
+          "glyphs_checked": 32768,
+          "logical_masks_passed": 32768,
+          "declared_transform_passed": 32768,
+          "advance_width_passed": 32768,
+          "masks_with_left_edge_bits": 32768,
+          "glyphs_crossing_left_boundary": 32768,
+          "masks_with_bottom_edge_bits": 32768,
+          "glyphs_crossing_bottom_boundary": 32768,
+          "masks_with_right_edge_bits": 30720,
+          "glyphs_crossing_right_boundary": 30720,
+          "masks_with_top_edge_bits": 30720,
+          "glyphs_crossing_top_boundary": 30720
+        }
+      }
+    ],
+    "totals": {
+      "glyphs_checked": 65536,
+      "logical_masks_passed": 65536,
+      "declared_transform_passed": 65536,
+      "advance_width_passed": 65536,
+      "masks_with_right_edge_bits": 61440,
+      "glyphs_crossing_right_boundary": 61440,
+      "masks_with_top_edge_bits": 61440,
+      "glyphs_crossing_top_boundary": 61440,
+      "masks_with_left_edge_bits": 61440,
+      "glyphs_crossing_left_boundary": 61440,
+      "masks_with_bottom_edge_bits": 61440,
+      "glyphs_crossing_bottom_boundary": 61440
+    },
+    "failures_count": 0,
+    "failures": [],
+    "edge_risk_combinatorics": {
+      "masks_with_any_specific_edge_active": 61440,
+      "fraction": 0.9375,
+      "ordered_pairs_with_any_ink_on_both_opposing_edges": 3774873600,
+      "ordered_pairs_with_at_least_one_aligned_opposing_edge_subpixel": 2936012800,
+      "aligned_pair_fraction_of_all_ordered_mask_pairs": 0.68359375,
+      "explanation": "The aligned count requires at least one shared row (horizontal neighbours) or column (vertical neighbours) where both opposing edge bits are active. The later-painted cell can overwrite the earlier cell there when colours differ."
+    },
+    "status": "PASS"
+  },
+  "raster": {
+    "renderer": "pango-view via Pango/Cairo",
+    "font": "PUA 4x4 v0.4 Candidate",
+    "sizes_px": [
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      16,
+      18,
+      20
+    ],
+    "antialias_modes": [
+      "none"
+    ],
+    "colours": {
+      "first": "#00e5ff",
+      "second": "#ff40a0",
+      "background": "#000000"
+    },
+    "ownership_invariant": "Raster footprints emitted by two distinct terminal cells must not occupy the same device pixel; otherwise paint order can replace the earlier cell's colour/depth result.",
+    "cases": [
+      {
+        "case": "solid_horizontal",
+        "purpose": "maximum horizontal ownership conflict",
+        "direction": "horizontal",
+        "size_px": 8,
+        "antialias": "none",
+        "first": {
+          "mask": "0xFFFF",
+          "codepoint": "U+107FFF",
+          "part": 1,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0xFFFF",
+          "codepoint": "U+107FFF",
+          "part": 1,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/solid_horizontal-none-08px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/solid_horizontal-none-08px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/solid_horizontal-none-08px-second-only.png",
+        "dimensions": [
+          8,
+          9
+        ],
+        "partition": 4,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "solid_vertical",
+        "purpose": "maximum vertical ownership conflict",
+        "direction": "vertical",
+        "size_px": 8,
+        "antialias": "none",
+        "first": {
+          "mask": "0xFFFF",
+          "codepoint": "U+107FFF",
+          "part": 1,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0xFFFF",
+          "codepoint": "U+107FFF",
+          "part": 1,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/solid_vertical-none-08px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/solid_vertical-none-08px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/solid_vertical-none-08px-second-only.png",
+        "dimensions": [
+          4,
+          17
+        ],
+        "partition": 9,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "split_p0_to_p1",
+        "purpose": "font Part 0/Part 1 split boundary",
+        "direction": "horizontal",
+        "size_px": 8,
+        "antialias": "none",
+        "first": {
+          "mask": "0x7FFF",
+          "codepoint": "U+0F7FFF",
+          "part": 0,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x8000",
+          "codepoint": "U+100000",
+          "part": 1,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/split_p0_to_p1-none-08px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/split_p0_to_p1-none-08px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/split_p0_to_p1-none-08px-second-only.png",
+        "dimensions": [
+          8,
+          9
+        ],
+        "partition": 4,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "split_p1_to_p0",
+        "purpose": "font Part 1/Part 0 split boundary",
+        "direction": "horizontal",
+        "size_px": 8,
+        "antialias": "none",
+        "first": {
+          "mask": "0x8000",
+          "codepoint": "U+100000",
+          "part": 1,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x7FFF",
+          "codepoint": "U+0F7FFF",
+          "part": 0,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/split_p1_to_p0-none-08px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/split_p1_to_p0-none-08px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/split_p1_to_p0-none-08px-second-only.png",
+        "dimensions": [
+          8,
+          9
+        ],
+        "partition": 4,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "box_grid_right",
+        "purpose": "reported right-side grid-over-box reproduction",
+        "direction": "horizontal",
+        "size_px": 8,
+        "antialias": "none",
+        "first": {
+          "mask": "0x9F00",
+          "codepoint": "U+101F00",
+          "part": 1,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x8888",
+          "codepoint": "U+100888",
+          "part": 1,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/box_grid_right-none-08px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/box_grid_right-none-08px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/box_grid_right-none-08px-second-only.png",
+        "dimensions": [
+          8,
+          9
+        ],
+        "partition": 4,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "box_grid_below",
+        "purpose": "reported lower-grid-over-box reproduction",
+        "direction": "vertical",
+        "size_px": 8,
+        "antialias": "none",
+        "first": {
+          "mask": "0x00F9",
+          "codepoint": "U+0F00F9",
+          "part": 0,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x000F",
+          "codepoint": "U+0F000F",
+          "part": 0,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/box_grid_below-none-08px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/box_grid_below-none-08px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/box_grid_below-none-08px-second-only.png",
+        "dimensions": [
+          4,
+          17
+        ],
+        "partition": 9,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "top_row_edge_bits",
+        "purpose": "right/left one-bit edge pair, top row",
+        "direction": "horizontal",
+        "size_px": 8,
+        "antialias": "none",
+        "first": {
+          "mask": "0x0001",
+          "codepoint": "U+0F0001",
+          "part": 0,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x0008",
+          "codepoint": "U+0F0008",
+          "part": 0,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/top_row_edge_bits-none-08px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/top_row_edge_bits-none-08px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/top_row_edge_bits-none-08px-second-only.png",
+        "dimensions": [
+          8,
+          9
+        ],
+        "partition": 4,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "row_1_edge_bits",
+        "purpose": "right/left one-bit edge pair, row 1",
+        "direction": "horizontal",
+        "size_px": 8,
+        "antialias": "none",
+        "first": {
+          "mask": "0x0010",
+          "codepoint": "U+0F0010",
+          "part": 0,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x0080",
+          "codepoint": "U+0F0080",
+          "part": 0,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/row_1_edge_bits-none-08px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/row_1_edge_bits-none-08px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/row_1_edge_bits-none-08px-second-only.png",
+        "dimensions": [
+          8,
+          9
+        ],
+        "partition": 4,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "row_2_edge_bits",
+        "purpose": "right/left one-bit edge pair, row 2",
+        "direction": "horizontal",
+        "size_px": 8,
+        "antialias": "none",
+        "first": {
+          "mask": "0x0100",
+          "codepoint": "U+0F0100",
+          "part": 0,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x0800",
+          "codepoint": "U+0F0800",
+          "part": 0,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/row_2_edge_bits-none-08px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/row_2_edge_bits-none-08px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/row_2_edge_bits-none-08px-second-only.png",
+        "dimensions": [
+          8,
+          9
+        ],
+        "partition": 4,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "bottom_row_edge_bits",
+        "purpose": "right/left one-bit edge pair, bottom row",
+        "direction": "horizontal",
+        "size_px": 8,
+        "antialias": "none",
+        "first": {
+          "mask": "0x1000",
+          "codepoint": "U+0F1000",
+          "part": 0,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x8000",
+          "codepoint": "U+100000",
+          "part": 1,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/bottom_row_edge_bits-none-08px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/bottom_row_edge_bits-none-08px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/bottom_row_edge_bits-none-08px-second-only.png",
+        "dimensions": [
+          8,
+          9
+        ],
+        "partition": 4,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "left_column_edge_bits",
+        "purpose": "bottom/top one-bit edge pair, left column",
+        "direction": "vertical",
+        "size_px": 8,
+        "antialias": "none",
+        "first": {
+          "mask": "0x8000",
+          "codepoint": "U+100000",
+          "part": 1,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x0008",
+          "codepoint": "U+0F0008",
+          "part": 0,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/left_column_edge_bits-none-08px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/left_column_edge_bits-none-08px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/left_column_edge_bits-none-08px-second-only.png",
+        "dimensions": [
+          4,
+          17
+        ],
+        "partition": 9,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "column_1_edge_bits",
+        "purpose": "bottom/top one-bit edge pair, column 1",
+        "direction": "vertical",
+        "size_px": 8,
+        "antialias": "none",
+        "first": {
+          "mask": "0x4000",
+          "codepoint": "U+0F4000",
+          "part": 0,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x0004",
+          "codepoint": "U+0F0004",
+          "part": 0,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/column_1_edge_bits-none-08px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/column_1_edge_bits-none-08px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/column_1_edge_bits-none-08px-second-only.png",
+        "dimensions": [
+          4,
+          17
+        ],
+        "partition": 9,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "column_2_edge_bits",
+        "purpose": "bottom/top one-bit edge pair, column 2",
+        "direction": "vertical",
+        "size_px": 8,
+        "antialias": "none",
+        "first": {
+          "mask": "0x2000",
+          "codepoint": "U+0F2000",
+          "part": 0,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x0002",
+          "codepoint": "U+0F0002",
+          "part": 0,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/column_2_edge_bits-none-08px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/column_2_edge_bits-none-08px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/column_2_edge_bits-none-08px-second-only.png",
+        "dimensions": [
+          4,
+          17
+        ],
+        "partition": 9,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "right_column_edge_bits",
+        "purpose": "bottom/top one-bit edge pair, right column",
+        "direction": "vertical",
+        "size_px": 8,
+        "antialias": "none",
+        "first": {
+          "mask": "0x1000",
+          "codepoint": "U+0F1000",
+          "part": 0,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x0001",
+          "codepoint": "U+0F0001",
+          "part": 0,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/right_column_edge_bits-none-08px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/right_column_edge_bits-none-08px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/right_column_edge_bits-none-08px-second-only.png",
+        "dimensions": [
+          4,
+          17
+        ],
+        "partition": 9,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "solid_horizontal",
+        "purpose": "maximum horizontal ownership conflict",
+        "direction": "horizontal",
+        "size_px": 9,
+        "antialias": "none",
+        "first": {
+          "mask": "0xFFFF",
+          "codepoint": "U+107FFF",
+          "part": 1,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0xFFFF",
+          "codepoint": "U+107FFF",
+          "part": 1,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/solid_horizontal-none-09px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/solid_horizontal-none-09px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/solid_horizontal-none-09px-second-only.png",
+        "dimensions": [
+          10,
+          10
+        ],
+        "partition": 5,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "solid_vertical",
+        "purpose": "maximum vertical ownership conflict",
+        "direction": "vertical",
+        "size_px": 9,
+        "antialias": "none",
+        "first": {
+          "mask": "0xFFFF",
+          "codepoint": "U+107FFF",
+          "part": 1,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0xFFFF",
+          "codepoint": "U+107FFF",
+          "part": 1,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/solid_vertical-none-09px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/solid_vertical-none-09px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/solid_vertical-none-09px-second-only.png",
+        "dimensions": [
+          5,
+          19
+        ],
+        "partition": 10,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "split_p0_to_p1",
+        "purpose": "font Part 0/Part 1 split boundary",
+        "direction": "horizontal",
+        "size_px": 9,
+        "antialias": "none",
+        "first": {
+          "mask": "0x7FFF",
+          "codepoint": "U+0F7FFF",
+          "part": 0,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x8000",
+          "codepoint": "U+100000",
+          "part": 1,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/split_p0_to_p1-none-09px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/split_p0_to_p1-none-09px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/split_p0_to_p1-none-09px-second-only.png",
+        "dimensions": [
+          10,
+          10
+        ],
+        "partition": 5,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "split_p1_to_p0",
+        "purpose": "font Part 1/Part 0 split boundary",
+        "direction": "horizontal",
+        "size_px": 9,
+        "antialias": "none",
+        "first": {
+          "mask": "0x8000",
+          "codepoint": "U+100000",
+          "part": 1,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x7FFF",
+          "codepoint": "U+0F7FFF",
+          "part": 0,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/split_p1_to_p0-none-09px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/split_p1_to_p0-none-09px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/split_p1_to_p0-none-09px-second-only.png",
+        "dimensions": [
+          10,
+          10
+        ],
+        "partition": 5,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "box_grid_right",
+        "purpose": "reported right-side grid-over-box reproduction",
+        "direction": "horizontal",
+        "size_px": 9,
+        "antialias": "none",
+        "first": {
+          "mask": "0x9F00",
+          "codepoint": "U+101F00",
+          "part": 1,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x8888",
+          "codepoint": "U+100888",
+          "part": 1,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/box_grid_right-none-09px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/box_grid_right-none-09px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/box_grid_right-none-09px-second-only.png",
+        "dimensions": [
+          10,
+          10
+        ],
+        "partition": 5,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "box_grid_below",
+        "purpose": "reported lower-grid-over-box reproduction",
+        "direction": "vertical",
+        "size_px": 9,
+        "antialias": "none",
+        "first": {
+          "mask": "0x00F9",
+          "codepoint": "U+0F00F9",
+          "part": 0,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x000F",
+          "codepoint": "U+0F000F",
+          "part": 0,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/box_grid_below-none-09px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/box_grid_below-none-09px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/box_grid_below-none-09px-second-only.png",
+        "dimensions": [
+          5,
+          19
+        ],
+        "partition": 10,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "top_row_edge_bits",
+        "purpose": "right/left one-bit edge pair, top row",
+        "direction": "horizontal",
+        "size_px": 9,
+        "antialias": "none",
+        "first": {
+          "mask": "0x0001",
+          "codepoint": "U+0F0001",
+          "part": 0,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x0008",
+          "codepoint": "U+0F0008",
+          "part": 0,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/top_row_edge_bits-none-09px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/top_row_edge_bits-none-09px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/top_row_edge_bits-none-09px-second-only.png",
+        "dimensions": [
+          10,
+          10
+        ],
+        "partition": 5,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "row_1_edge_bits",
+        "purpose": "right/left one-bit edge pair, row 1",
+        "direction": "horizontal",
+        "size_px": 9,
+        "antialias": "none",
+        "first": {
+          "mask": "0x0010",
+          "codepoint": "U+0F0010",
+          "part": 0,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x0080",
+          "codepoint": "U+0F0080",
+          "part": 0,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/row_1_edge_bits-none-09px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/row_1_edge_bits-none-09px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/row_1_edge_bits-none-09px-second-only.png",
+        "dimensions": [
+          10,
+          10
+        ],
+        "partition": 5,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "row_2_edge_bits",
+        "purpose": "right/left one-bit edge pair, row 2",
+        "direction": "horizontal",
+        "size_px": 9,
+        "antialias": "none",
+        "first": {
+          "mask": "0x0100",
+          "codepoint": "U+0F0100",
+          "part": 0,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x0800",
+          "codepoint": "U+0F0800",
+          "part": 0,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/row_2_edge_bits-none-09px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/row_2_edge_bits-none-09px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/row_2_edge_bits-none-09px-second-only.png",
+        "dimensions": [
+          10,
+          10
+        ],
+        "partition": 5,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "bottom_row_edge_bits",
+        "purpose": "right/left one-bit edge pair, bottom row",
+        "direction": "horizontal",
+        "size_px": 9,
+        "antialias": "none",
+        "first": {
+          "mask": "0x1000",
+          "codepoint": "U+0F1000",
+          "part": 0,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x8000",
+          "codepoint": "U+100000",
+          "part": 1,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/bottom_row_edge_bits-none-09px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/bottom_row_edge_bits-none-09px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/bottom_row_edge_bits-none-09px-second-only.png",
+        "dimensions": [
+          10,
+          10
+        ],
+        "partition": 5,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "left_column_edge_bits",
+        "purpose": "bottom/top one-bit edge pair, left column",
+        "direction": "vertical",
+        "size_px": 9,
+        "antialias": "none",
+        "first": {
+          "mask": "0x8000",
+          "codepoint": "U+100000",
+          "part": 1,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x0008",
+          "codepoint": "U+0F0008",
+          "part": 0,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/left_column_edge_bits-none-09px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/left_column_edge_bits-none-09px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/left_column_edge_bits-none-09px-second-only.png",
+        "dimensions": [
+          5,
+          19
+        ],
+        "partition": 10,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "column_1_edge_bits",
+        "purpose": "bottom/top one-bit edge pair, column 1",
+        "direction": "vertical",
+        "size_px": 9,
+        "antialias": "none",
+        "first": {
+          "mask": "0x4000",
+          "codepoint": "U+0F4000",
+          "part": 0,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x0004",
+          "codepoint": "U+0F0004",
+          "part": 0,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/column_1_edge_bits-none-09px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/column_1_edge_bits-none-09px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/column_1_edge_bits-none-09px-second-only.png",
+        "dimensions": [
+          5,
+          19
+        ],
+        "partition": 10,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "column_2_edge_bits",
+        "purpose": "bottom/top one-bit edge pair, column 2",
+        "direction": "vertical",
+        "size_px": 9,
+        "antialias": "none",
+        "first": {
+          "mask": "0x2000",
+          "codepoint": "U+0F2000",
+          "part": 0,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x0002",
+          "codepoint": "U+0F0002",
+          "part": 0,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/column_2_edge_bits-none-09px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/column_2_edge_bits-none-09px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/column_2_edge_bits-none-09px-second-only.png",
+        "dimensions": [
+          5,
+          19
+        ],
+        "partition": 10,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "right_column_edge_bits",
+        "purpose": "bottom/top one-bit edge pair, right column",
+        "direction": "vertical",
+        "size_px": 9,
+        "antialias": "none",
+        "first": {
+          "mask": "0x1000",
+          "codepoint": "U+0F1000",
+          "part": 0,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x0001",
+          "codepoint": "U+0F0001",
+          "part": 0,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/right_column_edge_bits-none-09px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/right_column_edge_bits-none-09px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/right_column_edge_bits-none-09px-second-only.png",
+        "dimensions": [
+          5,
+          19
+        ],
+        "partition": 10,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "solid_horizontal",
+        "purpose": "maximum horizontal ownership conflict",
+        "direction": "horizontal",
+        "size_px": 10,
+        "antialias": "none",
+        "first": {
+          "mask": "0xFFFF",
+          "codepoint": "U+107FFF",
+          "part": 1,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0xFFFF",
+          "codepoint": "U+107FFF",
+          "part": 1,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/solid_horizontal-none-10px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/solid_horizontal-none-10px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/solid_horizontal-none-10px-second-only.png",
+        "dimensions": [
+          10,
+          10
+        ],
+        "partition": 5,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "solid_vertical",
+        "purpose": "maximum vertical ownership conflict",
+        "direction": "vertical",
+        "size_px": 10,
+        "antialias": "none",
+        "first": {
+          "mask": "0xFFFF",
+          "codepoint": "U+107FFF",
+          "part": 1,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0xFFFF",
+          "codepoint": "U+107FFF",
+          "part": 1,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/solid_vertical-none-10px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/solid_vertical-none-10px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/solid_vertical-none-10px-second-only.png",
+        "dimensions": [
+          5,
+          20
+        ],
+        "partition": 10,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "split_p0_to_p1",
+        "purpose": "font Part 0/Part 1 split boundary",
+        "direction": "horizontal",
+        "size_px": 10,
+        "antialias": "none",
+        "first": {
+          "mask": "0x7FFF",
+          "codepoint": "U+0F7FFF",
+          "part": 0,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x8000",
+          "codepoint": "U+100000",
+          "part": 1,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/split_p0_to_p1-none-10px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/split_p0_to_p1-none-10px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/split_p0_to_p1-none-10px-second-only.png",
+        "dimensions": [
+          10,
+          10
+        ],
+        "partition": 5,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "split_p1_to_p0",
+        "purpose": "font Part 1/Part 0 split boundary",
+        "direction": "horizontal",
+        "size_px": 10,
+        "antialias": "none",
+        "first": {
+          "mask": "0x8000",
+          "codepoint": "U+100000",
+          "part": 1,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x7FFF",
+          "codepoint": "U+0F7FFF",
+          "part": 0,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/split_p1_to_p0-none-10px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/split_p1_to_p0-none-10px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/split_p1_to_p0-none-10px-second-only.png",
+        "dimensions": [
+          10,
+          10
+        ],
+        "partition": 5,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "box_grid_right",
+        "purpose": "reported right-side grid-over-box reproduction",
+        "direction": "horizontal",
+        "size_px": 10,
+        "antialias": "none",
+        "first": {
+          "mask": "0x9F00",
+          "codepoint": "U+101F00",
+          "part": 1,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x8888",
+          "codepoint": "U+100888",
+          "part": 1,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/box_grid_right-none-10px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/box_grid_right-none-10px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/box_grid_right-none-10px-second-only.png",
+        "dimensions": [
+          10,
+          10
+        ],
+        "partition": 5,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "box_grid_below",
+        "purpose": "reported lower-grid-over-box reproduction",
+        "direction": "vertical",
+        "size_px": 10,
+        "antialias": "none",
+        "first": {
+          "mask": "0x00F9",
+          "codepoint": "U+0F00F9",
+          "part": 0,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x000F",
+          "codepoint": "U+0F000F",
+          "part": 0,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/box_grid_below-none-10px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/box_grid_below-none-10px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/box_grid_below-none-10px-second-only.png",
+        "dimensions": [
+          5,
+          20
+        ],
+        "partition": 10,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "top_row_edge_bits",
+        "purpose": "right/left one-bit edge pair, top row",
+        "direction": "horizontal",
+        "size_px": 10,
+        "antialias": "none",
+        "first": {
+          "mask": "0x0001",
+          "codepoint": "U+0F0001",
+          "part": 0,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x0008",
+          "codepoint": "U+0F0008",
+          "part": 0,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/top_row_edge_bits-none-10px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/top_row_edge_bits-none-10px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/top_row_edge_bits-none-10px-second-only.png",
+        "dimensions": [
+          10,
+          10
+        ],
+        "partition": 5,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "row_1_edge_bits",
+        "purpose": "right/left one-bit edge pair, row 1",
+        "direction": "horizontal",
+        "size_px": 10,
+        "antialias": "none",
+        "first": {
+          "mask": "0x0010",
+          "codepoint": "U+0F0010",
+          "part": 0,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x0080",
+          "codepoint": "U+0F0080",
+          "part": 0,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/row_1_edge_bits-none-10px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/row_1_edge_bits-none-10px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/row_1_edge_bits-none-10px-second-only.png",
+        "dimensions": [
+          10,
+          10
+        ],
+        "partition": 5,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "row_2_edge_bits",
+        "purpose": "right/left one-bit edge pair, row 2",
+        "direction": "horizontal",
+        "size_px": 10,
+        "antialias": "none",
+        "first": {
+          "mask": "0x0100",
+          "codepoint": "U+0F0100",
+          "part": 0,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x0800",
+          "codepoint": "U+0F0800",
+          "part": 0,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/row_2_edge_bits-none-10px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/row_2_edge_bits-none-10px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/row_2_edge_bits-none-10px-second-only.png",
+        "dimensions": [
+          10,
+          10
+        ],
+        "partition": 5,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "bottom_row_edge_bits",
+        "purpose": "right/left one-bit edge pair, bottom row",
+        "direction": "horizontal",
+        "size_px": 10,
+        "antialias": "none",
+        "first": {
+          "mask": "0x1000",
+          "codepoint": "U+0F1000",
+          "part": 0,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x8000",
+          "codepoint": "U+100000",
+          "part": 1,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/bottom_row_edge_bits-none-10px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/bottom_row_edge_bits-none-10px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/bottom_row_edge_bits-none-10px-second-only.png",
+        "dimensions": [
+          10,
+          10
+        ],
+        "partition": 5,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "left_column_edge_bits",
+        "purpose": "bottom/top one-bit edge pair, left column",
+        "direction": "vertical",
+        "size_px": 10,
+        "antialias": "none",
+        "first": {
+          "mask": "0x8000",
+          "codepoint": "U+100000",
+          "part": 1,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x0008",
+          "codepoint": "U+0F0008",
+          "part": 0,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/left_column_edge_bits-none-10px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/left_column_edge_bits-none-10px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/left_column_edge_bits-none-10px-second-only.png",
+        "dimensions": [
+          5,
+          20
+        ],
+        "partition": 10,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "column_1_edge_bits",
+        "purpose": "bottom/top one-bit edge pair, column 1",
+        "direction": "vertical",
+        "size_px": 10,
+        "antialias": "none",
+        "first": {
+          "mask": "0x4000",
+          "codepoint": "U+0F4000",
+          "part": 0,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x0004",
+          "codepoint": "U+0F0004",
+          "part": 0,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/column_1_edge_bits-none-10px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/column_1_edge_bits-none-10px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/column_1_edge_bits-none-10px-second-only.png",
+        "dimensions": [
+          5,
+          20
+        ],
+        "partition": 10,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "column_2_edge_bits",
+        "purpose": "bottom/top one-bit edge pair, column 2",
+        "direction": "vertical",
+        "size_px": 10,
+        "antialias": "none",
+        "first": {
+          "mask": "0x2000",
+          "codepoint": "U+0F2000",
+          "part": 0,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x0002",
+          "codepoint": "U+0F0002",
+          "part": 0,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/column_2_edge_bits-none-10px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/column_2_edge_bits-none-10px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/column_2_edge_bits-none-10px-second-only.png",
+        "dimensions": [
+          5,
+          20
+        ],
+        "partition": 10,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "right_column_edge_bits",
+        "purpose": "bottom/top one-bit edge pair, right column",
+        "direction": "vertical",
+        "size_px": 10,
+        "antialias": "none",
+        "first": {
+          "mask": "0x1000",
+          "codepoint": "U+0F1000",
+          "part": 0,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x0001",
+          "codepoint": "U+0F0001",
+          "part": 0,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/right_column_edge_bits-none-10px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/right_column_edge_bits-none-10px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/right_column_edge_bits-none-10px-second-only.png",
+        "dimensions": [
+          5,
+          20
+        ],
+        "partition": 10,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "solid_horizontal",
+        "purpose": "maximum horizontal ownership conflict",
+        "direction": "horizontal",
+        "size_px": 11,
+        "antialias": "none",
+        "first": {
+          "mask": "0xFFFF",
+          "codepoint": "U+107FFF",
+          "part": 1,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0xFFFF",
+          "codepoint": "U+107FFF",
+          "part": 1,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/solid_horizontal-none-11px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/solid_horizontal-none-11px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/solid_horizontal-none-11px-second-only.png",
+        "dimensions": [
+          12,
+          12
+        ],
+        "partition": 6,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "solid_vertical",
+        "purpose": "maximum vertical ownership conflict",
+        "direction": "vertical",
+        "size_px": 11,
+        "antialias": "none",
+        "first": {
+          "mask": "0xFFFF",
+          "codepoint": "U+107FFF",
+          "part": 1,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0xFFFF",
+          "codepoint": "U+107FFF",
+          "part": 1,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/solid_vertical-none-11px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/solid_vertical-none-11px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/solid_vertical-none-11px-second-only.png",
+        "dimensions": [
+          6,
+          23
+        ],
+        "partition": 12,
+        "second_colour_pixels_in_first_cell": 6,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 6,
+        "partition_foreign_colour_pixels": 6,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "split_p0_to_p1",
+        "purpose": "font Part 0/Part 1 split boundary",
+        "direction": "horizontal",
+        "size_px": 11,
+        "antialias": "none",
+        "first": {
+          "mask": "0x7FFF",
+          "codepoint": "U+0F7FFF",
+          "part": 0,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x8000",
+          "codepoint": "U+100000",
+          "part": 1,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/split_p0_to_p1-none-11px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/split_p0_to_p1-none-11px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/split_p0_to_p1-none-11px-second-only.png",
+        "dimensions": [
+          12,
+          12
+        ],
+        "partition": 6,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "split_p1_to_p0",
+        "purpose": "font Part 1/Part 0 split boundary",
+        "direction": "horizontal",
+        "size_px": 11,
+        "antialias": "none",
+        "first": {
+          "mask": "0x8000",
+          "codepoint": "U+100000",
+          "part": 1,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x7FFF",
+          "codepoint": "U+0F7FFF",
+          "part": 0,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/split_p1_to_p0-none-11px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/split_p1_to_p0-none-11px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/split_p1_to_p0-none-11px-second-only.png",
+        "dimensions": [
+          12,
+          12
+        ],
+        "partition": 6,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "box_grid_right",
+        "purpose": "reported right-side grid-over-box reproduction",
+        "direction": "horizontal",
+        "size_px": 11,
+        "antialias": "none",
+        "first": {
+          "mask": "0x9F00",
+          "codepoint": "U+101F00",
+          "part": 1,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x8888",
+          "codepoint": "U+100888",
+          "part": 1,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/box_grid_right-none-11px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/box_grid_right-none-11px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/box_grid_right-none-11px-second-only.png",
+        "dimensions": [
+          12,
+          12
+        ],
+        "partition": 6,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "box_grid_below",
+        "purpose": "reported lower-grid-over-box reproduction",
+        "direction": "vertical",
+        "size_px": 11,
+        "antialias": "none",
+        "first": {
+          "mask": "0x00F9",
+          "codepoint": "U+0F00F9",
+          "part": 0,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x000F",
+          "codepoint": "U+0F000F",
+          "part": 0,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/box_grid_below-none-11px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/box_grid_below-none-11px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/box_grid_below-none-11px-second-only.png",
+        "dimensions": [
+          6,
+          23
+        ],
+        "partition": 12,
+        "second_colour_pixels_in_first_cell": 6,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 6,
+        "partition_foreign_colour_pixels": 6,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "top_row_edge_bits",
+        "purpose": "right/left one-bit edge pair, top row",
+        "direction": "horizontal",
+        "size_px": 11,
+        "antialias": "none",
+        "first": {
+          "mask": "0x0001",
+          "codepoint": "U+0F0001",
+          "part": 0,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x0008",
+          "codepoint": "U+0F0008",
+          "part": 0,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/top_row_edge_bits-none-11px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/top_row_edge_bits-none-11px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/top_row_edge_bits-none-11px-second-only.png",
+        "dimensions": [
+          12,
+          12
+        ],
+        "partition": 6,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "row_1_edge_bits",
+        "purpose": "right/left one-bit edge pair, row 1",
+        "direction": "horizontal",
+        "size_px": 11,
+        "antialias": "none",
+        "first": {
+          "mask": "0x0010",
+          "codepoint": "U+0F0010",
+          "part": 0,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x0080",
+          "codepoint": "U+0F0080",
+          "part": 0,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/row_1_edge_bits-none-11px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/row_1_edge_bits-none-11px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/row_1_edge_bits-none-11px-second-only.png",
+        "dimensions": [
+          12,
+          12
+        ],
+        "partition": 6,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "row_2_edge_bits",
+        "purpose": "right/left one-bit edge pair, row 2",
+        "direction": "horizontal",
+        "size_px": 11,
+        "antialias": "none",
+        "first": {
+          "mask": "0x0100",
+          "codepoint": "U+0F0100",
+          "part": 0,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x0800",
+          "codepoint": "U+0F0800",
+          "part": 0,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/row_2_edge_bits-none-11px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/row_2_edge_bits-none-11px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/row_2_edge_bits-none-11px-second-only.png",
+        "dimensions": [
+          12,
+          12
+        ],
+        "partition": 6,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "bottom_row_edge_bits",
+        "purpose": "right/left one-bit edge pair, bottom row",
+        "direction": "horizontal",
+        "size_px": 11,
+        "antialias": "none",
+        "first": {
+          "mask": "0x1000",
+          "codepoint": "U+0F1000",
+          "part": 0,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x8000",
+          "codepoint": "U+100000",
+          "part": 1,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/bottom_row_edge_bits-none-11px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/bottom_row_edge_bits-none-11px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/bottom_row_edge_bits-none-11px-second-only.png",
+        "dimensions": [
+          12,
+          12
+        ],
+        "partition": 6,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "left_column_edge_bits",
+        "purpose": "bottom/top one-bit edge pair, left column",
+        "direction": "vertical",
+        "size_px": 11,
+        "antialias": "none",
+        "first": {
+          "mask": "0x8000",
+          "codepoint": "U+100000",
+          "part": 1,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x0008",
+          "codepoint": "U+0F0008",
+          "part": 0,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/left_column_edge_bits-none-11px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/left_column_edge_bits-none-11px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/left_column_edge_bits-none-11px-second-only.png",
+        "dimensions": [
+          6,
+          23
+        ],
+        "partition": 12,
+        "second_colour_pixels_in_first_cell": 1,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 1,
+        "partition_foreign_colour_pixels": 1,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "column_1_edge_bits",
+        "purpose": "bottom/top one-bit edge pair, column 1",
+        "direction": "vertical",
+        "size_px": 11,
+        "antialias": "none",
+        "first": {
+          "mask": "0x4000",
+          "codepoint": "U+0F4000",
+          "part": 0,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x0004",
+          "codepoint": "U+0F0004",
+          "part": 0,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/column_1_edge_bits-none-11px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/column_1_edge_bits-none-11px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/column_1_edge_bits-none-11px-second-only.png",
+        "dimensions": [
+          6,
+          23
+        ],
+        "partition": 12,
+        "second_colour_pixels_in_first_cell": 1,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 1,
+        "partition_foreign_colour_pixels": 1,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "column_2_edge_bits",
+        "purpose": "bottom/top one-bit edge pair, column 2",
+        "direction": "vertical",
+        "size_px": 11,
+        "antialias": "none",
+        "first": {
+          "mask": "0x2000",
+          "codepoint": "U+0F2000",
+          "part": 0,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x0002",
+          "codepoint": "U+0F0002",
+          "part": 0,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/column_2_edge_bits-none-11px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/column_2_edge_bits-none-11px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/column_2_edge_bits-none-11px-second-only.png",
+        "dimensions": [
+          6,
+          23
+        ],
+        "partition": 12,
+        "second_colour_pixels_in_first_cell": 1,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 1,
+        "partition_foreign_colour_pixels": 1,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "right_column_edge_bits",
+        "purpose": "bottom/top one-bit edge pair, right column",
+        "direction": "vertical",
+        "size_px": 11,
+        "antialias": "none",
+        "first": {
+          "mask": "0x1000",
+          "codepoint": "U+0F1000",
+          "part": 0,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x0001",
+          "codepoint": "U+0F0001",
+          "part": 0,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/right_column_edge_bits-none-11px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/right_column_edge_bits-none-11px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/right_column_edge_bits-none-11px-second-only.png",
+        "dimensions": [
+          6,
+          23
+        ],
+        "partition": 12,
+        "second_colour_pixels_in_first_cell": 1,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 1,
+        "partition_foreign_colour_pixels": 1,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "solid_horizontal",
+        "purpose": "maximum horizontal ownership conflict",
+        "direction": "horizontal",
+        "size_px": 12,
+        "antialias": "none",
+        "first": {
+          "mask": "0xFFFF",
+          "codepoint": "U+107FFF",
+          "part": 1,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0xFFFF",
+          "codepoint": "U+107FFF",
+          "part": 1,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/solid_horizontal-none-12px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/solid_horizontal-none-12px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/solid_horizontal-none-12px-second-only.png",
+        "dimensions": [
+          12,
+          13
+        ],
+        "partition": 6,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "solid_vertical",
+        "purpose": "maximum vertical ownership conflict",
+        "direction": "vertical",
+        "size_px": 12,
+        "antialias": "none",
+        "first": {
+          "mask": "0xFFFF",
+          "codepoint": "U+107FFF",
+          "part": 1,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0xFFFF",
+          "codepoint": "U+107FFF",
+          "part": 1,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/solid_vertical-none-12px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/solid_vertical-none-12px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/solid_vertical-none-12px-second-only.png",
+        "dimensions": [
+          6,
+          25
+        ],
+        "partition": 13,
+        "second_colour_pixels_in_first_cell": 6,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 6,
+        "partition_foreign_colour_pixels": 6,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "split_p0_to_p1",
+        "purpose": "font Part 0/Part 1 split boundary",
+        "direction": "horizontal",
+        "size_px": 12,
+        "antialias": "none",
+        "first": {
+          "mask": "0x7FFF",
+          "codepoint": "U+0F7FFF",
+          "part": 0,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x8000",
+          "codepoint": "U+100000",
+          "part": 1,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/split_p0_to_p1-none-12px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/split_p0_to_p1-none-12px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/split_p0_to_p1-none-12px-second-only.png",
+        "dimensions": [
+          12,
+          13
+        ],
+        "partition": 6,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "split_p1_to_p0",
+        "purpose": "font Part 1/Part 0 split boundary",
+        "direction": "horizontal",
+        "size_px": 12,
+        "antialias": "none",
+        "first": {
+          "mask": "0x8000",
+          "codepoint": "U+100000",
+          "part": 1,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x7FFF",
+          "codepoint": "U+0F7FFF",
+          "part": 0,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/split_p1_to_p0-none-12px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/split_p1_to_p0-none-12px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/split_p1_to_p0-none-12px-second-only.png",
+        "dimensions": [
+          12,
+          13
+        ],
+        "partition": 6,
+        "second_colour_pixels_in_first_cell": 9,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 9,
+        "partition_foreign_colour_pixels": 9,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "box_grid_right",
+        "purpose": "reported right-side grid-over-box reproduction",
+        "direction": "horizontal",
+        "size_px": 12,
+        "antialias": "none",
+        "first": {
+          "mask": "0x9F00",
+          "codepoint": "U+101F00",
+          "part": 1,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x8888",
+          "codepoint": "U+100888",
+          "part": 1,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/box_grid_right-none-12px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/box_grid_right-none-12px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/box_grid_right-none-12px-second-only.png",
+        "dimensions": [
+          12,
+          13
+        ],
+        "partition": 6,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "box_grid_below",
+        "purpose": "reported lower-grid-over-box reproduction",
+        "direction": "vertical",
+        "size_px": 12,
+        "antialias": "none",
+        "first": {
+          "mask": "0x00F9",
+          "codepoint": "U+0F00F9",
+          "part": 0,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x000F",
+          "codepoint": "U+0F000F",
+          "part": 0,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/box_grid_below-none-12px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/box_grid_below-none-12px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/box_grid_below-none-12px-second-only.png",
+        "dimensions": [
+          6,
+          25
+        ],
+        "partition": 13,
+        "second_colour_pixels_in_first_cell": 6,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 6,
+        "partition_foreign_colour_pixels": 6,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "top_row_edge_bits",
+        "purpose": "right/left one-bit edge pair, top row",
+        "direction": "horizontal",
+        "size_px": 12,
+        "antialias": "none",
+        "first": {
+          "mask": "0x0001",
+          "codepoint": "U+0F0001",
+          "part": 0,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x0008",
+          "codepoint": "U+0F0008",
+          "part": 0,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/top_row_edge_bits-none-12px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/top_row_edge_bits-none-12px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/top_row_edge_bits-none-12px-second-only.png",
+        "dimensions": [
+          12,
+          13
+        ],
+        "partition": 6,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "row_1_edge_bits",
+        "purpose": "right/left one-bit edge pair, row 1",
+        "direction": "horizontal",
+        "size_px": 12,
+        "antialias": "none",
+        "first": {
+          "mask": "0x0010",
+          "codepoint": "U+0F0010",
+          "part": 0,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x0080",
+          "codepoint": "U+0F0080",
+          "part": 0,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/row_1_edge_bits-none-12px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/row_1_edge_bits-none-12px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/row_1_edge_bits-none-12px-second-only.png",
+        "dimensions": [
+          12,
+          13
+        ],
+        "partition": 6,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "row_2_edge_bits",
+        "purpose": "right/left one-bit edge pair, row 2",
+        "direction": "horizontal",
+        "size_px": 12,
+        "antialias": "none",
+        "first": {
+          "mask": "0x0100",
+          "codepoint": "U+0F0100",
+          "part": 0,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x0800",
+          "codepoint": "U+0F0800",
+          "part": 0,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/row_2_edge_bits-none-12px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/row_2_edge_bits-none-12px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/row_2_edge_bits-none-12px-second-only.png",
+        "dimensions": [
+          12,
+          13
+        ],
+        "partition": 6,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "bottom_row_edge_bits",
+        "purpose": "right/left one-bit edge pair, bottom row",
+        "direction": "horizontal",
+        "size_px": 12,
+        "antialias": "none",
+        "first": {
+          "mask": "0x1000",
+          "codepoint": "U+0F1000",
+          "part": 0,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x8000",
+          "codepoint": "U+100000",
+          "part": 1,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/bottom_row_edge_bits-none-12px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/bottom_row_edge_bits-none-12px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/bottom_row_edge_bits-none-12px-second-only.png",
+        "dimensions": [
+          12,
+          13
+        ],
+        "partition": 6,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "left_column_edge_bits",
+        "purpose": "bottom/top one-bit edge pair, left column",
+        "direction": "vertical",
+        "size_px": 12,
+        "antialias": "none",
+        "first": {
+          "mask": "0x8000",
+          "codepoint": "U+100000",
+          "part": 1,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x0008",
+          "codepoint": "U+0F0008",
+          "part": 0,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/left_column_edge_bits-none-12px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/left_column_edge_bits-none-12px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/left_column_edge_bits-none-12px-second-only.png",
+        "dimensions": [
+          6,
+          25
+        ],
+        "partition": 13,
+        "second_colour_pixels_in_first_cell": 2,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 2,
+        "partition_foreign_colour_pixels": 2,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "column_1_edge_bits",
+        "purpose": "bottom/top one-bit edge pair, column 1",
+        "direction": "vertical",
+        "size_px": 12,
+        "antialias": "none",
+        "first": {
+          "mask": "0x4000",
+          "codepoint": "U+0F4000",
+          "part": 0,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x0004",
+          "codepoint": "U+0F0004",
+          "part": 0,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/column_1_edge_bits-none-12px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/column_1_edge_bits-none-12px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/column_1_edge_bits-none-12px-second-only.png",
+        "dimensions": [
+          6,
+          25
+        ],
+        "partition": 13,
+        "second_colour_pixels_in_first_cell": 2,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 2,
+        "partition_foreign_colour_pixels": 2,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "column_2_edge_bits",
+        "purpose": "bottom/top one-bit edge pair, column 2",
+        "direction": "vertical",
+        "size_px": 12,
+        "antialias": "none",
+        "first": {
+          "mask": "0x2000",
+          "codepoint": "U+0F2000",
+          "part": 0,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x0002",
+          "codepoint": "U+0F0002",
+          "part": 0,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/column_2_edge_bits-none-12px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/column_2_edge_bits-none-12px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/column_2_edge_bits-none-12px-second-only.png",
+        "dimensions": [
+          6,
+          25
+        ],
+        "partition": 13,
+        "second_colour_pixels_in_first_cell": 2,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 2,
+        "partition_foreign_colour_pixels": 2,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "right_column_edge_bits",
+        "purpose": "bottom/top one-bit edge pair, right column",
+        "direction": "vertical",
+        "size_px": 12,
+        "antialias": "none",
+        "first": {
+          "mask": "0x1000",
+          "codepoint": "U+0F1000",
+          "part": 0,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x0001",
+          "codepoint": "U+0F0001",
+          "part": 0,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/right_column_edge_bits-none-12px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/right_column_edge_bits-none-12px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/right_column_edge_bits-none-12px-second-only.png",
+        "dimensions": [
+          6,
+          25
+        ],
+        "partition": 13,
+        "second_colour_pixels_in_first_cell": 2,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 2,
+        "partition_foreign_colour_pixels": 2,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "solid_horizontal",
+        "purpose": "maximum horizontal ownership conflict",
+        "direction": "horizontal",
+        "size_px": 13,
+        "antialias": "none",
+        "first": {
+          "mask": "0xFFFF",
+          "codepoint": "U+107FFF",
+          "part": 1,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0xFFFF",
+          "codepoint": "U+107FFF",
+          "part": 1,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/solid_horizontal-none-13px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/solid_horizontal-none-13px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/solid_horizontal-none-13px-second-only.png",
+        "dimensions": [
+          14,
+          14
+        ],
+        "partition": 7,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "solid_vertical",
+        "purpose": "maximum vertical ownership conflict",
+        "direction": "vertical",
+        "size_px": 13,
+        "antialias": "none",
+        "first": {
+          "mask": "0xFFFF",
+          "codepoint": "U+107FFF",
+          "part": 1,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0xFFFF",
+          "codepoint": "U+107FFF",
+          "part": 1,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/solid_vertical-none-13px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/solid_vertical-none-13px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/solid_vertical-none-13px-second-only.png",
+        "dimensions": [
+          7,
+          27
+        ],
+        "partition": 14,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "split_p0_to_p1",
+        "purpose": "font Part 0/Part 1 split boundary",
+        "direction": "horizontal",
+        "size_px": 13,
+        "antialias": "none",
+        "first": {
+          "mask": "0x7FFF",
+          "codepoint": "U+0F7FFF",
+          "part": 0,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x8000",
+          "codepoint": "U+100000",
+          "part": 1,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/split_p0_to_p1-none-13px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/split_p0_to_p1-none-13px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/split_p0_to_p1-none-13px-second-only.png",
+        "dimensions": [
+          14,
+          14
+        ],
+        "partition": 7,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "split_p1_to_p0",
+        "purpose": "font Part 1/Part 0 split boundary",
+        "direction": "horizontal",
+        "size_px": 13,
+        "antialias": "none",
+        "first": {
+          "mask": "0x8000",
+          "codepoint": "U+100000",
+          "part": 1,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x7FFF",
+          "codepoint": "U+0F7FFF",
+          "part": 0,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/split_p1_to_p0-none-13px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/split_p1_to_p0-none-13px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/split_p1_to_p0-none-13px-second-only.png",
+        "dimensions": [
+          14,
+          14
+        ],
+        "partition": 7,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "box_grid_right",
+        "purpose": "reported right-side grid-over-box reproduction",
+        "direction": "horizontal",
+        "size_px": 13,
+        "antialias": "none",
+        "first": {
+          "mask": "0x9F00",
+          "codepoint": "U+101F00",
+          "part": 1,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x8888",
+          "codepoint": "U+100888",
+          "part": 1,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/box_grid_right-none-13px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/box_grid_right-none-13px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/box_grid_right-none-13px-second-only.png",
+        "dimensions": [
+          14,
+          14
+        ],
+        "partition": 7,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "box_grid_below",
+        "purpose": "reported lower-grid-over-box reproduction",
+        "direction": "vertical",
+        "size_px": 13,
+        "antialias": "none",
+        "first": {
+          "mask": "0x00F9",
+          "codepoint": "U+0F00F9",
+          "part": 0,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x000F",
+          "codepoint": "U+0F000F",
+          "part": 0,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/box_grid_below-none-13px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/box_grid_below-none-13px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/box_grid_below-none-13px-second-only.png",
+        "dimensions": [
+          7,
+          27
+        ],
+        "partition": 14,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "top_row_edge_bits",
+        "purpose": "right/left one-bit edge pair, top row",
+        "direction": "horizontal",
+        "size_px": 13,
+        "antialias": "none",
+        "first": {
+          "mask": "0x0001",
+          "codepoint": "U+0F0001",
+          "part": 0,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x0008",
+          "codepoint": "U+0F0008",
+          "part": 0,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/top_row_edge_bits-none-13px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/top_row_edge_bits-none-13px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/top_row_edge_bits-none-13px-second-only.png",
+        "dimensions": [
+          14,
+          14
+        ],
+        "partition": 7,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "row_1_edge_bits",
+        "purpose": "right/left one-bit edge pair, row 1",
+        "direction": "horizontal",
+        "size_px": 13,
+        "antialias": "none",
+        "first": {
+          "mask": "0x0010",
+          "codepoint": "U+0F0010",
+          "part": 0,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x0080",
+          "codepoint": "U+0F0080",
+          "part": 0,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/row_1_edge_bits-none-13px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/row_1_edge_bits-none-13px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/row_1_edge_bits-none-13px-second-only.png",
+        "dimensions": [
+          14,
+          14
+        ],
+        "partition": 7,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "row_2_edge_bits",
+        "purpose": "right/left one-bit edge pair, row 2",
+        "direction": "horizontal",
+        "size_px": 13,
+        "antialias": "none",
+        "first": {
+          "mask": "0x0100",
+          "codepoint": "U+0F0100",
+          "part": 0,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x0800",
+          "codepoint": "U+0F0800",
+          "part": 0,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/row_2_edge_bits-none-13px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/row_2_edge_bits-none-13px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/row_2_edge_bits-none-13px-second-only.png",
+        "dimensions": [
+          14,
+          14
+        ],
+        "partition": 7,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "bottom_row_edge_bits",
+        "purpose": "right/left one-bit edge pair, bottom row",
+        "direction": "horizontal",
+        "size_px": 13,
+        "antialias": "none",
+        "first": {
+          "mask": "0x1000",
+          "codepoint": "U+0F1000",
+          "part": 0,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x8000",
+          "codepoint": "U+100000",
+          "part": 1,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/bottom_row_edge_bits-none-13px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/bottom_row_edge_bits-none-13px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/bottom_row_edge_bits-none-13px-second-only.png",
+        "dimensions": [
+          14,
+          14
+        ],
+        "partition": 7,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "left_column_edge_bits",
+        "purpose": "bottom/top one-bit edge pair, left column",
+        "direction": "vertical",
+        "size_px": 13,
+        "antialias": "none",
+        "first": {
+          "mask": "0x8000",
+          "codepoint": "U+100000",
+          "part": 1,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x0008",
+          "codepoint": "U+0F0008",
+          "part": 0,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/left_column_edge_bits-none-13px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/left_column_edge_bits-none-13px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/left_column_edge_bits-none-13px-second-only.png",
+        "dimensions": [
+          7,
+          27
+        ],
+        "partition": 14,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "column_1_edge_bits",
+        "purpose": "bottom/top one-bit edge pair, column 1",
+        "direction": "vertical",
+        "size_px": 13,
+        "antialias": "none",
+        "first": {
+          "mask": "0x4000",
+          "codepoint": "U+0F4000",
+          "part": 0,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x0004",
+          "codepoint": "U+0F0004",
+          "part": 0,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/column_1_edge_bits-none-13px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/column_1_edge_bits-none-13px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/column_1_edge_bits-none-13px-second-only.png",
+        "dimensions": [
+          7,
+          27
+        ],
+        "partition": 14,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "column_2_edge_bits",
+        "purpose": "bottom/top one-bit edge pair, column 2",
+        "direction": "vertical",
+        "size_px": 13,
+        "antialias": "none",
+        "first": {
+          "mask": "0x2000",
+          "codepoint": "U+0F2000",
+          "part": 0,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x0002",
+          "codepoint": "U+0F0002",
+          "part": 0,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/column_2_edge_bits-none-13px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/column_2_edge_bits-none-13px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/column_2_edge_bits-none-13px-second-only.png",
+        "dimensions": [
+          7,
+          27
+        ],
+        "partition": 14,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "right_column_edge_bits",
+        "purpose": "bottom/top one-bit edge pair, right column",
+        "direction": "vertical",
+        "size_px": 13,
+        "antialias": "none",
+        "first": {
+          "mask": "0x1000",
+          "codepoint": "U+0F1000",
+          "part": 0,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x0001",
+          "codepoint": "U+0F0001",
+          "part": 0,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/right_column_edge_bits-none-13px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/right_column_edge_bits-none-13px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/right_column_edge_bits-none-13px-second-only.png",
+        "dimensions": [
+          7,
+          27
+        ],
+        "partition": 14,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "solid_horizontal",
+        "purpose": "maximum horizontal ownership conflict",
+        "direction": "horizontal",
+        "size_px": 14,
+        "antialias": "none",
+        "first": {
+          "mask": "0xFFFF",
+          "codepoint": "U+107FFF",
+          "part": 1,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0xFFFF",
+          "codepoint": "U+107FFF",
+          "part": 1,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/solid_horizontal-none-14px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/solid_horizontal-none-14px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/solid_horizontal-none-14px-second-only.png",
+        "dimensions": [
+          14,
+          15
+        ],
+        "partition": 7,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "solid_vertical",
+        "purpose": "maximum vertical ownership conflict",
+        "direction": "vertical",
+        "size_px": 14,
+        "antialias": "none",
+        "first": {
+          "mask": "0xFFFF",
+          "codepoint": "U+107FFF",
+          "part": 1,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0xFFFF",
+          "codepoint": "U+107FFF",
+          "part": 1,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/solid_vertical-none-14px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/solid_vertical-none-14px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/solid_vertical-none-14px-second-only.png",
+        "dimensions": [
+          7,
+          29
+        ],
+        "partition": 15,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "split_p0_to_p1",
+        "purpose": "font Part 0/Part 1 split boundary",
+        "direction": "horizontal",
+        "size_px": 14,
+        "antialias": "none",
+        "first": {
+          "mask": "0x7FFF",
+          "codepoint": "U+0F7FFF",
+          "part": 0,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x8000",
+          "codepoint": "U+100000",
+          "part": 1,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/split_p0_to_p1-none-14px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/split_p0_to_p1-none-14px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/split_p0_to_p1-none-14px-second-only.png",
+        "dimensions": [
+          14,
+          15
+        ],
+        "partition": 7,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "split_p1_to_p0",
+        "purpose": "font Part 1/Part 0 split boundary",
+        "direction": "horizontal",
+        "size_px": 14,
+        "antialias": "none",
+        "first": {
+          "mask": "0x8000",
+          "codepoint": "U+100000",
+          "part": 1,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x7FFF",
+          "codepoint": "U+0F7FFF",
+          "part": 0,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/split_p1_to_p0-none-14px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/split_p1_to_p0-none-14px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/split_p1_to_p0-none-14px-second-only.png",
+        "dimensions": [
+          14,
+          15
+        ],
+        "partition": 7,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "box_grid_right",
+        "purpose": "reported right-side grid-over-box reproduction",
+        "direction": "horizontal",
+        "size_px": 14,
+        "antialias": "none",
+        "first": {
+          "mask": "0x9F00",
+          "codepoint": "U+101F00",
+          "part": 1,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x8888",
+          "codepoint": "U+100888",
+          "part": 1,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/box_grid_right-none-14px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/box_grid_right-none-14px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/box_grid_right-none-14px-second-only.png",
+        "dimensions": [
+          14,
+          15
+        ],
+        "partition": 7,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "box_grid_below",
+        "purpose": "reported lower-grid-over-box reproduction",
+        "direction": "vertical",
+        "size_px": 14,
+        "antialias": "none",
+        "first": {
+          "mask": "0x00F9",
+          "codepoint": "U+0F00F9",
+          "part": 0,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x000F",
+          "codepoint": "U+0F000F",
+          "part": 0,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/box_grid_below-none-14px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/box_grid_below-none-14px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/box_grid_below-none-14px-second-only.png",
+        "dimensions": [
+          7,
+          29
+        ],
+        "partition": 15,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "top_row_edge_bits",
+        "purpose": "right/left one-bit edge pair, top row",
+        "direction": "horizontal",
+        "size_px": 14,
+        "antialias": "none",
+        "first": {
+          "mask": "0x0001",
+          "codepoint": "U+0F0001",
+          "part": 0,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x0008",
+          "codepoint": "U+0F0008",
+          "part": 0,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/top_row_edge_bits-none-14px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/top_row_edge_bits-none-14px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/top_row_edge_bits-none-14px-second-only.png",
+        "dimensions": [
+          14,
+          15
+        ],
+        "partition": 7,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "row_1_edge_bits",
+        "purpose": "right/left one-bit edge pair, row 1",
+        "direction": "horizontal",
+        "size_px": 14,
+        "antialias": "none",
+        "first": {
+          "mask": "0x0010",
+          "codepoint": "U+0F0010",
+          "part": 0,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x0080",
+          "codepoint": "U+0F0080",
+          "part": 0,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/row_1_edge_bits-none-14px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/row_1_edge_bits-none-14px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/row_1_edge_bits-none-14px-second-only.png",
+        "dimensions": [
+          14,
+          15
+        ],
+        "partition": 7,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "row_2_edge_bits",
+        "purpose": "right/left one-bit edge pair, row 2",
+        "direction": "horizontal",
+        "size_px": 14,
+        "antialias": "none",
+        "first": {
+          "mask": "0x0100",
+          "codepoint": "U+0F0100",
+          "part": 0,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x0800",
+          "codepoint": "U+0F0800",
+          "part": 0,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/row_2_edge_bits-none-14px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/row_2_edge_bits-none-14px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/row_2_edge_bits-none-14px-second-only.png",
+        "dimensions": [
+          14,
+          15
+        ],
+        "partition": 7,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "bottom_row_edge_bits",
+        "purpose": "right/left one-bit edge pair, bottom row",
+        "direction": "horizontal",
+        "size_px": 14,
+        "antialias": "none",
+        "first": {
+          "mask": "0x1000",
+          "codepoint": "U+0F1000",
+          "part": 0,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x8000",
+          "codepoint": "U+100000",
+          "part": 1,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/bottom_row_edge_bits-none-14px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/bottom_row_edge_bits-none-14px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/bottom_row_edge_bits-none-14px-second-only.png",
+        "dimensions": [
+          14,
+          15
+        ],
+        "partition": 7,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "left_column_edge_bits",
+        "purpose": "bottom/top one-bit edge pair, left column",
+        "direction": "vertical",
+        "size_px": 14,
+        "antialias": "none",
+        "first": {
+          "mask": "0x8000",
+          "codepoint": "U+100000",
+          "part": 1,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x0008",
+          "codepoint": "U+0F0008",
+          "part": 0,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/left_column_edge_bits-none-14px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/left_column_edge_bits-none-14px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/left_column_edge_bits-none-14px-second-only.png",
+        "dimensions": [
+          7,
+          29
+        ],
+        "partition": 15,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "column_1_edge_bits",
+        "purpose": "bottom/top one-bit edge pair, column 1",
+        "direction": "vertical",
+        "size_px": 14,
+        "antialias": "none",
+        "first": {
+          "mask": "0x4000",
+          "codepoint": "U+0F4000",
+          "part": 0,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x0004",
+          "codepoint": "U+0F0004",
+          "part": 0,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/column_1_edge_bits-none-14px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/column_1_edge_bits-none-14px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/column_1_edge_bits-none-14px-second-only.png",
+        "dimensions": [
+          7,
+          29
+        ],
+        "partition": 15,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "column_2_edge_bits",
+        "purpose": "bottom/top one-bit edge pair, column 2",
+        "direction": "vertical",
+        "size_px": 14,
+        "antialias": "none",
+        "first": {
+          "mask": "0x2000",
+          "codepoint": "U+0F2000",
+          "part": 0,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x0002",
+          "codepoint": "U+0F0002",
+          "part": 0,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/column_2_edge_bits-none-14px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/column_2_edge_bits-none-14px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/column_2_edge_bits-none-14px-second-only.png",
+        "dimensions": [
+          7,
+          29
+        ],
+        "partition": 15,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "right_column_edge_bits",
+        "purpose": "bottom/top one-bit edge pair, right column",
+        "direction": "vertical",
+        "size_px": 14,
+        "antialias": "none",
+        "first": {
+          "mask": "0x1000",
+          "codepoint": "U+0F1000",
+          "part": 0,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x0001",
+          "codepoint": "U+0F0001",
+          "part": 0,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/right_column_edge_bits-none-14px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/right_column_edge_bits-none-14px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/right_column_edge_bits-none-14px-second-only.png",
+        "dimensions": [
+          7,
+          29
+        ],
+        "partition": 15,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "solid_horizontal",
+        "purpose": "maximum horizontal ownership conflict",
+        "direction": "horizontal",
+        "size_px": 16,
+        "antialias": "none",
+        "first": {
+          "mask": "0xFFFF",
+          "codepoint": "U+107FFF",
+          "part": 1,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0xFFFF",
+          "codepoint": "U+107FFF",
+          "part": 1,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/solid_horizontal-none-16px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/solid_horizontal-none-16px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/solid_horizontal-none-16px-second-only.png",
+        "dimensions": [
+          16,
+          17
+        ],
+        "partition": 8,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "solid_vertical",
+        "purpose": "maximum vertical ownership conflict",
+        "direction": "vertical",
+        "size_px": 16,
+        "antialias": "none",
+        "first": {
+          "mask": "0xFFFF",
+          "codepoint": "U+107FFF",
+          "part": 1,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0xFFFF",
+          "codepoint": "U+107FFF",
+          "part": 1,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/solid_vertical-none-16px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/solid_vertical-none-16px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/solid_vertical-none-16px-second-only.png",
+        "dimensions": [
+          8,
+          33
+        ],
+        "partition": 17,
+        "second_colour_pixels_in_first_cell": 8,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 8,
+        "partition_foreign_colour_pixels": 8,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "split_p0_to_p1",
+        "purpose": "font Part 0/Part 1 split boundary",
+        "direction": "horizontal",
+        "size_px": 16,
+        "antialias": "none",
+        "first": {
+          "mask": "0x7FFF",
+          "codepoint": "U+0F7FFF",
+          "part": 0,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x8000",
+          "codepoint": "U+100000",
+          "part": 1,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/split_p0_to_p1-none-16px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/split_p0_to_p1-none-16px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/split_p0_to_p1-none-16px-second-only.png",
+        "dimensions": [
+          16,
+          17
+        ],
+        "partition": 8,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "split_p1_to_p0",
+        "purpose": "font Part 1/Part 0 split boundary",
+        "direction": "horizontal",
+        "size_px": 16,
+        "antialias": "none",
+        "first": {
+          "mask": "0x8000",
+          "codepoint": "U+100000",
+          "part": 1,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x7FFF",
+          "codepoint": "U+0F7FFF",
+          "part": 0,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/split_p1_to_p0-none-16px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/split_p1_to_p0-none-16px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/split_p1_to_p0-none-16px-second-only.png",
+        "dimensions": [
+          16,
+          17
+        ],
+        "partition": 8,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "box_grid_right",
+        "purpose": "reported right-side grid-over-box reproduction",
+        "direction": "horizontal",
+        "size_px": 16,
+        "antialias": "none",
+        "first": {
+          "mask": "0x9F00",
+          "codepoint": "U+101F00",
+          "part": 1,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x8888",
+          "codepoint": "U+100888",
+          "part": 1,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/box_grid_right-none-16px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/box_grid_right-none-16px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/box_grid_right-none-16px-second-only.png",
+        "dimensions": [
+          16,
+          17
+        ],
+        "partition": 8,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "box_grid_below",
+        "purpose": "reported lower-grid-over-box reproduction",
+        "direction": "vertical",
+        "size_px": 16,
+        "antialias": "none",
+        "first": {
+          "mask": "0x00F9",
+          "codepoint": "U+0F00F9",
+          "part": 0,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x000F",
+          "codepoint": "U+0F000F",
+          "part": 0,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/box_grid_below-none-16px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/box_grid_below-none-16px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/box_grid_below-none-16px-second-only.png",
+        "dimensions": [
+          8,
+          33
+        ],
+        "partition": 17,
+        "second_colour_pixels_in_first_cell": 8,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 8,
+        "partition_foreign_colour_pixels": 8,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "top_row_edge_bits",
+        "purpose": "right/left one-bit edge pair, top row",
+        "direction": "horizontal",
+        "size_px": 16,
+        "antialias": "none",
+        "first": {
+          "mask": "0x0001",
+          "codepoint": "U+0F0001",
+          "part": 0,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x0008",
+          "codepoint": "U+0F0008",
+          "part": 0,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/top_row_edge_bits-none-16px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/top_row_edge_bits-none-16px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/top_row_edge_bits-none-16px-second-only.png",
+        "dimensions": [
+          16,
+          17
+        ],
+        "partition": 8,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "row_1_edge_bits",
+        "purpose": "right/left one-bit edge pair, row 1",
+        "direction": "horizontal",
+        "size_px": 16,
+        "antialias": "none",
+        "first": {
+          "mask": "0x0010",
+          "codepoint": "U+0F0010",
+          "part": 0,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x0080",
+          "codepoint": "U+0F0080",
+          "part": 0,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/row_1_edge_bits-none-16px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/row_1_edge_bits-none-16px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/row_1_edge_bits-none-16px-second-only.png",
+        "dimensions": [
+          16,
+          17
+        ],
+        "partition": 8,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "row_2_edge_bits",
+        "purpose": "right/left one-bit edge pair, row 2",
+        "direction": "horizontal",
+        "size_px": 16,
+        "antialias": "none",
+        "first": {
+          "mask": "0x0100",
+          "codepoint": "U+0F0100",
+          "part": 0,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x0800",
+          "codepoint": "U+0F0800",
+          "part": 0,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/row_2_edge_bits-none-16px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/row_2_edge_bits-none-16px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/row_2_edge_bits-none-16px-second-only.png",
+        "dimensions": [
+          16,
+          17
+        ],
+        "partition": 8,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "bottom_row_edge_bits",
+        "purpose": "right/left one-bit edge pair, bottom row",
+        "direction": "horizontal",
+        "size_px": 16,
+        "antialias": "none",
+        "first": {
+          "mask": "0x1000",
+          "codepoint": "U+0F1000",
+          "part": 0,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x8000",
+          "codepoint": "U+100000",
+          "part": 1,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/bottom_row_edge_bits-none-16px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/bottom_row_edge_bits-none-16px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/bottom_row_edge_bits-none-16px-second-only.png",
+        "dimensions": [
+          16,
+          17
+        ],
+        "partition": 8,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "left_column_edge_bits",
+        "purpose": "bottom/top one-bit edge pair, left column",
+        "direction": "vertical",
+        "size_px": 16,
+        "antialias": "none",
+        "first": {
+          "mask": "0x8000",
+          "codepoint": "U+100000",
+          "part": 1,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x0008",
+          "codepoint": "U+0F0008",
+          "part": 0,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/left_column_edge_bits-none-16px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/left_column_edge_bits-none-16px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/left_column_edge_bits-none-16px-second-only.png",
+        "dimensions": [
+          8,
+          33
+        ],
+        "partition": 17,
+        "second_colour_pixels_in_first_cell": 2,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 2,
+        "partition_foreign_colour_pixels": 2,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "column_1_edge_bits",
+        "purpose": "bottom/top one-bit edge pair, column 1",
+        "direction": "vertical",
+        "size_px": 16,
+        "antialias": "none",
+        "first": {
+          "mask": "0x4000",
+          "codepoint": "U+0F4000",
+          "part": 0,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x0004",
+          "codepoint": "U+0F0004",
+          "part": 0,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/column_1_edge_bits-none-16px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/column_1_edge_bits-none-16px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/column_1_edge_bits-none-16px-second-only.png",
+        "dimensions": [
+          8,
+          33
+        ],
+        "partition": 17,
+        "second_colour_pixels_in_first_cell": 2,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 2,
+        "partition_foreign_colour_pixels": 2,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "column_2_edge_bits",
+        "purpose": "bottom/top one-bit edge pair, column 2",
+        "direction": "vertical",
+        "size_px": 16,
+        "antialias": "none",
+        "first": {
+          "mask": "0x2000",
+          "codepoint": "U+0F2000",
+          "part": 0,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x0002",
+          "codepoint": "U+0F0002",
+          "part": 0,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/column_2_edge_bits-none-16px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/column_2_edge_bits-none-16px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/column_2_edge_bits-none-16px-second-only.png",
+        "dimensions": [
+          8,
+          33
+        ],
+        "partition": 17,
+        "second_colour_pixels_in_first_cell": 2,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 2,
+        "partition_foreign_colour_pixels": 2,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "right_column_edge_bits",
+        "purpose": "bottom/top one-bit edge pair, right column",
+        "direction": "vertical",
+        "size_px": 16,
+        "antialias": "none",
+        "first": {
+          "mask": "0x1000",
+          "codepoint": "U+0F1000",
+          "part": 0,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x0001",
+          "codepoint": "U+0F0001",
+          "part": 0,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/right_column_edge_bits-none-16px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/right_column_edge_bits-none-16px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/right_column_edge_bits-none-16px-second-only.png",
+        "dimensions": [
+          8,
+          33
+        ],
+        "partition": 17,
+        "second_colour_pixels_in_first_cell": 2,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 2,
+        "partition_foreign_colour_pixels": 2,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "solid_horizontal",
+        "purpose": "maximum horizontal ownership conflict",
+        "direction": "horizontal",
+        "size_px": 18,
+        "antialias": "none",
+        "first": {
+          "mask": "0xFFFF",
+          "codepoint": "U+107FFF",
+          "part": 1,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0xFFFF",
+          "codepoint": "U+107FFF",
+          "part": 1,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/solid_horizontal-none-18px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/solid_horizontal-none-18px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/solid_horizontal-none-18px-second-only.png",
+        "dimensions": [
+          18,
+          19
+        ],
+        "partition": 9,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "solid_vertical",
+        "purpose": "maximum vertical ownership conflict",
+        "direction": "vertical",
+        "size_px": 18,
+        "antialias": "none",
+        "first": {
+          "mask": "0xFFFF",
+          "codepoint": "U+107FFF",
+          "part": 1,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0xFFFF",
+          "codepoint": "U+107FFF",
+          "part": 1,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/solid_vertical-none-18px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/solid_vertical-none-18px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/solid_vertical-none-18px-second-only.png",
+        "dimensions": [
+          9,
+          37
+        ],
+        "partition": 19,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "split_p0_to_p1",
+        "purpose": "font Part 0/Part 1 split boundary",
+        "direction": "horizontal",
+        "size_px": 18,
+        "antialias": "none",
+        "first": {
+          "mask": "0x7FFF",
+          "codepoint": "U+0F7FFF",
+          "part": 0,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x8000",
+          "codepoint": "U+100000",
+          "part": 1,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/split_p0_to_p1-none-18px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/split_p0_to_p1-none-18px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/split_p0_to_p1-none-18px-second-only.png",
+        "dimensions": [
+          18,
+          19
+        ],
+        "partition": 9,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "split_p1_to_p0",
+        "purpose": "font Part 1/Part 0 split boundary",
+        "direction": "horizontal",
+        "size_px": 18,
+        "antialias": "none",
+        "first": {
+          "mask": "0x8000",
+          "codepoint": "U+100000",
+          "part": 1,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x7FFF",
+          "codepoint": "U+0F7FFF",
+          "part": 0,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/split_p1_to_p0-none-18px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/split_p1_to_p0-none-18px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/split_p1_to_p0-none-18px-second-only.png",
+        "dimensions": [
+          18,
+          19
+        ],
+        "partition": 9,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "box_grid_right",
+        "purpose": "reported right-side grid-over-box reproduction",
+        "direction": "horizontal",
+        "size_px": 18,
+        "antialias": "none",
+        "first": {
+          "mask": "0x9F00",
+          "codepoint": "U+101F00",
+          "part": 1,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x8888",
+          "codepoint": "U+100888",
+          "part": 1,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/box_grid_right-none-18px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/box_grid_right-none-18px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/box_grid_right-none-18px-second-only.png",
+        "dimensions": [
+          18,
+          19
+        ],
+        "partition": 9,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "box_grid_below",
+        "purpose": "reported lower-grid-over-box reproduction",
+        "direction": "vertical",
+        "size_px": 18,
+        "antialias": "none",
+        "first": {
+          "mask": "0x00F9",
+          "codepoint": "U+0F00F9",
+          "part": 0,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x000F",
+          "codepoint": "U+0F000F",
+          "part": 0,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/box_grid_below-none-18px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/box_grid_below-none-18px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/box_grid_below-none-18px-second-only.png",
+        "dimensions": [
+          9,
+          37
+        ],
+        "partition": 19,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "top_row_edge_bits",
+        "purpose": "right/left one-bit edge pair, top row",
+        "direction": "horizontal",
+        "size_px": 18,
+        "antialias": "none",
+        "first": {
+          "mask": "0x0001",
+          "codepoint": "U+0F0001",
+          "part": 0,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x0008",
+          "codepoint": "U+0F0008",
+          "part": 0,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/top_row_edge_bits-none-18px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/top_row_edge_bits-none-18px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/top_row_edge_bits-none-18px-second-only.png",
+        "dimensions": [
+          18,
+          19
+        ],
+        "partition": 9,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "row_1_edge_bits",
+        "purpose": "right/left one-bit edge pair, row 1",
+        "direction": "horizontal",
+        "size_px": 18,
+        "antialias": "none",
+        "first": {
+          "mask": "0x0010",
+          "codepoint": "U+0F0010",
+          "part": 0,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x0080",
+          "codepoint": "U+0F0080",
+          "part": 0,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/row_1_edge_bits-none-18px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/row_1_edge_bits-none-18px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/row_1_edge_bits-none-18px-second-only.png",
+        "dimensions": [
+          18,
+          19
+        ],
+        "partition": 9,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "row_2_edge_bits",
+        "purpose": "right/left one-bit edge pair, row 2",
+        "direction": "horizontal",
+        "size_px": 18,
+        "antialias": "none",
+        "first": {
+          "mask": "0x0100",
+          "codepoint": "U+0F0100",
+          "part": 0,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x0800",
+          "codepoint": "U+0F0800",
+          "part": 0,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/row_2_edge_bits-none-18px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/row_2_edge_bits-none-18px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/row_2_edge_bits-none-18px-second-only.png",
+        "dimensions": [
+          18,
+          19
+        ],
+        "partition": 9,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "bottom_row_edge_bits",
+        "purpose": "right/left one-bit edge pair, bottom row",
+        "direction": "horizontal",
+        "size_px": 18,
+        "antialias": "none",
+        "first": {
+          "mask": "0x1000",
+          "codepoint": "U+0F1000",
+          "part": 0,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x8000",
+          "codepoint": "U+100000",
+          "part": 1,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/bottom_row_edge_bits-none-18px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/bottom_row_edge_bits-none-18px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/bottom_row_edge_bits-none-18px-second-only.png",
+        "dimensions": [
+          18,
+          19
+        ],
+        "partition": 9,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "left_column_edge_bits",
+        "purpose": "bottom/top one-bit edge pair, left column",
+        "direction": "vertical",
+        "size_px": 18,
+        "antialias": "none",
+        "first": {
+          "mask": "0x8000",
+          "codepoint": "U+100000",
+          "part": 1,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x0008",
+          "codepoint": "U+0F0008",
+          "part": 0,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/left_column_edge_bits-none-18px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/left_column_edge_bits-none-18px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/left_column_edge_bits-none-18px-second-only.png",
+        "dimensions": [
+          9,
+          37
+        ],
+        "partition": 19,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "column_1_edge_bits",
+        "purpose": "bottom/top one-bit edge pair, column 1",
+        "direction": "vertical",
+        "size_px": 18,
+        "antialias": "none",
+        "first": {
+          "mask": "0x4000",
+          "codepoint": "U+0F4000",
+          "part": 0,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x0004",
+          "codepoint": "U+0F0004",
+          "part": 0,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/column_1_edge_bits-none-18px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/column_1_edge_bits-none-18px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/column_1_edge_bits-none-18px-second-only.png",
+        "dimensions": [
+          9,
+          37
+        ],
+        "partition": 19,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "column_2_edge_bits",
+        "purpose": "bottom/top one-bit edge pair, column 2",
+        "direction": "vertical",
+        "size_px": 18,
+        "antialias": "none",
+        "first": {
+          "mask": "0x2000",
+          "codepoint": "U+0F2000",
+          "part": 0,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x0002",
+          "codepoint": "U+0F0002",
+          "part": 0,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/column_2_edge_bits-none-18px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/column_2_edge_bits-none-18px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/column_2_edge_bits-none-18px-second-only.png",
+        "dimensions": [
+          9,
+          37
+        ],
+        "partition": 19,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "right_column_edge_bits",
+        "purpose": "bottom/top one-bit edge pair, right column",
+        "direction": "vertical",
+        "size_px": 18,
+        "antialias": "none",
+        "first": {
+          "mask": "0x1000",
+          "codepoint": "U+0F1000",
+          "part": 0,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x0001",
+          "codepoint": "U+0F0001",
+          "part": 0,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/right_column_edge_bits-none-18px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/right_column_edge_bits-none-18px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/right_column_edge_bits-none-18px-second-only.png",
+        "dimensions": [
+          9,
+          37
+        ],
+        "partition": 19,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "solid_horizontal",
+        "purpose": "maximum horizontal ownership conflict",
+        "direction": "horizontal",
+        "size_px": 20,
+        "antialias": "none",
+        "first": {
+          "mask": "0xFFFF",
+          "codepoint": "U+107FFF",
+          "part": 1,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0xFFFF",
+          "codepoint": "U+107FFF",
+          "part": 1,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/solid_horizontal-none-20px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/solid_horizontal-none-20px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/solid_horizontal-none-20px-second-only.png",
+        "dimensions": [
+          20,
+          20
+        ],
+        "partition": 10,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "solid_vertical",
+        "purpose": "maximum vertical ownership conflict",
+        "direction": "vertical",
+        "size_px": 20,
+        "antialias": "none",
+        "first": {
+          "mask": "0xFFFF",
+          "codepoint": "U+107FFF",
+          "part": 1,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0xFFFF",
+          "codepoint": "U+107FFF",
+          "part": 1,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/solid_vertical-none-20px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/solid_vertical-none-20px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/solid_vertical-none-20px-second-only.png",
+        "dimensions": [
+          10,
+          40
+        ],
+        "partition": 20,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "split_p0_to_p1",
+        "purpose": "font Part 0/Part 1 split boundary",
+        "direction": "horizontal",
+        "size_px": 20,
+        "antialias": "none",
+        "first": {
+          "mask": "0x7FFF",
+          "codepoint": "U+0F7FFF",
+          "part": 0,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x8000",
+          "codepoint": "U+100000",
+          "part": 1,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/split_p0_to_p1-none-20px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/split_p0_to_p1-none-20px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/split_p0_to_p1-none-20px-second-only.png",
+        "dimensions": [
+          20,
+          20
+        ],
+        "partition": 10,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "split_p1_to_p0",
+        "purpose": "font Part 1/Part 0 split boundary",
+        "direction": "horizontal",
+        "size_px": 20,
+        "antialias": "none",
+        "first": {
+          "mask": "0x8000",
+          "codepoint": "U+100000",
+          "part": 1,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x7FFF",
+          "codepoint": "U+0F7FFF",
+          "part": 0,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/split_p1_to_p0-none-20px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/split_p1_to_p0-none-20px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/split_p1_to_p0-none-20px-second-only.png",
+        "dimensions": [
+          20,
+          20
+        ],
+        "partition": 10,
+        "second_colour_pixels_in_first_cell": 15,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 15,
+        "partition_foreign_colour_pixels": 15,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "box_grid_right",
+        "purpose": "reported right-side grid-over-box reproduction",
+        "direction": "horizontal",
+        "size_px": 20,
+        "antialias": "none",
+        "first": {
+          "mask": "0x9F00",
+          "codepoint": "U+101F00",
+          "part": 1,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x8888",
+          "codepoint": "U+100888",
+          "part": 1,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/box_grid_right-none-20px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/box_grid_right-none-20px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/box_grid_right-none-20px-second-only.png",
+        "dimensions": [
+          20,
+          20
+        ],
+        "partition": 10,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "box_grid_below",
+        "purpose": "reported lower-grid-over-box reproduction",
+        "direction": "vertical",
+        "size_px": 20,
+        "antialias": "none",
+        "first": {
+          "mask": "0x00F9",
+          "codepoint": "U+0F00F9",
+          "part": 0,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x000F",
+          "codepoint": "U+0F000F",
+          "part": 0,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/box_grid_below-none-20px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/box_grid_below-none-20px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/box_grid_below-none-20px-second-only.png",
+        "dimensions": [
+          10,
+          40
+        ],
+        "partition": 20,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "top_row_edge_bits",
+        "purpose": "right/left one-bit edge pair, top row",
+        "direction": "horizontal",
+        "size_px": 20,
+        "antialias": "none",
+        "first": {
+          "mask": "0x0001",
+          "codepoint": "U+0F0001",
+          "part": 0,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x0008",
+          "codepoint": "U+0F0008",
+          "part": 0,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/top_row_edge_bits-none-20px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/top_row_edge_bits-none-20px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/top_row_edge_bits-none-20px-second-only.png",
+        "dimensions": [
+          20,
+          20
+        ],
+        "partition": 10,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "row_1_edge_bits",
+        "purpose": "right/left one-bit edge pair, row 1",
+        "direction": "horizontal",
+        "size_px": 20,
+        "antialias": "none",
+        "first": {
+          "mask": "0x0010",
+          "codepoint": "U+0F0010",
+          "part": 0,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x0080",
+          "codepoint": "U+0F0080",
+          "part": 0,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/row_1_edge_bits-none-20px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/row_1_edge_bits-none-20px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/row_1_edge_bits-none-20px-second-only.png",
+        "dimensions": [
+          20,
+          20
+        ],
+        "partition": 10,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "row_2_edge_bits",
+        "purpose": "right/left one-bit edge pair, row 2",
+        "direction": "horizontal",
+        "size_px": 20,
+        "antialias": "none",
+        "first": {
+          "mask": "0x0100",
+          "codepoint": "U+0F0100",
+          "part": 0,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x0800",
+          "codepoint": "U+0F0800",
+          "part": 0,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/row_2_edge_bits-none-20px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/row_2_edge_bits-none-20px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/row_2_edge_bits-none-20px-second-only.png",
+        "dimensions": [
+          20,
+          20
+        ],
+        "partition": 10,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "bottom_row_edge_bits",
+        "purpose": "right/left one-bit edge pair, bottom row",
+        "direction": "horizontal",
+        "size_px": 20,
+        "antialias": "none",
+        "first": {
+          "mask": "0x1000",
+          "codepoint": "U+0F1000",
+          "part": 0,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x8000",
+          "codepoint": "U+100000",
+          "part": 1,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/bottom_row_edge_bits-none-20px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/bottom_row_edge_bits-none-20px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/bottom_row_edge_bits-none-20px-second-only.png",
+        "dimensions": [
+          20,
+          20
+        ],
+        "partition": 10,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "left_column_edge_bits",
+        "purpose": "bottom/top one-bit edge pair, left column",
+        "direction": "vertical",
+        "size_px": 20,
+        "antialias": "none",
+        "first": {
+          "mask": "0x8000",
+          "codepoint": "U+100000",
+          "part": 1,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x0008",
+          "codepoint": "U+0F0008",
+          "part": 0,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/left_column_edge_bits-none-20px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/left_column_edge_bits-none-20px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/left_column_edge_bits-none-20px-second-only.png",
+        "dimensions": [
+          10,
+          40
+        ],
+        "partition": 20,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "column_1_edge_bits",
+        "purpose": "bottom/top one-bit edge pair, column 1",
+        "direction": "vertical",
+        "size_px": 20,
+        "antialias": "none",
+        "first": {
+          "mask": "0x4000",
+          "codepoint": "U+0F4000",
+          "part": 0,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x0004",
+          "codepoint": "U+0F0004",
+          "part": 0,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/column_1_edge_bits-none-20px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/column_1_edge_bits-none-20px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/column_1_edge_bits-none-20px-second-only.png",
+        "dimensions": [
+          10,
+          40
+        ],
+        "partition": 20,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "column_2_edge_bits",
+        "purpose": "bottom/top one-bit edge pair, column 2",
+        "direction": "vertical",
+        "size_px": 20,
+        "antialias": "none",
+        "first": {
+          "mask": "0x2000",
+          "codepoint": "U+0F2000",
+          "part": 0,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x0002",
+          "codepoint": "U+0F0002",
+          "part": 0,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/column_2_edge_bits-none-20px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/column_2_edge_bits-none-20px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/column_2_edge_bits-none-20px-second-only.png",
+        "dimensions": [
+          10,
+          40
+        ],
+        "partition": 20,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "case": "right_column_edge_bits",
+        "purpose": "bottom/top one-bit edge pair, right column",
+        "direction": "vertical",
+        "size_px": 20,
+        "antialias": "none",
+        "first": {
+          "mask": "0x1000",
+          "codepoint": "U+0F1000",
+          "part": 0,
+          "colour": "#00e5ff"
+        },
+        "second": {
+          "mask": "0x0001",
+          "codepoint": "U+0F0001",
+          "part": 0,
+          "colour": "#ff40a0"
+        },
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/right_column_edge_bits-none-20px.png",
+        "first_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/right_column_edge_bits-none-20px-first-only.png",
+        "second_only_image": "output/audit/multicolour-raster-v0.4-candidate1-control/right_column_edge_bits-none-20px-second-only.png",
+        "dimensions": [
+          10,
+          40
+        ],
+        "partition": 20,
+        "second_colour_pixels_in_first_cell": 0,
+        "first_colour_pixels_in_second_cell": 0,
+        "foreign_colour_pixels": 0,
+        "partition_foreign_colour_pixels": 0,
+        "isolated_footprint_overlap_pixels": 0,
+        "status": "PASS"
+      }
+    ],
+    "ownership_failures": 0,
+    "ownership_tests": 140,
+    "same_colour_solid_tests": [
+      {
+        "size_px": 8,
+        "direction": "horizontal",
+        "antialias": "none",
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/same-colour-solid-horizontal-none-08px.png",
+        "dimensions": [
+          8,
+          9
+        ],
+        "black_pixels": 8,
+        "status": "FAIL"
+      },
+      {
+        "size_px": 8,
+        "direction": "vertical",
+        "antialias": "none",
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/same-colour-solid-vertical-none-08px.png",
+        "dimensions": [
+          4,
+          17
+        ],
+        "black_pixels": 4,
+        "status": "FAIL"
+      },
+      {
+        "size_px": 9,
+        "direction": "horizontal",
+        "antialias": "none",
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/same-colour-solid-horizontal-none-09px.png",
+        "dimensions": [
+          10,
+          10
+        ],
+        "black_pixels": 10,
+        "status": "FAIL"
+      },
+      {
+        "size_px": 9,
+        "direction": "vertical",
+        "antialias": "none",
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/same-colour-solid-vertical-none-09px.png",
+        "dimensions": [
+          5,
+          19
+        ],
+        "black_pixels": 5,
+        "status": "FAIL"
+      },
+      {
+        "size_px": 10,
+        "direction": "horizontal",
+        "antialias": "none",
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/same-colour-solid-horizontal-none-10px.png",
+        "dimensions": [
+          10,
+          10
+        ],
+        "black_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "size_px": 10,
+        "direction": "vertical",
+        "antialias": "none",
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/same-colour-solid-vertical-none-10px.png",
+        "dimensions": [
+          5,
+          20
+        ],
+        "black_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "size_px": 11,
+        "direction": "horizontal",
+        "antialias": "none",
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/same-colour-solid-horizontal-none-11px.png",
+        "dimensions": [
+          12,
+          12
+        ],
+        "black_pixels": 12,
+        "status": "FAIL"
+      },
+      {
+        "size_px": 11,
+        "direction": "vertical",
+        "antialias": "none",
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/same-colour-solid-vertical-none-11px.png",
+        "dimensions": [
+          6,
+          23
+        ],
+        "black_pixels": 6,
+        "status": "FAIL"
+      },
+      {
+        "size_px": 12,
+        "direction": "horizontal",
+        "antialias": "none",
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/same-colour-solid-horizontal-none-12px.png",
+        "dimensions": [
+          12,
+          13
+        ],
+        "black_pixels": 12,
+        "status": "FAIL"
+      },
+      {
+        "size_px": 12,
+        "direction": "vertical",
+        "antialias": "none",
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/same-colour-solid-vertical-none-12px.png",
+        "dimensions": [
+          6,
+          25
+        ],
+        "black_pixels": 6,
+        "status": "FAIL"
+      },
+      {
+        "size_px": 13,
+        "direction": "horizontal",
+        "antialias": "none",
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/same-colour-solid-horizontal-none-13px.png",
+        "dimensions": [
+          14,
+          14
+        ],
+        "black_pixels": 14,
+        "status": "FAIL"
+      },
+      {
+        "size_px": 13,
+        "direction": "vertical",
+        "antialias": "none",
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/same-colour-solid-vertical-none-13px.png",
+        "dimensions": [
+          7,
+          27
+        ],
+        "black_pixels": 7,
+        "status": "FAIL"
+      },
+      {
+        "size_px": 14,
+        "direction": "horizontal",
+        "antialias": "none",
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/same-colour-solid-horizontal-none-14px.png",
+        "dimensions": [
+          14,
+          15
+        ],
+        "black_pixels": 14,
+        "status": "FAIL"
+      },
+      {
+        "size_px": 14,
+        "direction": "vertical",
+        "antialias": "none",
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/same-colour-solid-vertical-none-14px.png",
+        "dimensions": [
+          7,
+          29
+        ],
+        "black_pixels": 7,
+        "status": "FAIL"
+      },
+      {
+        "size_px": 16,
+        "direction": "horizontal",
+        "antialias": "none",
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/same-colour-solid-horizontal-none-16px.png",
+        "dimensions": [
+          16,
+          17
+        ],
+        "black_pixels": 16,
+        "status": "FAIL"
+      },
+      {
+        "size_px": 16,
+        "direction": "vertical",
+        "antialias": "none",
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/same-colour-solid-vertical-none-16px.png",
+        "dimensions": [
+          8,
+          33
+        ],
+        "black_pixels": 8,
+        "status": "FAIL"
+      },
+      {
+        "size_px": 18,
+        "direction": "horizontal",
+        "antialias": "none",
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/same-colour-solid-horizontal-none-18px.png",
+        "dimensions": [
+          18,
+          19
+        ],
+        "black_pixels": 18,
+        "status": "FAIL"
+      },
+      {
+        "size_px": 18,
+        "direction": "vertical",
+        "antialias": "none",
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/same-colour-solid-vertical-none-18px.png",
+        "dimensions": [
+          9,
+          37
+        ],
+        "black_pixels": 9,
+        "status": "FAIL"
+      },
+      {
+        "size_px": 20,
+        "direction": "horizontal",
+        "antialias": "none",
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/same-colour-solid-horizontal-none-20px.png",
+        "dimensions": [
+          20,
+          20
+        ],
+        "black_pixels": 0,
+        "status": "PASS"
+      },
+      {
+        "size_px": 20,
+        "direction": "vertical",
+        "antialias": "none",
+        "image": "output/audit/multicolour-raster-v0.4-candidate1-control/same-colour-solid-vertical-none-20px.png",
+        "dimensions": [
+          10,
+          40
+        ],
+        "black_pixels": 0,
+        "status": "PASS"
+      }
+    ],
+    "same_colour_failures": 16,
+    "status": "FAIL"
+  },
+  "decision": {
+    "mapping_and_codepoint_status": "PASS",
+    "tested_raster_font": "PUA 4x4 v0.4 Candidate",
+    "same_colour_seam_status": "FAIL",
+    "multi_colour_cell_ownership_status": "PASS",
+    "tested_raster_release_gate": "FAIL"
+  }
+}

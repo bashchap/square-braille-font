@@ -1,0 +1,76 @@
+{
+  "audit": "MATE Terminal paired triangle seam measurement",
+  "exact_circumstance": {
+    "terminal_grid": [
+      211,
+      50
+    ],
+    "measured_cell_pixels": [
+      9,
+      19
+    ],
+    "content_origin_pixels": [
+      0,
+      25
+    ],
+    "profile_font_size_points": 14,
+    "display_dpi": 96,
+    "same_demo": "demos4x4/triangle.py --pps 100000"
+  },
+  "expectation": "full-mask cell boundary pixels have the same foreground coverage as cell interiors",
+  "candidate1_exact_core": {
+    "image": "/Users/tara/Documents/Codex/2026-07-29/i-want-you-to-create-me/github/square-braille-font/experiments/pua-4x4/output/audit/terminal-v0.4-candidate/triangle-14pt.png",
+    "sha256": "6b172b47956ddbbee8655503136153ef0b62640891aaae4dbbbc320182d06a2e",
+    "dimensions": [
+      1920,
+      990
+    ],
+    "full_cells_measured": 640,
+    "pixels_measured": 109440,
+    "low_coverage_threshold": "sum(actual RGB) / sum(expected ANSI RGB) < 0.90",
+    "low_coverage_pixels": 5797,
+    "low_coverage_fraction": 0.052969663742690055,
+    "boundary": {
+      "pixels": 33280,
+      "low_coverage_pixels": 5632,
+      "low_coverage_fraction": 0.16923076923076924,
+      "mean_coverage_ratio": 0.9498626869217092
+    },
+    "interior": {
+      "pixels": 76160,
+      "low_coverage_pixels": 165,
+      "low_coverage_fraction": 0.0021664915966386556,
+      "mean_coverage_ratio": 0.9915658651703447
+    }
+  },
+  "candidate3_seam_guard_100": {
+    "image": "/Users/tara/Documents/Codex/2026-07-29/i-want-you-to-create-me/github/square-braille-font/experiments/pua-4x4/output/audit/terminal-v0.4-candidate3/triangle-14pt.png",
+    "sha256": "b3785c5f4699e45b2a8e92a86000b11982372383bab81fabaf2861dc6d9b8eb2",
+    "dimensions": [
+      1920,
+      990
+    ],
+    "full_cells_measured": 640,
+    "pixels_measured": 109440,
+    "low_coverage_threshold": "sum(actual RGB) / sum(expected ANSI RGB) < 0.90",
+    "low_coverage_pixels": 0,
+    "low_coverage_fraction": 0.0,
+    "boundary": {
+      "pixels": 33280,
+      "low_coverage_pixels": 0,
+      "low_coverage_fraction": 0.0,
+      "mean_coverage_ratio": 1.001400103488423
+    },
+    "interior": {
+      "pixels": 76160,
+      "low_coverage_pixels": 0,
+      "low_coverage_fraction": 0.0,
+      "mean_coverage_ratio": 1.0
+    }
+  },
+  "outcome": {
+    "candidate1_boundary_low_coverage_pixels": 5632,
+    "candidate3_boundary_low_coverage_pixels": 0,
+    "candidate3_pass": true
+  }
+}

@@ -1,0 +1,23 @@
+
+xwininfo: Window id: 0x3400006 "PUA 4x4 v0.4 Candidate Terminal Probe"
+
+  Absolute upper-left X:  0
+  Absolute upper-left Y:  62
+  Relative upper-left X:  0
+  Relative upper-left Y:  34
+  Width: 1920
+  Height: 990
+  Depth: 32
+  Visual: 0x315
+  Visual Class: TrueColor
+  Border width: 0
+  Class: InputOutput
+  Colormap: 0x3400005 (not installed)
+  Bit Gravity State: NorthWestGravity
+  Window Gravity State: NorthWestGravity
+  Backing Store State: NotUseful
+  Save Under State: no
+  Map State: IsViewable
+  Override Redirect State: no
+  Corners:  +0+62  -0+62  -0-28  +0-28
+  -geometry 211x50+0+28

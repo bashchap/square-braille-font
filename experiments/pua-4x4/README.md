@@ -24,22 +24,34 @@ text because its proven 500-by-1000 metrics exactly match both graphics parts.
 
 ## Status
 
-Version 0.3 is a complete Linux proof rather than a proposal or reduced sample:
+The approved MSB-left mathematics is proven independently for all 65,536
+patterns. Font generation then exposed two separate implementation effects:
 
-- all 65,536 patterns are present across two fonts;
-- each pattern has one unique supplementary-PUA codepoint;
-- every mapping and composite component was exhaustively verified;
-- both ranges have `wcwidth=1` under the tested `C.UTF-8` Linux locale;
-- all sixteen pixel components have identical 125-by-250-unit bounds and stay
-  strictly inside the 500-by-1000 character cell;
-- the explicit Fontconfig alias overrides existing Nerd Font PUA collisions;
-- Pango selects the text face, Part 0 and Part 1 with zero missing glyphs;
-- solid Pango rasters at 8-20 px contain zero seam pixels;
-- the dedicated MATE Terminal solid-cell proof contains zero black seam pixels.
+1. **v0.3 horizontal placement defect.** Its cmap and raw component layout are
+   mathematically correct, but every pattern uses `leftSideBearing = 0`.
+   TrueType therefore shifts 4,095 Part 0 patterns whose raw `xMin > 0` to the
+   left edge. This is the exact cause of the observed detached and jumping
+   pixels.
+2. **Raster-audit correction.** The bounding-box audit excluded black line-box
+   rows between separately emitted terminal lines. A real 20-row MATE Terminal
+   field proved Candidate 4 still has horizontal seams.
+3. **v0.4 Candidate 3 ownership defect.** Its 100-unit exterior guard makes
+   same-colour fields look continuous, but crosses terminal-cell boundaries.
+   A later, differently coloured glyph can overwrite the preceding cell.
 
-The released Square Braille assets are not modified by this experiment.
+The selected **v0.6 Candidate 6 / RC1** preserves Candidate 4's mapping,
+codepoints, corrected bearings, strict horizontal ownership, internal 4x4
+boundaries and grid fitting. It adds a vertical-only guard at the top and
+bottom exterior edges. No background-colour or reverse-video substitution is
+used.
 
-## Metrics and construction
+Normal and enlarged MATE Terminal sizes pass. The two smallest Ctrl-minus zoom
+levels can still reveal horizontal seams and are outside the supported range.
+
+Candidates 1, 3, 4 and 6 remain side-by-side under distinct names. No released
+Square Braille asset or existing PUA 4×4 font is overwritten.
+
+## Selected v0.6 RC1 metrics and construction
 
 ```text
 units per em:       1000
@@ -47,22 +59,33 @@ character advance:  500
 ascent/descent:     800 / 200
 grid:               4 columns x 4 rows
 nominal subcell:    125 x 250 font units
-exterior overfill:  0 font units
+horizontal bounds:  x=0..500
+guarded y bounds:   y=-300..900
+vertical guard:     100 units at top and bottom only
+horizontal guard:   none
 terminal width:     one column per PUA character
 ```
 
-Each font contains 16 reusable, equal-sized pixel outlines. Pattern glyphs are
-compact TrueType composites referencing the selected components. No component
-crosses a character boundary. This keeps the two complete fonts near 2 MiB
-each while retaining the direct one-character, one-pattern model.
+Candidate 6 retains Candidate 4's direct simple contours and grid programs.
+Internal boundaries remain at x = 125, 250, 375 and y = 50, 300, 550. Exterior
+x coordinates remain exactly 0 and 500. Only exterior y coordinates expand
+from -200..800 to -300..900.
+
+### Historical construction
+
+v0.3 uses reusable composite pixel outlines and remains preserved. Its earlier
+verification proved the raw component/mask mapping but omitted TrueType's
+effective placement calculation using `xMin` and `leftSideBearing`; v0.4 makes
+that calculation a regression gate.
 
 Version 0.1 used 100 font units of exterior outline overfill. That eliminated
 seams but incorrectly made edge pixels 225 units wide instead of 125 units and
 made top/bottom pixels 350 units high instead of 250 units. It caused isolated
 pixels to change size while moving through a cell. Version 0.1 is preserved in
-`legacy/v0.1-overfill100/`; version 0.2 removes the overfill. The corrected
-fonts still produce zero seam pixels throughout the tested 8-20 px Pango
-matrix.
+`legacy/v0.1-overfill100/`; version 0.2 removes the overfill. The earlier claim
+that exact-core geometry necessarily produced internal fractional-size seams
+was caused by counting exterior Pango image padding. The corrected
+internal-join test supersedes it.
 
 Version 0.2 used an LSB-left row layout (`bit = 4*y + x`). That layout was
 internally self-consistent, but it did not match the intended mathematical
@@ -77,35 +100,41 @@ The v0.2 binaries are preserved in `legacy/v0.2-lsb-left/`.
 - Fontconfig
 - Pango (`pango-view`)
 - Pillow for the pixel-level seam matrix
+- ReportLab and pypdf for the reproducible evidence/specification PDFs
 - MATE Terminal only for the supplied profile launcher
 
-Build and exhaustively verify:
+Regenerate v0.6 RC1 from the preserved Candidate 4 binaries:
 
 ```sh
 cd experiments/pua-4x4
-python3 generate_pua4x4.py --output-dir build
-python3 verify_pua4x4.py build
+python3 make_v06_candidate6_vertical_guard.py
+./install-linux-v06-candidate6.sh
 ```
 
-Or run the equivalent Make target:
+The historical v0.3 build remains reproducible separately:
 
 ```sh
+python3 generate_pua4x4.py --output-dir build
 make verify
 ```
 
-Install for the current Linux user and run the first visual proof:
-
-```sh
-./install-linux-user.sh
-python3 verify_linux_runtime.py
-python3 verify_pango_seams.py
-python3 pua4x4_demo.py
-```
-
-Create the dedicated MATE Terminal profile and launch the proof:
+Install the packaged v0.6 RC1 for the current Linux user and run the first
+visual proof:
 
 ```sh
 ./launch-linux.sh demo
+```
+
+`launch-linux.sh` now delegates to the isolated v0.6 Candidate 6 launcher. It
+installs the checked-in RC1 package, verifies byte identity, `wcwidth`,
+Fontconfig and Pango, and selects the candidate-specific terminal profile.
+
+Preserved earlier environments remain available with:
+
+```sh
+PUA4X4_USE_V04_RC1=1 ./launch-linux.sh demo
+PUA4X4_USE_V05_RC1=1 ./launch-linux.sh demo
+PUA4X4_USE_V03=1 ./launch-linux.sh demo
 ```
 
 Launch the continuously animated vector-flight demonstration:
@@ -178,6 +207,11 @@ without opening a window.
 
 ## Complete PUA 4x4 demo suite
 
+For user-only installation on Linux, macOS and Windows, explicit terminal font
+fallback configuration, complete generated-character proof catalogs, and VGR
+operations, see `../../docs/OPERATIONS-QUICKSTART.md` in the published
+repository.
+
 Every graphical Square Braille demonstration has a separate PUA 4x4 port in
 `demos4x4/`; the original programs are preserved. The suite includes geometry,
 snow, starfield, trail, RGB triangle, vertical probe, vector tunnel, Elite-style
@@ -192,8 +226,9 @@ cd "$HOME/dev/FontMaker/pua4x4/demos4x4"
 ./run-demo.sh defender --once
 ```
 
-The launcher installs/verifies the two graphics parts, configures the dedicated
-12-point MATE profile, and opens the requested demo. See `demos4x4/README.md`
+The launcher installs/verifies the two v0.5 RC1 graphics parts, configures the
+dedicated 12-point candidate profile, and opens the requested demo. See
+`demos4x4/README.md`
 for the full inventory, direct-execution commands and external mesh-cache
 requirements. Its noninteractive structural audit is:
 
@@ -201,7 +236,7 @@ requirements. Its noninteractive structural audit is:
 python3 demos4x4/verify_demos4x4.py
 ```
 
-## Verified v0.3 binaries
+## Preserved v0.3 binaries
 
 ```text
 PUA4x4Part0.ttf
@@ -211,8 +246,9 @@ PUA4x4Part1.ttf
 SHA-256 ccfad9f530ceda3f33791aec877b81b81472604e68c5e1633c50bb6d2da2681a
 ```
 
-The build is byte-reproducible across the tested macOS and Linux FontTools
-environments. The manifest records the mapping, metrics, filenames and hashes.
+The historical build is byte-reproducible across the tested macOS and Linux
+FontTools environments. Its hashes remain valid, but its effective-placement
+defect is now documented above.
 
 ## Evidence
 
@@ -221,6 +257,23 @@ environments. The manifest records the mapping, metrics, filenames and hashes.
   Terminal proof window.
 - `evidence/pua4x4-motion-proof.png` is a captured frame from the responsive
   curved-vortex animation running in the dedicated 12-point profile.
+- `output/pdf/PUA-4x4-Mathematical-Mapping-Evidence-v1.0.pdf` is the
+  mathematics-gate report. It proves the agreed MSB-left coordinate, mask and
+  P0/P1 codepoint formulas independently and exhaustively, while recording the
+  2026-08-08 triangle terminal output as a separate unpassed visual gate.
+- `verify_mathematical_mapping.py` reproduces the machine-readable evidence in
+  `output/audit/pua4x4-mathematics-proof-v1.0.json` and the complete one-bit
+  table in `output/audit/pua4x4-one-bit-table-v1.0.csv`.
+- `output/pdf/PUA-4x4-Font-Generation-Evidence-v0.4-RC1.pdf` records every v0.4
+  expected/observed gate, including the v0.3 bearing defect, rejected hinting
+  experiment, seam-guard threshold, paired terminal capture and declared
+  overhang.
+- `../../docs/PUA-4X4-FONT-GENERATION-EVIDENCE-v0.4.md` is the text evidence
+  record.
+- `../../docs/PUA-4X4-CANDIDATE-4-EVIDENCE-v0.5.md` records the corrected
+  internal-join criterion and Candidate 4 release evidence.
+- `../../fonts/candidates/pua-4x4-v0.5-rc1/` contains the selected binaries and
+  manifest. The v0.4 Candidate 3 package remains preserved beside it.
 
 ## Current limitations
 
@@ -230,10 +283,11 @@ environments. The manifest records the mapping, metrics, filenames and hashes.
   `PUA 4x4` Fontconfig alias is therefore required.
 - The four horizontal subdivisions are narrower than the four vertical
   subdivisions because a normal terminal cell is approximately 1:2.
-- At font sizes whose em is a fractional number of device pixels, diagonal
-  edges show normal antialiasing variation. The independent geometry verifier
-  proves exact pixel addressing and mirror symmetry; 12 pt and 18 pt at 96 DPI
-  align the 4x4 subdivisions to whole device pixels most cleanly.
+- Cross-platform terminal rasterizers still require their own validation;
+  Candidate 4's current release gate is specifically the tested Linux
+  FreeType/Pango/Cairo/VTE/MATE stack.
+- Diagonal vector edges still show ordinary device-pixel antialiasing. This is
+  distinct from an incorrect mask, codepoint or effective glyph placement.
 - The FontForge 2023 validator did not complete within 60 seconds on a
   32,786-glyph composite font. FontTools generation, exhaustive component
   verification, Fontconfig, Pango and MATE rendering all completed normally.

@@ -1,0 +1,41 @@
+{
+  "name": "PUA 4x4 v0.5 Candidate 5",
+  "status": "DIAGNOSTIC_NOT_RELEASED",
+  "mapping": "bit = 4 * local_y + (3 - local_x)",
+  "raw_geometry": "Candidate 1 exact core; unchanged",
+  "raw_overfill": 0,
+  "device_rounding": {
+    "y=800": "round up to grid",
+    "y=-200": "round down to grid",
+    "other y": "round to grid",
+    "all x": "round to grid"
+  },
+  "parts": [
+    {
+      "part": 0,
+      "source": "PUA4x4Part0V04Candidate.ttf",
+      "filename": "PUA4x4Part0V05Candidate5.ttf",
+      "family": "PUA 4x4 Part 0 v0.5 Candidate 5",
+      "postscript": "PUA4x4Part0V05Candidate5-Regular",
+      "start": 983040,
+      "end": 1015807,
+      "source_sha256": "d88567706074a28e6f28be6a2a4b88d0b124f2651852b8217132e5ab05df1ad0",
+      "sha256": "27a12d262c66147e634d5dd38bc33492a685bda68e30b7eb80783c45ecfd6dba",
+      "hinted_nonempty_glyphs": 32767,
+      "maximum_instruction_bytes": 208
+    },
+    {
+      "part": 1,
+      "source": "PUA4x4Part1V04Candidate.ttf",
+      "filename": "PUA4x4Part1V05Candidate5.ttf",
+      "family": "PUA 4x4 Part 1 v0.5 Candidate 5",
+      "postscript": "PUA4x4Part1V05Candidate5-Regular",
+      "start": 1048576,
+      "end": 1081343,
+      "source_sha256": "76366d90c3321612f596956d7a5a09e0a570f5df0b4f51dc04e3d7104f3a7723",
+      "sha256": "c3a9b40555a15e125ed90f89d78af60afad3374de92fbef0dc7169532a862877",
+      "hinted_nonempty_glyphs": 32768,
+      "maximum_instruction_bytes": 207
+    }
+  ]
+}

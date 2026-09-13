@@ -1,0 +1,7 @@
+build-v0.4-candidate.3-linux-rebuild/PUA4x4Part0V04Candidate3.ttf
+build-v0.4-candidate.3-linux-rebuild/PUA4x4Part1V04Candidate3.ttf
+build-v0.4-candidate.3-linux-rebuild/pua4x4-v0.4-candidate.3-manifest.json
+PASS: all 65,536 cmap entries retain the approved mapping
+PASS: every candidate.3 coordinate equals the declared candidate.1 transform
+output/audit/cross-environment/candidate3-linux-derivation.json
+PASS_BYTE_IDENTICAL

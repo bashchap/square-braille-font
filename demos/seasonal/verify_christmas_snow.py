@@ -13,22 +13,28 @@ from christmas_snow import (
     SHAPES,
     CometParticle,
     ControlListener,
+    GroundExplosion,
     SnowEngine,
     Surface,
     build_parser,
     build_scenery,
     cached_postman_pixels,
+    cabin_door_targets,
     cabin_path_network,
     cabin_door_rect,
     cabin_layout,
     complete_frame,
+    compact_flyby_unit,
     current_sky_event,
     current_sky_event_state,
     dashboard_rows,
     draw_ambient,
+    draw_ah64_helicopter,
+    draw_aircraft_crashes,
     draw_conifer,
     draw_cabin,
     draw_cabin_paths,
+    draw_cached_tree,
     draw_clouds,
     draw_postman,
     draw_rabbit,
@@ -42,11 +48,15 @@ from christmas_snow import (
     encode_surface,
     encode_surface_native,
     make_runtime,
+    helicopter_landing_x,
+    safe_helicopter_landing_x,
+    settle_frame_deadline,
     parse_args,
     parse_ambient,
     parse_scenery,
     pretty_help,
     render_surface,
+    reindeer_apparent_height,
     sky_event_margin,
     tumbleweed_states,
     viewer_quit_key,
@@ -113,6 +123,9 @@ def main():
         check(not solid_square, f"{name} snow geometry still contains a big square block")
     check(not viewer_quit_key("\x1b[B") and viewer_quit_key("\x1b"),
           "Down-arrow escape sequence is still treated as viewer Escape")
+    delay, schedule_base, lag = settle_frame_deadline(10.0, 10.2)
+    check(delay == 0 and schedule_base == 10.2 and abs(lag - 0.2) < 1e-9,
+          "missed frame deadline still retains a stale catch-up schedule")
 
     rain_args = parse_args([
         "--weather", "rain", "--snow-rate", "20", "--max-flakes", "12",
@@ -190,8 +203,10 @@ def main():
     draw_sky_gradient(lightning_surface, lightning_args)
     draw_lightning(lightning_surface, lightning_engine)
     check(any(pixel is not None and pixel[1] >= 57
+              for pixel in lightning_surface.pixels) and
+          any(pixel is not None and pixel[0] == (36, 92, 255)
               for pixel in lightning_surface.pixels),
-          "lightning created no branched foreground bolt")
+          "lightning created no white/cyan bolt with a strong blue edge")
 
     spruce = Surface(100, 100)
     draw_conifer(spruce, random.Random(4), 50, 90, 80, 4, 0,
@@ -206,8 +221,14 @@ def main():
     pua4 = CODECS["pua4"]
     check(chr(0x28FF) in encode_surface(filled_surface(square), square, 1, 1),
           "Square Braille full mask did not map to U+28FF")
-    check(chr(0x107FFF) in encode_surface(filled_surface(pua4), pua4, 1, 1),
+    full_stats = {}
+    full_cell = encode_surface(filled_surface(pua4), pua4, 1, 1, full_stats)
+    check(chr(0x107FFF) in full_cell,
           "PUA 4x4 full mask did not map to U+107FFF")
+    check("\x1b[38;2;252;252;252;48;2;252;252;252m" in full_cell and
+          full_stats["seam_guard_cells"] == 1 and
+          full_stats["background_cells"] == 0,
+          "full-mask glyph lacks its same-colour terminal seam guard")
 
     single = Surface(4, 4)
     single.pixel(0, 0, (255, 255, 255), 10)
@@ -249,7 +270,7 @@ def main():
     encoded = encode_surface(ownership, pua4, 1, 1)
     check(chr(0xF1000) in encoded,
           "the high-priority bottom-right flake did not own the overlapping cell")
-    check("\x1b[48;2;" in encoded,
+    check("48;2;" in encoded,
           "the dense rear tree was not retained as the cell background")
     check("\x1b[7m" not in encoded,
           "renderer introduced reverse video")
@@ -291,6 +312,24 @@ def main():
     swayed = build_scenery(args, still.width, still.height,
                            motion_engine.scenery_ground_y, 1.7)
     check(still.pixels != swayed.pixels, "tree wind animation did not alter the scenery")
+
+    # The scanline sway cache is an optimization only: it must remain exactly
+    # equivalent to the former height calculation in the per-pixel loop.
+    tree_pixels = tuple(
+        (dx, dy, (40 + (dx % 4) * 15, 90 + (dy % 5) * 8, 55), 20 + dy % 3)
+        for dy in range(-66, 7) for dx in range(-18, 19)
+        if (dx * 3 + dy * 5) % 7 < 3
+    )
+    cached_sway_surface = Surface(100, 90)
+    reference_sway_surface = Surface(100, 90)
+    draw_cached_tree(cached_sway_surface, 50, 80, 66, 5.75, tree_pixels)
+    for dx, dy, colour, priority in tree_pixels:
+        crown_fraction = max(0.0, min(1.0, -dy / 66.0))
+        offset = int(round(5.75 * crown_fraction * crown_fraction))
+        reference_sway_surface.pixel(50 + dx + offset, 80 + dy,
+                                     colour, priority)
+    check(cached_sway_surface.pixels == reference_sway_surface.pixels,
+          "scanline-cached tree sway differs from the per-pixel reference")
 
     cabin_args = parse_args([
         "--mode", "pua4", "--scenery", "cabin", "--cabin-count", "auto",
@@ -563,15 +602,11 @@ def main():
         postman = postman_engine.postman
         visited_states.add(postman.state)
         if postman.state in ("approaching", "returning"):
-            total = max(0.001, ((postman.door_x - postman.road_x) ** 2 +
-                                (postman.door_y - postman.road_y) ** 2) ** 0.5)
             if postman.state == "approaching":
-                progress = 1.0 - (((postman.door_x - postman.x) ** 2 +
-                                   (postman.door_y - postman.y) ** 2) ** 0.5 / total)
+                progress = postman.route_progress
                 expected = road_height + (door_height - road_height) * progress
             else:
-                progress = 1.0 - (((postman.road_x - postman.x) ** 2 +
-                                   (postman.road_y - postman.y) ** 2) ** 0.5 / total)
+                progress = 1.0 - postman.route_progress
                 expected = door_height + (road_height - door_height) * progress
             linear_scale_error = max(
                 linear_scale_error, abs(postman.figure_height - expected))
@@ -689,6 +724,8 @@ def main():
     ejection_args = parse_args([
         "--mode", "pua4", "--sky-events", "aeroplane",
         "--pilot-ejection", "--ejection-chance", "1",
+        "--aircraft-crash-depth", "toward", "--explosion-types", "nuclear",
+        "--explosion-seconds", "20",
         "--flyby-interval", "1", "--flyby-speed", "100",
         "--snow-rate", "0", "--max-flakes", "0", "--preload-seconds", "0",
     ])
@@ -698,7 +735,8 @@ def main():
     ejection_elapsed = 0.35 + ejection_travel * 0.55
     ejection_engine.step_parachutists(0.05, ejection_elapsed)
     check(len(ejection_engine.parachutists) == 1 and
-          not ejection_engine.parachutists[0].canopy_open,
+          not ejection_engine.parachutists[0].canopy_open and
+          len(ejection_engine.aircraft_crashes) == 1,
           "forced aeroplane ejection did not create a distant freefalling pilot")
     for _ in range(20):
         ejection_engine.step_parachutists(0.05, ejection_elapsed + 0.1)
@@ -713,6 +751,19 @@ def main():
     check(painted_bounds(parachute_a)[0] >= 11 and
           parachute_a.pixels != parachute_b.pixels,
           "parachute canopy was not enlarged with obvious pendulum/billow motion")
+    for _ in range(400):
+        ejection_engine.step_aircraft_crashes(0.025)
+        if ejection_engine.ground_explosions:
+            break
+    check(ejection_engine.aircraft_impact_count == 1 and
+          ejection_engine.ground_explosions[0].kind == "nuclear" and
+          ejection_engine.ground_explosions[0].duration == 20,
+          "disabled aircraft did not spin, trail and create configured impact")
+    ejection_engine.ground_explosions[0].age = 5.0
+    crash_surface = Surface(ejection_engine.width, ejection_engine.height)
+    draw_aircraft_crashes(crash_surface, ejection_engine)
+    check(sum(pixel is not None for pixel in crash_surface.pixels) > 80,
+          "persistent mushroom-cloud explosion lacks animated geometry")
 
     superman_base = [
         "--mode", "pua4", "--sky-events", "superman",
@@ -828,6 +879,15 @@ def main():
     check(len(beam_palette & {pixel[0] for pixel in beam_pixels}) >= 2 and
           len(beam_pixels) < 90,
           "UFO transporter was not sparse, animated multi-colour energy")
+    for beam_style in ("spiral", "rings", "lattice", "stargate"):
+        abduction_engine.args.ufo_beam_style = beam_style
+        styled_surface = Surface(abduction_engine.width,
+                                 abduction_engine.height)
+        draw_sky_event(styled_surface, abduction_engine, late)
+        check(any(pixel is not None and pixel[0] in beam_palette
+                  for pixel in styled_surface.pixels),
+              f"{beam_style} transporter style produced no energy geometry")
+    abduction_engine.args.ufo_beam_style = "spiral"
     opaque_scenery = Surface(abduction_engine.width, abduction_engine.height)
     opaque_scenery.rectangle(0, 0, opaque_scenery.width - 1,
                              opaque_scenery.height - 1, (8, 8, 8), 40)
@@ -1196,11 +1256,46 @@ def main():
     route_engine = SnowEngine(route_args, 360, 140)
     route_line = int(round(route_engine.scenery_ground_y))
     road_y, spurs = cabin_path_network(route_args, 360, 140, route_line)
+    doors = {index: (x, y) for index, x, y, _ in cabin_door_targets(
+        route_args, 360, 140, route_line)}
     route_surface = Surface(360, 140)
     draw_cabin_paths(route_surface, route_engine)
-    check(len(spurs) == 4 and all(points[-1][1] != road_y for _, points in spurs) and
+    check(len(spurs) == 4 and
+          all(points[-1] == doors[index] for index, points in spurs) and
+          any(len(points) == 2 for _, points in spurs) and
+          any(len(points) > 2 for _, points in spurs) and
+          all((points[0][0] < points[-1][0]) == (points[-1][0] < 180)
+              for _, points in spurs) and
           sum(pixel is not None for pixel in route_surface.pixels) > 100,
-          "shared dirt road did not connect every cabin door")
+          "perspective-split straight/curved dirt routes missed a cabin door")
+
+    horizon_args = parse_args([
+        "--mode", "pua4", "--scenery", "cabin", "--cabin-count", "5",
+        "--cabin-depth-share", "0.8", "--horizon-structure", "both",
+        "--horizon-dirt-density", "0.7", "--horizon-hut-density", "0.7",
+        "--snow-rate", "0", "--max-flakes", "0", "--preload-seconds", "0",
+    ])
+    horizon_engine = SnowEngine(horizon_args, 360, 140)
+    horizon_surface = build_scenery(
+        horizon_args, 360, 140, horizon_engine.scenery_ground_y)
+    check(sum(pixel is not None and pixel[1] <= 11
+              for pixel in horizon_surface.pixels) > 180,
+          "configured dirt horizon and receding huts lack background structure")
+
+    mass_args = parse_args([
+        "--mode", "pua4", "--initial-snow", "0.42",
+        "--shed-threshold", "0.99", "--no-tower-collapse",
+        "--snow-fallaway-threshold", "0.30",
+        "--snow-fallaway-min-seconds", "0",
+        "--snow-fallaway-max-seconds", "0",
+        "--snow-fallaway-width", "0.12", "--snow-rate", "0",
+        "--max-flakes", "0", "--preload-seconds", "0",
+    ])
+    mass_engine = SnowEngine(mass_args, 200, 100)
+    mass_engine.detect_mass_fallaways(0.05)
+    check(mass_engine.tower_collapses and
+          mass_engine.tower_collapses[0].span >= 20,
+          "height-triggered local snow countdown did not start its fall-away")
 
     hero_args = parse_args([
         "--mode", "pua4", "--sky-events", "superman",
@@ -1228,23 +1323,218 @@ def main():
         "--snow-rate", "20", "--max-flakes", "80", "--preload-seconds", "2",
     ])
     helicopter_engine = SnowEngine(helicopter_args, 320, 120)
+    initial_snow_mass = sum(helicopter_engine.depths)
+    landing_positions = {
+        round(helicopter_landing_x(
+            helicopter_args, 320, 120,
+            int(round(helicopter_engine.scenery_ground_y)), index), 2)
+        for index in range(12)
+    }
     phases = {}
+    turn_orientations = set()
+    takeoff_orientations = set()
+    departure_min_scale = 1.0
+    roof_safe_samples = []
+    event_depths = set()
+    event_zero_ground_x = set()
+    event_zero_departure_x = []
     for tick in range(1200):
         sample_elapsed = tick * 0.02
         state = current_sky_event_state(
             helicopter_args, helicopter_engine, sample_elapsed)
         if state is not None:
             phases.setdefault(state["phase"], state)
+            event_depths.add(round(state["scene_depth"], 3))
+            if (state["event_index"] == 0 and state["phase"] in
+                    ("heli_hover", "heli_descent", "heli_landed",
+                     "heli_takeoff", "heli_turn")):
+                event_zero_ground_x.add(round(state["x"], 6))
+            if state["event_index"] == 0 and state["phase"] == "heli_departure":
+                event_zero_departure_x.append(state["x"])
+            if state["phase"] == "heli_turn":
+                turn_orientations.add(state["orientation"])
+            elif state["phase"] == "heli_takeoff":
+                takeoff_orientations.add(state["orientation"])
+            elif state["phase"] == "heli_departure":
+                departure_min_scale = min(departure_min_scale, state["scale"])
+            if (state["phase"] in ("heli_turn", "heli_departure") and
+                    state["cabin_roof_y"] is not None):
+                state_unit = compact_flyby_unit(helicopter_engine, 70) * 2.30
+                roof_safe_samples.append(
+                    state["y"] + 13 * state_unit * state["scale"] <=
+                    state["cabin_roof_y"] + 0.001)
             helicopter_engine.step_helicopter(0.02, sample_elapsed)
     required_phases = {"heli_approach", "heli_hover", "heli_descent",
-                       "heli_landed", "heli_takeoff", "heli_departure"}
+                       "heli_landed", "heli_takeoff", "heli_turn",
+                       "heli_departure"}
     check(required_phases.issubset(phases) and
           phases["heli_approach"]["scale"] < phases["heli_hover"]["scale"] and
-          phases["heli_departure"]["orientation"] == 4,
+          phases["heli_departure"]["orientation"] == 12 and
+          phases["heli_turn"]["y"] < phases["heli_hover"]["y"] and
+          departure_min_scale < 0.2 and
+          len(turn_orientations) >= 10 and
+          takeoff_orientations == {0} and
+          roof_safe_samples and all(roof_safe_samples) and
+          len(event_depths) >= 3 and
+          len(event_zero_ground_x) == 1 and
+          (all(left <= right for left, right in zip(
+              event_zero_departure_x, event_zero_departure_x[1:])) or
+           all(left >= right for left, right in zip(
+              event_zero_departure_x, event_zero_departure_x[1:]))) and
+          len(landing_positions) >= 8 and
+          min(landing_positions) < 100 and max(landing_positions) > 220,
           "helicopter did not complete approach, landing, turn and rear departure")
+    helicopter_art = Surface(helicopter_engine.width, helicopter_engine.height)
+    draw_sky_event(helicopter_art, helicopter_engine,
+                   next(tick * 0.02 for tick in range(1200)
+                        if ((sample := current_sky_event_state(
+                            helicopter_args, helicopter_engine, tick * 0.02)) is not None
+                            and sample["phase"] == "heli_hover")))
+    helicopter_colours = {pixel[0] for pixel in helicopter_art.pixels
+                          if pixel is not None}
     check(helicopter_engine.supply_crates and helicopter_engine.downwash_particles and
-          helicopter_engine.downwash_snow_events > 0,
+          helicopter_engine.downwash_snow_events > 0 and
+          sum(helicopter_engine.depths) < initial_snow_mass * 0.96 and
+          ({(255, 45, 30), (60, 255, 132)} & helicopter_colours) and
+          painted_bounds(helicopter_art)[0] >= 45,
           "helicopter did not leave cargo or couple rotor downwash into the scene")
+    yaw_frames = []
+    for orientation in range(13):
+        yaw_surface = Surface(180, 112)
+        draw_ah64_helicopter(yaw_surface, helicopter_engine, 0.3, {
+            "kind": "helicopter", "x": 90, "y": 62,
+            "direction": 1, "event_index": 0, "scale": 0.8,
+            "orientation": orientation,
+        })
+        yaw_frames.append(tuple(yaw_surface.pixels))
+    check(len(set(yaw_frames)) == 13 and
+          all(sum(pixel is not None for pixel in frame) > 150
+              for frame in yaw_frames),
+          "AH-64 yaw model does not provide thirteen detailed distinct angles")
+    wash_engine = SnowEngine(helicopter_args, 320, 120)
+    landed_elapsed = next(
+        tick * 0.02 for tick in range(1200)
+        if ((sample := current_sky_event_state(
+            helicopter_args, wash_engine, tick * 0.02)) is not None and
+            sample["phase"] == "heli_landed"))
+    landed_state = current_sky_event_state(
+        helicopter_args, wash_engine, landed_elapsed)
+    wash_engine.step_helicopter(0.20, landed_elapsed)
+    wash_unit = (compact_flyby_unit(wash_engine, 70) * 2.30 *
+                 landed_state.get("scale", 1.0))
+    check(wash_engine.downwash_particles and all(
+        abs(particle.x - landed_state["x"]) > 8 * wash_unit and
+        particle.y > landed_state["y"] + 10 * wash_unit
+        for particle in wash_engine.downwash_particles),
+        "helicopter downwash still originates inside the fuselage")
+    check(helicopter_args.helicopter_downwash_width == 1.0 and
+          reindeer_apparent_height(320, 120) > 0,
+          "helicopter width/reindeer apparent-depth controls are unavailable")
+
+    # Airwolf is a true selectable event and uses the same complete cinematic
+    # state machine, but its black/red model remains distinct at all yaw angles.
+    airwolf_args = parse_args([
+        "--mode", "pua4", "--sky-events", "airwolf",
+        "--flyby-interval", "1", "--flyby-speed", "100",
+        "--helicopter-hover-seconds", "1", "--helicopter-wait-min", "2",
+        "--helicopter-wait-max", "2", "--weather", "none",
+    ])
+    airwolf_engine = SnowEngine(airwolf_args, 320, 120)
+    airwolf_phases = set()
+    airwolf_frames = []
+    for tick in range(1200):
+        state = current_sky_event_state(
+            airwolf_args, airwolf_engine, tick * 0.02)
+        if state is not None:
+            airwolf_phases.add(state["phase"])
+    for orientation in range(13):
+        yaw_surface = Surface(180, 112)
+        draw_ah64_helicopter(yaw_surface, airwolf_engine, 0.3, {
+            "kind": "airwolf", "x": 90, "y": 62,
+            "direction": 1, "event_index": 0, "scale": 0.8,
+            "orientation": orientation,
+        })
+        airwolf_frames.append(tuple(yaw_surface.pixels))
+    airwolf_colours = {pixel[0] for frame in airwolf_frames
+                       for pixel in frame if pixel is not None}
+    check(required_phases.issubset(airwolf_phases) and
+          len(set(airwolf_frames)) == 13 and
+          any(colour[0] > 150 and colour[0] > colour[1] * 1.6
+              for colour in airwolf_colours),
+          "Airwolf does not retain its distinct black/red thirteen-angle model")
+
+    # Occupied pads are rejected before descent. Once the rotor zone is live,
+    # rabbits, the postman and tumbleweed cannot cross its boundary.
+    safety_args = parse_args([
+        "--mode", "pua4", "--sky-events", "helicopter",
+        "--flyby-interval", "1", "--flyby-speed", "100",
+        "--helicopter-hover-seconds", "1", "--helicopter-wait-min", "2",
+        "--helicopter-wait-max", "2", "--scenery", "cabin",
+        "--ambient", "tumbleweed",
+        "--rabbit-count", "1", "--postman", "--postman-speed", "12",
+    ])
+    safety_engine = SnowEngine(safety_args, 320, 120)
+    proposed_pad = helicopter_landing_x(
+        safety_args, 320, 120,
+        int(round(safety_engine.scenery_ground_y)), 0)
+    safety_engine.rabbits[0].state = "hopping"
+    safety_engine.rabbits[0].x = proposed_pad
+    safety_engine.postman.state = "walking_on"
+    safety_engine.postman.x = proposed_pad + 2
+    selected_pad = safe_helicopter_landing_x(safety_args, safety_engine, 0)
+    check(abs(selected_pad - proposed_pad) >= 20,
+          "helicopter selected a landing pad beneath a rabbit or postman")
+    safety_engine.rabbits[0].x = selected_pad
+    safety_engine.postman.x = selected_pad
+    check(safe_helicopter_landing_x(safety_args, safety_engine, 0) == selected_pad,
+          "helicopter changed its committed landing position mid-event")
+    exclusion_x, exclusion_radius = 160.0, 30.0
+    safety_engine.helicopter_exclusion_active = True
+    safety_engine.helicopter_exclusion_x = exclusion_x
+    safety_engine.helicopter_exclusion_radius = exclusion_radius
+    rabbit = safety_engine.rabbits[0]
+    rabbit.x, rabbit.direction, rabbit.state = 128.0, 1, "hopping"
+    safety_engine.step_rabbits(0.5, 0.0)
+    safety_engine.postman.x = 128.0
+    safety_engine.postman.direction = 1
+    safety_engine.postman.state = "walking_on"
+    safety_engine.step_postman(0.5)
+    weed = safety_engine.tumbleweeds[0]
+    weed.x, weed.direction, weed.speed = 128.0, 1, 18.0
+    safety_engine.step_tumbleweeds(0.5, 0.0)
+    check(abs(rabbit.x - exclusion_x) >= exclusion_radius and
+          abs(safety_engine.postman.x - exclusion_x) >= exclusion_radius and
+          abs(weed.x - exclusion_x) >= exclusion_radius,
+          "a ground actor entered the landed helicopter downwash exclusion zone")
+
+    # Only a foreground impact owns terrain heat. It melts a tapered local
+    # cavity while a distant explosion leaves the accumulated bank untouched.
+    melt_args = parse_args([
+        "--mode", "pua4", "--sky-events", "none", "--weather", "none",
+        "--initial-snow", "0.25", "--explosion-seconds", "8",
+    ])
+    melt_engine = SnowEngine(melt_args, 240, 100)
+    before_melt = tuple(melt_engine.depths)
+    melt_engine.ground_explosions.append(GroundExplosion(
+        x=120, y=melt_engine.surface_y(120), kind="nuclear",
+        duration=8, scale=1.0, seed=91, foreground=True))
+    melt_engine.step_aircraft_crashes(1.0)
+    check(melt_engine.depths[120] < before_melt[120] - 5 and
+          melt_engine.depths[15] == before_melt[15],
+          "foreground aircraft explosion did not melt only its local snow")
+    hot_surface = Surface(240, 120)
+    melt_engine.ground_explosions[0].age = 2.0
+    draw_aircraft_crashes(hot_surface, melt_engine)
+    late_surface = Surface(240, 120)
+    melt_engine.ground_explosions[0].age = 7.8
+    draw_aircraft_crashes(late_surface, melt_engine)
+    hot_energy = sum(sum(pixel[0]) for pixel in hot_surface.pixels
+                     if pixel is not None)
+    late_energy = sum(sum(pixel[0]) for pixel in late_surface.pixels
+                      if pixel is not None)
+    check(hot_energy > late_energy * 3 and
+          any(pixel is not None for pixel in late_surface.pixels),
+          "apocalyptic explosion does not remain visible through a gradual fade")
 
     analyser = load_native_analyser(False)
     if analyser is not None:
@@ -1276,11 +1566,11 @@ def main():
     print("PASS: Christmas snow Square/PUA4 mappings, scenery and cell ownership")
     print("PASS: 50% accumulation triggers shedding; dense rear layers use ANSI background")
     print("PASS: live dimensions preserve bank depth; scenery stays terrain-anchored")
-    print("PASS: Honda/Leonardo trees include oak/maple; scenery snow sheds under gravity")
+    print("PASS: procedural trees, scanline-cached sway and scenery snow shedding")
     print("PASS: tumbleweed rolls physically, stops at high snow and promotes collapse")
     print("PASS: illustrated help covers every program and launcher control")
     print("PASS: aged tower collapses can cascade; live JSON and TUI argv round-trip")
-    print("PASS: six compact flybys, wind-driven kite tail and enlarged moving parachute")
+    print("PASS: seven compact flybys, wind-driven kite tail and enlarged moving parachute")
     print("PASS: sparse snow crystals and independently tapered 4.2 VPX tree trunks")
     print("PASS: rain streaks, bouncing hail and branched lightning render behind scenery")
     print("PASS: precipitation depth assignment, weather-off mode and isolated tab previews")
@@ -1291,7 +1581,8 @@ def main():
     print("PASS: Down-arrow escape sequence is not mistaken for the viewer quit key")
     print("PASS: paged live controls, in-window restart, CPU/memory and geometry-safe export")
     print("PASS: cabin path network, grouped gifts and elongated Superman geometry")
-    print("PASS: staged helicopter landing, supply crate and volumetric rotor downwash")
+    print("PASS: AH-64/Airwolf yaw, safe landing, actor exclusion and rotor downwash")
+    print("PASS: foreground crash heat melts local snow; apocalyptic impacts fade smoothly")
     if analyser is not None:
         print("PASS: optional Rust cell analyser is byte-for-byte compatible with Python")
 

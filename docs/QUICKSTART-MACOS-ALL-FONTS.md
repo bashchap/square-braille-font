@@ -93,6 +93,7 @@ passed unchanged to its Python program.
 ./scripts/macos/run-demo.sh square font-probe
 ./scripts/macos/run-demo.sh square geometry
 ./scripts/macos/run-demo.sh square snow
+./scripts/macos/run-demo.sh square christmas-snow --scenery all
 ./scripts/macos/run-demo.sh square starfield
 ./scripts/macos/run-demo.sh square trail
 ./scripts/macos/run-demo.sh square triangle --pps 6000 --hold 5
@@ -113,6 +114,7 @@ key.
 ```sh
 ./scripts/macos/run-demo.sh pua4 geometry
 ./scripts/macos/run-demo.sh pua4 snow
+./scripts/macos/run-demo.sh pua4 christmas-snow --scenery all
 ./scripts/macos/run-demo.sh pua4 starfield
 ./scripts/macos/run-demo.sh pua4 trail
 ./scripts/macos/run-demo.sh pua4 editor
@@ -127,6 +129,40 @@ key.
 ./scripts/macos/run-demo.sh pua4 voyager --camera contour --style wire
 ./scripts/macos/run-demo.sh pua4 model-viewer --start-rotating
 ```
+
+Window controls may precede the mode or follow the demo name. This starts a
+large window; the animation will continue to adapt if it is later resized:
+
+```sh
+./scripts/macos/run-demo.sh pua4 christmas-snow \
+  --terminal-columns 240 --terminal-rows 72 --font-size 8 \
+  --ambient all --accumulation-rate 1.5 --fps 5
+```
+
+The seasonal demo now uses the same error-tested, layer-aware foreground and
+background cell compositor as Voyager. `2CLR=ON` in its dashboard confirms
+that path is active; full masks remain foreground glyphs and are never encoded
+with reverse video.
+
+For live tuning, keep the snow viewport open and launch the companion console
+from a second shell:
+
+```sh
+./scripts/macos/run-demo.sh pua4 christmas-snow --listen
+./scripts/macos/run-demo.sh pua4 christmas-snow-control
+```
+
+The cursor-key TUI applies live-safe settings, labels restart-only settings,
+and saves both JSON presets and executable reproducible command scripts. Run a
+saved script from the repository root with
+`./christmas-snow-preset.command.txt` (or explicitly with
+`bash christmas-snow-preset.command.txt`). Add `--detailed-dashboard` to the
+viewer for live font-repertoire, active-mask, deduplication, two-colour-cell,
+PUA-part, process CPU, raster/encode time, frame-budget, and peak-memory graphs.
+If a saved script contains `--snapshot`, it intentionally renders one frame;
+the launcher holds that frame open. Turn snapshot OFF and save again for a
+continuous animation. See
+[`demos/seasonal/README.md`](../demos/seasonal/README.md).
 
 The Voyager live demo uses the same layer-aware two-colour compositor on
 macOS and Linux.  `2CLR=ON` in its status line confirms that the active path

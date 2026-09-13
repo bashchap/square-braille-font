@@ -1,0 +1,1296 @@
+{
+  "audit": "full-mask overshoot threshold at 8..20 point and 96 DPI",
+  "expectation": "zero black and zero nonwhite pixels inside the generated field",
+  "records": [
+    {
+      "overfill_font_units": 0,
+      "family": "PUA 4x4 Fullmask Overfill Probe 000",
+      "file": "/Users/tara/Documents/Codex/2026-07-29/i-want-you-to-create-me/github/square-braille-font/experiments/pua-4x4/output/audit/fullmask-overfill-probes/fonts/PUA4x4FullmaskOverfillProbe000.ttf",
+      "sha256": "205a1ad7db2f9f1af76e3caec777fb746cdfd5ab0be1246c2b6e296d2da75ae2",
+      "sizes": [
+        {
+          "size_points": 8,
+          "dpi": 96,
+          "dimensions": [
+            400,
+            221
+          ],
+          "black_pixels": 0,
+          "nonwhite_pixels": 8800,
+          "status": "SEAM",
+          "image": "output/audit/fullmask-overfill-probes/rasters/overfill-000-08pt-96dpi.png"
+        },
+        {
+          "size_points": 9,
+          "dpi": 96,
+          "dimensions": [
+            480,
+            241
+          ],
+          "black_pixels": 0,
+          "nonwhite_pixels": 45280,
+          "status": "SEAM",
+          "image": "output/audit/fullmask-overfill-probes/rasters/overfill-000-09pt-96dpi.png"
+        },
+        {
+          "size_points": 10,
+          "dpi": 96,
+          "dimensions": [
+            560,
+            280
+          ],
+          "black_pixels": 0,
+          "nonwhite_pixels": 80000,
+          "status": "SEAM",
+          "image": "output/audit/fullmask-overfill-probes/rasters/overfill-000-10pt-96dpi.png"
+        },
+        {
+          "size_points": 11,
+          "dpi": 96,
+          "dimensions": [
+            560,
+            300
+          ],
+          "black_pixels": 0,
+          "nonwhite_pixels": 22920,
+          "status": "SEAM",
+          "image": "output/audit/fullmask-overfill-probes/rasters/overfill-000-11pt-96dpi.png"
+        },
+        {
+          "size_points": 12,
+          "dpi": 96,
+          "dimensions": [
+            640,
+            321
+          ],
+          "black_pixels": 0,
+          "nonwhite_pixels": 61440,
+          "status": "SEAM",
+          "image": "output/audit/fullmask-overfill-probes/rasters/overfill-000-12pt-96dpi.png"
+        },
+        {
+          "size_points": 13,
+          "dpi": 96,
+          "dimensions": [
+            720,
+            360
+          ],
+          "black_pixels": 0,
+          "nonwhite_pixels": 105600,
+          "status": "SEAM",
+          "image": "output/audit/fullmask-overfill-probes/rasters/overfill-000-13pt-96dpi.png"
+        },
+        {
+          "size_points": 14,
+          "dpi": 96,
+          "dimensions": [
+            720,
+            380
+          ],
+          "black_pixels": 0,
+          "nonwhite_pixels": 29480,
+          "status": "SEAM",
+          "image": "output/audit/fullmask-overfill-probes/rasters/overfill-000-14pt-96dpi.png"
+        },
+        {
+          "size_points": 16,
+          "dpi": 96,
+          "dimensions": [
+            880,
+            441
+          ],
+          "black_pixels": 0,
+          "nonwhite_pixels": 85680,
+          "status": "SEAM",
+          "image": "output/audit/fullmask-overfill-probes/rasters/overfill-000-16pt-96dpi.png"
+        },
+        {
+          "size_points": 18,
+          "dpi": 96,
+          "dimensions": [
+            960,
+            481
+          ],
+          "black_pixels": 0,
+          "nonwhite_pixels": 93760,
+          "status": "SEAM",
+          "image": "output/audit/fullmask-overfill-probes/rasters/overfill-000-18pt-96dpi.png"
+        },
+        {
+          "size_points": 20,
+          "dpi": 96,
+          "dimensions": [
+            1040,
+            541
+          ],
+          "black_pixels": 0,
+          "nonwhite_pixels": 22880,
+          "status": "SEAM",
+          "image": "output/audit/fullmask-overfill-probes/rasters/overfill-000-20pt-96dpi.png"
+        }
+      ],
+      "all_sizes_solid_white": false
+    },
+    {
+      "overfill_font_units": 8,
+      "family": "PUA 4x4 Fullmask Overfill Probe 008",
+      "file": "/Users/tara/Documents/Codex/2026-07-29/i-want-you-to-create-me/github/square-braille-font/experiments/pua-4x4/output/audit/fullmask-overfill-probes/fonts/PUA4x4FullmaskOverfillProbe008.ttf",
+      "sha256": "19a569c5649e07ae2bbc84f9e21283b627a7ac1f8ef7580efd84f1c6d109f940",
+      "sizes": [
+        {
+          "size_points": 8,
+          "dpi": 96,
+          "dimensions": [
+            400,
+            221
+          ],
+          "black_pixels": 0,
+          "nonwhite_pixels": 8800,
+          "status": "SEAM",
+          "image": "output/audit/fullmask-overfill-probes/rasters/overfill-008-08pt-96dpi.png"
+        },
+        {
+          "size_points": 9,
+          "dpi": 96,
+          "dimensions": [
+            480,
+            241
+          ],
+          "black_pixels": 0,
+          "nonwhite_pixels": 10520,
+          "status": "SEAM",
+          "image": "output/audit/fullmask-overfill-probes/rasters/overfill-008-09pt-96dpi.png"
+        },
+        {
+          "size_points": 10,
+          "dpi": 96,
+          "dimensions": [
+            560,
+            280
+          ],
+          "black_pixels": 0,
+          "nonwhite_pixels": 60800,
+          "status": "SEAM",
+          "image": "output/audit/fullmask-overfill-probes/rasters/overfill-008-10pt-96dpi.png"
+        },
+        {
+          "size_points": 11,
+          "dpi": 96,
+          "dimensions": [
+            560,
+            300
+          ],
+          "black_pixels": 0,
+          "nonwhite_pixels": 10180,
+          "status": "SEAM",
+          "image": "output/audit/fullmask-overfill-probes/rasters/overfill-008-11pt-96dpi.png"
+        },
+        {
+          "size_points": 12,
+          "dpi": 96,
+          "dimensions": [
+            640,
+            321
+          ],
+          "black_pixels": 0,
+          "nonwhite_pixels": 14040,
+          "status": "SEAM",
+          "image": "output/audit/fullmask-overfill-probes/rasters/overfill-008-12pt-96dpi.png"
+        },
+        {
+          "size_points": 13,
+          "dpi": 96,
+          "dimensions": [
+            720,
+            360
+          ],
+          "black_pixels": 0,
+          "nonwhite_pixels": 68800,
+          "status": "SEAM",
+          "image": "output/audit/fullmask-overfill-probes/rasters/overfill-008-13pt-96dpi.png"
+        },
+        {
+          "size_points": 14,
+          "dpi": 96,
+          "dimensions": [
+            720,
+            380
+          ],
+          "black_pixels": 0,
+          "nonwhite_pixels": 13540,
+          "status": "SEAM",
+          "image": "output/audit/fullmask-overfill-probes/rasters/overfill-008-14pt-96dpi.png"
+        },
+        {
+          "size_points": 16,
+          "dpi": 96,
+          "dimensions": [
+            880,
+            441
+          ],
+          "black_pixels": 0,
+          "nonwhite_pixels": 85680,
+          "status": "SEAM",
+          "image": "output/audit/fullmask-overfill-probes/rasters/overfill-008-16pt-96dpi.png"
+        },
+        {
+          "size_points": 18,
+          "dpi": 96,
+          "dimensions": [
+            960,
+            481
+          ],
+          "black_pixels": 0,
+          "nonwhite_pixels": 17920,
+          "status": "SEAM",
+          "image": "output/audit/fullmask-overfill-probes/rasters/overfill-008-18pt-96dpi.png"
+        },
+        {
+          "size_points": 20,
+          "dpi": 96,
+          "dimensions": [
+            1040,
+            541
+          ],
+          "black_pixels": 0,
+          "nonwhite_pixels": 20780,
+          "status": "SEAM",
+          "image": "output/audit/fullmask-overfill-probes/rasters/overfill-008-20pt-96dpi.png"
+        }
+      ],
+      "all_sizes_solid_white": false
+    },
+    {
+      "overfill_font_units": 16,
+      "family": "PUA 4x4 Fullmask Overfill Probe 016",
+      "file": "/Users/tara/Documents/Codex/2026-07-29/i-want-you-to-create-me/github/square-braille-font/experiments/pua-4x4/output/audit/fullmask-overfill-probes/fonts/PUA4x4FullmaskOverfillProbe016.ttf",
+      "sha256": "da8f95fa2da9243573492a50620ab42a6d850a4244dfdcca5a754800c1b6878f",
+      "sizes": [
+        {
+          "size_points": 8,
+          "dpi": 96,
+          "dimensions": [
+            400,
+            221
+          ],
+          "black_pixels": 0,
+          "nonwhite_pixels": 7220,
+          "status": "SEAM",
+          "image": "output/audit/fullmask-overfill-probes/rasters/overfill-016-08pt-96dpi.png"
+        },
+        {
+          "size_points": 9,
+          "dpi": 96,
+          "dimensions": [
+            480,
+            241
+          ],
+          "black_pixels": 0,
+          "nonwhite_pixels": 10520,
+          "status": "SEAM",
+          "image": "output/audit/fullmask-overfill-probes/rasters/overfill-016-09pt-96dpi.png"
+        },
+        {
+          "size_points": 10,
+          "dpi": 96,
+          "dimensions": [
+            560,
+            280
+          ],
+          "black_pixels": 0,
+          "nonwhite_pixels": 22880,
+          "status": "SEAM",
+          "image": "output/audit/fullmask-overfill-probes/rasters/overfill-016-10pt-96dpi.png"
+        },
+        {
+          "size_points": 11,
+          "dpi": 96,
+          "dimensions": [
+            560,
+            300
+          ],
+          "black_pixels": 0,
+          "nonwhite_pixels": 9900,
+          "status": "SEAM",
+          "image": "output/audit/fullmask-overfill-probes/rasters/overfill-016-11pt-96dpi.png"
+        },
+        {
+          "size_points": 12,
+          "dpi": 96,
+          "dimensions": [
+            640,
+            321
+          ],
+          "black_pixels": 0,
+          "nonwhite_pixels": 1280,
+          "status": "SEAM",
+          "image": "output/audit/fullmask-overfill-probes/rasters/overfill-016-12pt-96dpi.png"
+        },
+        {
+          "size_points": 13,
+          "dpi": 96,
+          "dimensions": [
+            720,
+            360
+          ],
+          "black_pixels": 0,
+          "nonwhite_pixels": 15080,
+          "status": "SEAM",
+          "image": "output/audit/fullmask-overfill-probes/rasters/overfill-016-13pt-96dpi.png"
+        },
+        {
+          "size_points": 14,
+          "dpi": 96,
+          "dimensions": [
+            720,
+            380
+          ],
+          "black_pixels": 0,
+          "nonwhite_pixels": 380,
+          "status": "SEAM",
+          "image": "output/audit/fullmask-overfill-probes/rasters/overfill-016-14pt-96dpi.png"
+        },
+        {
+          "size_points": 16,
+          "dpi": 96,
+          "dimensions": [
+            880,
+            441
+          ],
+          "black_pixels": 0,
+          "nonwhite_pixels": 19320,
+          "status": "SEAM",
+          "image": "output/audit/fullmask-overfill-probes/rasters/overfill-016-16pt-96dpi.png"
+        },
+        {
+          "size_points": 18,
+          "dpi": 96,
+          "dimensions": [
+            960,
+            481
+          ],
+          "black_pixels": 0,
+          "nonwhite_pixels": 1920,
+          "status": "SEAM",
+          "image": "output/audit/fullmask-overfill-probes/rasters/overfill-016-18pt-96dpi.png"
+        },
+        {
+          "size_points": 20,
+          "dpi": 96,
+          "dimensions": [
+            1040,
+            541
+          ],
+          "black_pixels": 0,
+          "nonwhite_pixels": 20780,
+          "status": "SEAM",
+          "image": "output/audit/fullmask-overfill-probes/rasters/overfill-016-20pt-96dpi.png"
+        }
+      ],
+      "all_sizes_solid_white": false
+    },
+    {
+      "overfill_font_units": 24,
+      "family": "PUA 4x4 Fullmask Overfill Probe 024",
+      "file": "/Users/tara/Documents/Codex/2026-07-29/i-want-you-to-create-me/github/square-braille-font/experiments/pua-4x4/output/audit/fullmask-overfill-probes/fonts/PUA4x4FullmaskOverfillProbe024.ttf",
+      "sha256": "9bcfe3ad76e0a343dc5996a70afae1953135b7696f2722efbcccaac7e70cb2c7",
+      "sizes": [
+        {
+          "size_points": 8,
+          "dpi": 96,
+          "dimensions": [
+            400,
+            221
+          ],
+          "black_pixels": 0,
+          "nonwhite_pixels": 7020,
+          "status": "SEAM",
+          "image": "output/audit/fullmask-overfill-probes/rasters/overfill-024-08pt-96dpi.png"
+        },
+        {
+          "size_points": 9,
+          "dpi": 96,
+          "dimensions": [
+            480,
+            241
+          ],
+          "black_pixels": 0,
+          "nonwhite_pixels": 8940,
+          "status": "SEAM",
+          "image": "output/audit/fullmask-overfill-probes/rasters/overfill-024-09pt-96dpi.png"
+        },
+        {
+          "size_points": 10,
+          "dpi": 96,
+          "dimensions": [
+            560,
+            280
+          ],
+          "black_pixels": 0,
+          "nonwhite_pixels": 19720,
+          "status": "SEAM",
+          "image": "output/audit/fullmask-overfill-probes/rasters/overfill-024-10pt-96dpi.png"
+        },
+        {
+          "size_points": 11,
+          "dpi": 96,
+          "dimensions": [
+            560,
+            300
+          ],
+          "black_pixels": 0,
+          "nonwhite_pixels": 300,
+          "status": "SEAM",
+          "image": "output/audit/fullmask-overfill-probes/rasters/overfill-024-11pt-96dpi.png"
+        },
+        {
+          "size_points": 12,
+          "dpi": 96,
+          "dimensions": [
+            640,
+            321
+          ],
+          "black_pixels": 0,
+          "nonwhite_pixels": 1280,
+          "status": "SEAM",
+          "image": "output/audit/fullmask-overfill-probes/rasters/overfill-024-12pt-96dpi.png"
+        },
+        {
+          "size_points": 13,
+          "dpi": 96,
+          "dimensions": [
+            720,
+            360
+          ],
+          "black_pixels": 0,
+          "nonwhite_pixels": 13500,
+          "status": "SEAM",
+          "image": "output/audit/fullmask-overfill-probes/rasters/overfill-024-13pt-96dpi.png"
+        },
+        {
+          "size_points": 14,
+          "dpi": 96,
+          "dimensions": [
+            720,
+            380
+          ],
+          "black_pixels": 0,
+          "nonwhite_pixels": 380,
+          "status": "SEAM",
+          "image": "output/audit/fullmask-overfill-probes/rasters/overfill-024-14pt-96dpi.png"
+        },
+        {
+          "size_points": 16,
+          "dpi": 96,
+          "dimensions": [
+            880,
+            441
+          ],
+          "black_pixels": 0,
+          "nonwhite_pixels": 17740,
+          "status": "SEAM",
+          "image": "output/audit/fullmask-overfill-probes/rasters/overfill-024-16pt-96dpi.png"
+        },
+        {
+          "size_points": 18,
+          "dpi": 96,
+          "dimensions": [
+            960,
+            481
+          ],
+          "black_pixels": 0,
+          "nonwhite_pixels": 1282,
+          "status": "SEAM",
+          "image": "output/audit/fullmask-overfill-probes/rasters/overfill-024-18pt-96dpi.png"
+        },
+        {
+          "size_points": 20,
+          "dpi": 96,
+          "dimensions": [
+            1040,
+            541
+          ],
+          "black_pixels": 0,
+          "nonwhite_pixels": 2284,
+          "status": "SEAM",
+          "image": "output/audit/fullmask-overfill-probes/rasters/overfill-024-20pt-96dpi.png"
+        }
+      ],
+      "all_sizes_solid_white": false
+    },
+    {
+      "overfill_font_units": 32,
+      "family": "PUA 4x4 Fullmask Overfill Probe 032",
+      "file": "/Users/tara/Documents/Codex/2026-07-29/i-want-you-to-create-me/github/square-braille-font/experiments/pua-4x4/output/audit/fullmask-overfill-probes/fonts/PUA4x4FullmaskOverfillProbe032.ttf",
+      "sha256": "7e4f5bd70a43598cd493912bd26d81a70b65bfbaf20f9338dbe58d1fdd2608b1",
+      "sizes": [
+        {
+          "size_points": 8,
+          "dpi": 96,
+          "dimensions": [
+            400,
+            221
+          ],
+          "black_pixels": 0,
+          "nonwhite_pixels": 7020,
+          "status": "SEAM",
+          "image": "output/audit/fullmask-overfill-probes/rasters/overfill-032-08pt-96dpi.png"
+        },
+        {
+          "size_points": 9,
+          "dpi": 96,
+          "dimensions": [
+            480,
+            241
+          ],
+          "black_pixels": 0,
+          "nonwhite_pixels": 7281,
+          "status": "SEAM",
+          "image": "output/audit/fullmask-overfill-probes/rasters/overfill-032-09pt-96dpi.png"
+        },
+        {
+          "size_points": 10,
+          "dpi": 96,
+          "dimensions": [
+            560,
+            280
+          ],
+          "black_pixels": 0,
+          "nonwhite_pixels": 560,
+          "status": "SEAM",
+          "image": "output/audit/fullmask-overfill-probes/rasters/overfill-032-10pt-96dpi.png"
+        },
+        {
+          "size_points": 11,
+          "dpi": 96,
+          "dimensions": [
+            560,
+            300
+          ],
+          "black_pixels": 0,
+          "nonwhite_pixels": 300,
+          "status": "SEAM",
+          "image": "output/audit/fullmask-overfill-probes/rasters/overfill-032-11pt-96dpi.png"
+        },
+        {
+          "size_points": 12,
+          "dpi": 96,
+          "dimensions": [
+            640,
+            321
+          ],
+          "black_pixels": 0,
+          "nonwhite_pixels": 881,
+          "status": "SEAM",
+          "image": "output/audit/fullmask-overfill-probes/rasters/overfill-032-12pt-96dpi.png"
+        },
+        {
+          "size_points": 13,
+          "dpi": 96,
+          "dimensions": [
+            720,
+            360
+          ],
+          "black_pixels": 0,
+          "nonwhite_pixels": 360,
+          "status": "SEAM",
+          "image": "output/audit/fullmask-overfill-probes/rasters/overfill-032-13pt-96dpi.png"
+        },
+        {
+          "size_points": 14,
+          "dpi": 96,
+          "dimensions": [
+            720,
+            380
+          ],
+          "black_pixels": 0,
+          "nonwhite_pixels": 380,
+          "status": "SEAM",
+          "image": "output/audit/fullmask-overfill-probes/rasters/overfill-032-14pt-96dpi.png"
+        },
+        {
+          "size_points": 16,
+          "dpi": 96,
+          "dimensions": [
+            880,
+            441
+          ],
+          "black_pixels": 0,
+          "nonwhite_pixels": 17241,
+          "status": "SEAM",
+          "image": "output/audit/fullmask-overfill-probes/rasters/overfill-032-16pt-96dpi.png"
+        },
+        {
+          "size_points": 18,
+          "dpi": 96,
+          "dimensions": [
+            960,
+            481
+          ],
+          "black_pixels": 0,
+          "nonwhite_pixels": 1263,
+          "status": "SEAM",
+          "image": "output/audit/fullmask-overfill-probes/rasters/overfill-032-18pt-96dpi.png"
+        },
+        {
+          "size_points": 20,
+          "dpi": 96,
+          "dimensions": [
+            1040,
+            541
+          ],
+          "black_pixels": 0,
+          "nonwhite_pixels": 0,
+          "status": "PASS",
+          "image": "output/audit/fullmask-overfill-probes/rasters/overfill-032-20pt-96dpi.png"
+        }
+      ],
+      "all_sizes_solid_white": false
+    },
+    {
+      "overfill_font_units": 40,
+      "family": "PUA 4x4 Fullmask Overfill Probe 040",
+      "file": "/Users/tara/Documents/Codex/2026-07-29/i-want-you-to-create-me/github/square-braille-font/experiments/pua-4x4/output/audit/fullmask-overfill-probes/fonts/PUA4x4FullmaskOverfillProbe040.ttf",
+      "sha256": "04f04b246a91eef1a38f3ecccd08658862519a2d45f220f502d5949c8bb40690",
+      "sizes": [
+        {
+          "size_points": 8,
+          "dpi": 96,
+          "dimensions": [
+            400,
+            221
+          ],
+          "black_pixels": 0,
+          "nonwhite_pixels": 5519,
+          "status": "SEAM",
+          "image": "output/audit/fullmask-overfill-probes/rasters/overfill-040-08pt-96dpi.png"
+        },
+        {
+          "size_points": 9,
+          "dpi": 96,
+          "dimensions": [
+            480,
+            241
+          ],
+          "black_pixels": 0,
+          "nonwhite_pixels": 641,
+          "status": "SEAM",
+          "image": "output/audit/fullmask-overfill-probes/rasters/overfill-040-09pt-96dpi.png"
+        },
+        {
+          "size_points": 10,
+          "dpi": 96,
+          "dimensions": [
+            560,
+            280
+          ],
+          "black_pixels": 0,
+          "nonwhite_pixels": 560,
+          "status": "SEAM",
+          "image": "output/audit/fullmask-overfill-probes/rasters/overfill-040-10pt-96dpi.png"
+        },
+        {
+          "size_points": 11,
+          "dpi": 96,
+          "dimensions": [
+            560,
+            300
+          ],
+          "black_pixels": 0,
+          "nonwhite_pixels": 300,
+          "status": "SEAM",
+          "image": "output/audit/fullmask-overfill-probes/rasters/overfill-040-11pt-96dpi.png"
+        },
+        {
+          "size_points": 12,
+          "dpi": 96,
+          "dimensions": [
+            640,
+            321
+          ],
+          "black_pixels": 0,
+          "nonwhite_pixels": 783,
+          "status": "SEAM",
+          "image": "output/audit/fullmask-overfill-probes/rasters/overfill-040-12pt-96dpi.png"
+        },
+        {
+          "size_points": 13,
+          "dpi": 96,
+          "dimensions": [
+            720,
+            360
+          ],
+          "black_pixels": 0,
+          "nonwhite_pixels": 360,
+          "status": "SEAM",
+          "image": "output/audit/fullmask-overfill-probes/rasters/overfill-040-13pt-96dpi.png"
+        },
+        {
+          "size_points": 14,
+          "dpi": 96,
+          "dimensions": [
+            720,
+            380
+          ],
+          "black_pixels": 0,
+          "nonwhite_pixels": 0,
+          "status": "PASS",
+          "image": "output/audit/fullmask-overfill-probes/rasters/overfill-040-14pt-96dpi.png"
+        },
+        {
+          "size_points": 16,
+          "dpi": 96,
+          "dimensions": [
+            880,
+            441
+          ],
+          "black_pixels": 0,
+          "nonwhite_pixels": 1143,
+          "status": "SEAM",
+          "image": "output/audit/fullmask-overfill-probes/rasters/overfill-040-16pt-96dpi.png"
+        },
+        {
+          "size_points": 18,
+          "dpi": 96,
+          "dimensions": [
+            960,
+            481
+          ],
+          "black_pixels": 0,
+          "nonwhite_pixels": 0,
+          "status": "PASS",
+          "image": "output/audit/fullmask-overfill-probes/rasters/overfill-040-18pt-96dpi.png"
+        },
+        {
+          "size_points": 20,
+          "dpi": 96,
+          "dimensions": [
+            1040,
+            541
+          ],
+          "black_pixels": 0,
+          "nonwhite_pixels": 0,
+          "status": "PASS",
+          "image": "output/audit/fullmask-overfill-probes/rasters/overfill-040-20pt-96dpi.png"
+        }
+      ],
+      "all_sizes_solid_white": false
+    },
+    {
+      "overfill_font_units": 48,
+      "family": "PUA 4x4 Fullmask Overfill Probe 048",
+      "file": "/Users/tara/Documents/Codex/2026-07-29/i-want-you-to-create-me/github/square-braille-font/experiments/pua-4x4/output/audit/fullmask-overfill-probes/fonts/PUA4x4FullmaskOverfillProbe048.ttf",
+      "sha256": "50604c62a4be4b2bcfd66ea1039995ae65e5228decd1cde99a6a2ae915b62ff6",
+      "sizes": [
+        {
+          "size_points": 8,
+          "dpi": 96,
+          "dimensions": [
+            400,
+            221
+          ],
+          "black_pixels": 0,
+          "nonwhite_pixels": 541,
+          "status": "SEAM",
+          "image": "output/audit/fullmask-overfill-probes/rasters/overfill-048-08pt-96dpi.png"
+        },
+        {
+          "size_points": 9,
+          "dpi": 96,
+          "dimensions": [
+            480,
+            241
+          ],
+          "black_pixels": 0,
+          "nonwhite_pixels": 543,
+          "status": "SEAM",
+          "image": "output/audit/fullmask-overfill-probes/rasters/overfill-048-09pt-96dpi.png"
+        },
+        {
+          "size_points": 10,
+          "dpi": 96,
+          "dimensions": [
+            560,
+            280
+          ],
+          "black_pixels": 0,
+          "nonwhite_pixels": 280,
+          "status": "SEAM",
+          "image": "output/audit/fullmask-overfill-probes/rasters/overfill-048-10pt-96dpi.png"
+        },
+        {
+          "size_points": 11,
+          "dpi": 96,
+          "dimensions": [
+            560,
+            300
+          ],
+          "black_pixels": 0,
+          "nonwhite_pixels": 0,
+          "status": "PASS",
+          "image": "output/audit/fullmask-overfill-probes/rasters/overfill-048-11pt-96dpi.png"
+        },
+        {
+          "size_points": 12,
+          "dpi": 96,
+          "dimensions": [
+            640,
+            321
+          ],
+          "black_pixels": 0,
+          "nonwhite_pixels": 783,
+          "status": "SEAM",
+          "image": "output/audit/fullmask-overfill-probes/rasters/overfill-048-12pt-96dpi.png"
+        },
+        {
+          "size_points": 13,
+          "dpi": 96,
+          "dimensions": [
+            720,
+            360
+          ],
+          "black_pixels": 0,
+          "nonwhite_pixels": 360,
+          "status": "SEAM",
+          "image": "output/audit/fullmask-overfill-probes/rasters/overfill-048-13pt-96dpi.png"
+        },
+        {
+          "size_points": 14,
+          "dpi": 96,
+          "dimensions": [
+            720,
+            380
+          ],
+          "black_pixels": 0,
+          "nonwhite_pixels": 0,
+          "status": "PASS",
+          "image": "output/audit/fullmask-overfill-probes/rasters/overfill-048-14pt-96dpi.png"
+        },
+        {
+          "size_points": 16,
+          "dpi": 96,
+          "dimensions": [
+            880,
+            441
+          ],
+          "black_pixels": 0,
+          "nonwhite_pixels": 0,
+          "status": "PASS",
+          "image": "output/audit/fullmask-overfill-probes/rasters/overfill-048-16pt-96dpi.png"
+        },
+        {
+          "size_points": 18,
+          "dpi": 96,
+          "dimensions": [
+            960,
+            481
+          ],
+          "black_pixels": 0,
+          "nonwhite_pixels": 0,
+          "status": "PASS",
+          "image": "output/audit/fullmask-overfill-probes/rasters/overfill-048-18pt-96dpi.png"
+        },
+        {
+          "size_points": 20,
+          "dpi": 96,
+          "dimensions": [
+            1040,
+            541
+          ],
+          "black_pixels": 0,
+          "nonwhite_pixels": 0,
+          "status": "PASS",
+          "image": "output/audit/fullmask-overfill-probes/rasters/overfill-048-20pt-96dpi.png"
+        }
+      ],
+      "all_sizes_solid_white": false
+    },
+    {
+      "overfill_font_units": 64,
+      "family": "PUA 4x4 Fullmask Overfill Probe 064",
+      "file": "/Users/tara/Documents/Codex/2026-07-29/i-want-you-to-create-me/github/square-braille-font/experiments/pua-4x4/output/audit/fullmask-overfill-probes/fonts/PUA4x4FullmaskOverfillProbe064.ttf",
+      "sha256": "2ce21a0688e44ead02eb6bfa27e73dd4129eac0ca0e1509370177a4519953792",
+      "sizes": [
+        {
+          "size_points": 8,
+          "dpi": 96,
+          "dimensions": [
+            400,
+            221
+          ],
+          "black_pixels": 0,
+          "nonwhite_pixels": 242,
+          "status": "SEAM",
+          "image": "output/audit/fullmask-overfill-probes/rasters/overfill-064-08pt-96dpi.png"
+        },
+        {
+          "size_points": 9,
+          "dpi": 96,
+          "dimensions": [
+            480,
+            241
+          ],
+          "black_pixels": 0,
+          "nonwhite_pixels": 222,
+          "status": "SEAM",
+          "image": "output/audit/fullmask-overfill-probes/rasters/overfill-064-09pt-96dpi.png"
+        },
+        {
+          "size_points": 10,
+          "dpi": 96,
+          "dimensions": [
+            560,
+            280
+          ],
+          "black_pixels": 0,
+          "nonwhite_pixels": 280,
+          "status": "SEAM",
+          "image": "output/audit/fullmask-overfill-probes/rasters/overfill-064-10pt-96dpi.png"
+        },
+        {
+          "size_points": 11,
+          "dpi": 96,
+          "dimensions": [
+            560,
+            300
+          ],
+          "black_pixels": 0,
+          "nonwhite_pixels": 0,
+          "status": "PASS",
+          "image": "output/audit/fullmask-overfill-probes/rasters/overfill-064-11pt-96dpi.png"
+        },
+        {
+          "size_points": 12,
+          "dpi": 96,
+          "dimensions": [
+            640,
+            321
+          ],
+          "black_pixels": 0,
+          "nonwhite_pixels": 0,
+          "status": "PASS",
+          "image": "output/audit/fullmask-overfill-probes/rasters/overfill-064-12pt-96dpi.png"
+        },
+        {
+          "size_points": 13,
+          "dpi": 96,
+          "dimensions": [
+            720,
+            360
+          ],
+          "black_pixels": 0,
+          "nonwhite_pixels": 0,
+          "status": "PASS",
+          "image": "output/audit/fullmask-overfill-probes/rasters/overfill-064-13pt-96dpi.png"
+        },
+        {
+          "size_points": 14,
+          "dpi": 96,
+          "dimensions": [
+            720,
+            380
+          ],
+          "black_pixels": 0,
+          "nonwhite_pixels": 0,
+          "status": "PASS",
+          "image": "output/audit/fullmask-overfill-probes/rasters/overfill-064-14pt-96dpi.png"
+        },
+        {
+          "size_points": 16,
+          "dpi": 96,
+          "dimensions": [
+            880,
+            441
+          ],
+          "black_pixels": 0,
+          "nonwhite_pixels": 0,
+          "status": "PASS",
+          "image": "output/audit/fullmask-overfill-probes/rasters/overfill-064-16pt-96dpi.png"
+        },
+        {
+          "size_points": 18,
+          "dpi": 96,
+          "dimensions": [
+            960,
+            481
+          ],
+          "black_pixels": 0,
+          "nonwhite_pixels": 0,
+          "status": "PASS",
+          "image": "output/audit/fullmask-overfill-probes/rasters/overfill-064-18pt-96dpi.png"
+        },
+        {
+          "size_points": 20,
+          "dpi": 96,
+          "dimensions": [
+            1040,
+            541
+          ],
+          "black_pixels": 0,
+          "nonwhite_pixels": 0,
+          "status": "PASS",
+          "image": "output/audit/fullmask-overfill-probes/rasters/overfill-064-20pt-96dpi.png"
+        }
+      ],
+      "all_sizes_solid_white": false
+    },
+    {
+      "overfill_font_units": 80,
+      "family": "PUA 4x4 Fullmask Overfill Probe 080",
+      "file": "/Users/tara/Documents/Codex/2026-07-29/i-want-you-to-create-me/github/square-braille-font/experiments/pua-4x4/output/audit/fullmask-overfill-probes/fonts/PUA4x4FullmaskOverfillProbe080.ttf",
+      "sha256": "2b6160aefa351371638821558624ac4978a649e86c5a6913e0368dde7615024a",
+      "sizes": [
+        {
+          "size_points": 8,
+          "dpi": 96,
+          "dimensions": [
+            400,
+            221
+          ],
+          "black_pixels": 0,
+          "nonwhite_pixels": 242,
+          "status": "SEAM",
+          "image": "output/audit/fullmask-overfill-probes/rasters/overfill-080-08pt-96dpi.png"
+        },
+        {
+          "size_points": 9,
+          "dpi": 96,
+          "dimensions": [
+            480,
+            241
+          ],
+          "black_pixels": 0,
+          "nonwhite_pixels": 0,
+          "status": "PASS",
+          "image": "output/audit/fullmask-overfill-probes/rasters/overfill-080-09pt-96dpi.png"
+        },
+        {
+          "size_points": 10,
+          "dpi": 96,
+          "dimensions": [
+            560,
+            280
+          ],
+          "black_pixels": 0,
+          "nonwhite_pixels": 0,
+          "status": "PASS",
+          "image": "output/audit/fullmask-overfill-probes/rasters/overfill-080-10pt-96dpi.png"
+        },
+        {
+          "size_points": 11,
+          "dpi": 96,
+          "dimensions": [
+            560,
+            300
+          ],
+          "black_pixels": 0,
+          "nonwhite_pixels": 0,
+          "status": "PASS",
+          "image": "output/audit/fullmask-overfill-probes/rasters/overfill-080-11pt-96dpi.png"
+        },
+        {
+          "size_points": 12,
+          "dpi": 96,
+          "dimensions": [
+            640,
+            321
+          ],
+          "black_pixels": 0,
+          "nonwhite_pixels": 0,
+          "status": "PASS",
+          "image": "output/audit/fullmask-overfill-probes/rasters/overfill-080-12pt-96dpi.png"
+        },
+        {
+          "size_points": 13,
+          "dpi": 96,
+          "dimensions": [
+            720,
+            360
+          ],
+          "black_pixels": 0,
+          "nonwhite_pixels": 0,
+          "status": "PASS",
+          "image": "output/audit/fullmask-overfill-probes/rasters/overfill-080-13pt-96dpi.png"
+        },
+        {
+          "size_points": 14,
+          "dpi": 96,
+          "dimensions": [
+            720,
+            380
+          ],
+          "black_pixels": 0,
+          "nonwhite_pixels": 0,
+          "status": "PASS",
+          "image": "output/audit/fullmask-overfill-probes/rasters/overfill-080-14pt-96dpi.png"
+        },
+        {
+          "size_points": 16,
+          "dpi": 96,
+          "dimensions": [
+            880,
+            441
+          ],
+          "black_pixels": 0,
+          "nonwhite_pixels": 0,
+          "status": "PASS",
+          "image": "output/audit/fullmask-overfill-probes/rasters/overfill-080-16pt-96dpi.png"
+        },
+        {
+          "size_points": 18,
+          "dpi": 96,
+          "dimensions": [
+            960,
+            481
+          ],
+          "black_pixels": 0,
+          "nonwhite_pixels": 0,
+          "status": "PASS",
+          "image": "output/audit/fullmask-overfill-probes/rasters/overfill-080-18pt-96dpi.png"
+        },
+        {
+          "size_points": 20,
+          "dpi": 96,
+          "dimensions": [
+            1040,
+            541
+          ],
+          "black_pixels": 0,
+          "nonwhite_pixels": 0,
+          "status": "PASS",
+          "image": "output/audit/fullmask-overfill-probes/rasters/overfill-080-20pt-96dpi.png"
+        }
+      ],
+      "all_sizes_solid_white": false
+    },
+    {
+      "overfill_font_units": 100,
+      "family": "PUA 4x4 Fullmask Overfill Probe 100",
+      "file": "/Users/tara/Documents/Codex/2026-07-29/i-want-you-to-create-me/github/square-braille-font/experiments/pua-4x4/output/audit/fullmask-overfill-probes/fonts/PUA4x4FullmaskOverfillProbe100.ttf",
+      "sha256": "c9b8854e4ee4837b6a473009bde7540d58baa6fb4f22948451d305d0dd8be2a1",
+      "sizes": [
+        {
+          "size_points": 8,
+          "dpi": 96,
+          "dimensions": [
+            400,
+            221
+          ],
+          "black_pixels": 0,
+          "nonwhite_pixels": 0,
+          "status": "PASS",
+          "image": "output/audit/fullmask-overfill-probes/rasters/overfill-100-08pt-96dpi.png"
+        },
+        {
+          "size_points": 9,
+          "dpi": 96,
+          "dimensions": [
+            480,
+            241
+          ],
+          "black_pixels": 0,
+          "nonwhite_pixels": 0,
+          "status": "PASS",
+          "image": "output/audit/fullmask-overfill-probes/rasters/overfill-100-09pt-96dpi.png"
+        },
+        {
+          "size_points": 10,
+          "dpi": 96,
+          "dimensions": [
+            560,
+            280
+          ],
+          "black_pixels": 0,
+          "nonwhite_pixels": 0,
+          "status": "PASS",
+          "image": "output/audit/fullmask-overfill-probes/rasters/overfill-100-10pt-96dpi.png"
+        },
+        {
+          "size_points": 11,
+          "dpi": 96,
+          "dimensions": [
+            560,
+            300
+          ],
+          "black_pixels": 0,
+          "nonwhite_pixels": 0,
+          "status": "PASS",
+          "image": "output/audit/fullmask-overfill-probes/rasters/overfill-100-11pt-96dpi.png"
+        },
+        {
+          "size_points": 12,
+          "dpi": 96,
+          "dimensions": [
+            640,
+            321
+          ],
+          "black_pixels": 0,
+          "nonwhite_pixels": 0,
+          "status": "PASS",
+          "image": "output/audit/fullmask-overfill-probes/rasters/overfill-100-12pt-96dpi.png"
+        },
+        {
+          "size_points": 13,
+          "dpi": 96,
+          "dimensions": [
+            720,
+            360
+          ],
+          "black_pixels": 0,
+          "nonwhite_pixels": 0,
+          "status": "PASS",
+          "image": "output/audit/fullmask-overfill-probes/rasters/overfill-100-13pt-96dpi.png"
+        },
+        {
+          "size_points": 14,
+          "dpi": 96,
+          "dimensions": [
+            720,
+            380
+          ],
+          "black_pixels": 0,
+          "nonwhite_pixels": 0,
+          "status": "PASS",
+          "image": "output/audit/fullmask-overfill-probes/rasters/overfill-100-14pt-96dpi.png"
+        },
+        {
+          "size_points": 16,
+          "dpi": 96,
+          "dimensions": [
+            880,
+            441
+          ],
+          "black_pixels": 0,
+          "nonwhite_pixels": 0,
+          "status": "PASS",
+          "image": "output/audit/fullmask-overfill-probes/rasters/overfill-100-16pt-96dpi.png"
+        },
+        {
+          "size_points": 18,
+          "dpi": 96,
+          "dimensions": [
+            960,
+            481
+          ],
+          "black_pixels": 0,
+          "nonwhite_pixels": 0,
+          "status": "PASS",
+          "image": "output/audit/fullmask-overfill-probes/rasters/overfill-100-18pt-96dpi.png"
+        },
+        {
+          "size_points": 20,
+          "dpi": 96,
+          "dimensions": [
+            1040,
+            541
+          ],
+          "black_pixels": 0,
+          "nonwhite_pixels": 0,
+          "status": "PASS",
+          "image": "output/audit/fullmask-overfill-probes/rasters/overfill-100-20pt-96dpi.png"
+        }
+      ],
+      "all_sizes_solid_white": true
+    }
+  ]
+}

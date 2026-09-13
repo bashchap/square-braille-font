@@ -1,7 +1,7 @@
 PYTHON ?= python3
 BUILD_DIR ?= build
 
-.PHONY: all verify install linux-verify pdf pdf-verify mapping-draft mapping-draft-verify complete-pdf complete-pdf-verify evidence-pdf evidence-pdf-verify clean
+.PHONY: all verify install linux-verify pdf pdf-verify mapping-draft mapping-draft-verify complete-pdf complete-pdf-verify evidence-pdf evidence-pdf-verify math-proof v04-exact v04-exact-verify v04-hint-diagnostic v04-candidate3 v04-candidate3-verify v04-evidence-pdf v04-evidence-pdf-verify v05-candidate4 v05-candidate4-verify v06-candidate6 clean
 
 all:
 	$(PYTHON) generate_pua4x4.py --output-dir $(BUILD_DIR)
@@ -48,6 +48,43 @@ evidence-pdf:
 
 evidence-pdf-verify: evidence-pdf
 	$(PYTHON) verify_mapping_chain_evidence_pdf.py
+
+math-proof:
+	$(PYTHON) verify_mathematical_mapping.py
+
+v04-exact: math-proof
+	$(PYTHON) generate_pua4x4_v04_candidate.py
+
+v04-exact-verify: v04-exact
+	$(PYTHON) verify_pua4x4_v04_candidate.py
+	$(PYTHON) audit_horizontal_placement.py
+	$(PYTHON) verify_candidate_freetype_raster.py
+
+v04-hint-diagnostic: v04-exact-verify
+	$(PYTHON) make_v04_candidate2_hinted.py
+	$(PYTHON) verify_v04_candidate2_derivation.py
+
+v04-candidate3: v04-exact-verify
+	$(PYTHON) make_v04_candidate3_seamguard.py
+
+v04-candidate3-verify: v04-candidate3
+	$(PYTHON) verify_v04_candidate3_derivation.py
+	$(PYTHON) verify_v04_rc1_package.py
+
+v04-evidence-pdf:
+	$(PYTHON) generate_font_generation_evidence_pdf.py
+
+v04-evidence-pdf-verify: v04-evidence-pdf
+	$(PYTHON) verify_font_generation_evidence_pdf.py
+
+v05-candidate4: v04-exact-verify
+	$(PYTHON) make_v05_candidate4_strict.py
+
+v05-candidate4-verify: v05-candidate4
+	$(PYTHON) audit_candidate4_release.py
+
+v06-candidate6:
+	$(PYTHON) make_v06_candidate6_vertical_guard.py
 
 clean:
 	rm -rf -- $(BUILD_DIR)

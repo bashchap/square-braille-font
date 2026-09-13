@@ -4,8 +4,13 @@
 from __future__ import annotations
 
 import math
+from pathlib import Path
+import sys
 
 import numpy as np
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "demos"))
+from native_terminal import terminal_picture as native_terminal_picture
 
 
 BRAILLE_BITS = np.array(((0, 3), (1, 4), (2, 5), (6, 7)), dtype=np.uint8)
@@ -28,28 +33,10 @@ def pua4_codepoint(mask):
 def terminal_picture(masks, colors, mode):
     """Encode one mask/color framebuffer as terminal text and ANSI color."""
     rows, columns = masks.shape
-    lines = []
-    active = None
-    for row in range(rows):
-        pieces = []
-        for column in range(columns):
-            mask = int(masks[row, column])
-            if mask:
-                color = tuple(int(value) for value in colors[row, column])
-                if color != active:
-                    pieces.append("\x1b[38;2;%d;%d;%dm" % color)
-                    active = color
-                codepoint = 0x2800+mask if mode == 2 else pua4_codepoint(mask)
-                pieces.append(chr(codepoint))
-            else:
-                if active is not None:
-                    pieces.append("\x1b[39m")
-                    active = None
-                pieces.append(" ")
-        lines.append("".join(pieces))
-    if active is not None:
-        lines[-1] += "\x1b[39m"
-    return "\n".join(lines)
+    return native_terminal_picture(
+        masks, colors, columns, rows,
+        mapping="braille" if mode == 2 else "pua4",
+        blank_glyph=False, reset_at_end=True)
 
 
 def raster_depth(depth, points, z, rgb=None, color=None):

@@ -10,6 +10,7 @@ from christmas_snow import (
     build_scenery,
     cached_tree_pixels,
     encode_surface,
+    encode_surface_native,
     make_runtime,
     parse_args,
     render_surface,
@@ -48,7 +49,11 @@ def one_run(columns, rows, physics, frames):
         engine.elapsed = frame * dt
         surface = render_surface(background, engine)
         after_raster = time.perf_counter()
-        encode_surface(surface, codec, columns, scene_rows)
+        if engine.native_analyser is not None:
+            encode_surface_native(surface, codec, columns, scene_rows,
+                                  engine.native_analyser)
+        else:
+            encode_surface(surface, codec, columns, scene_rows)
         after_encode = time.perf_counter()
         if frame < 2:
             continue

@@ -34,7 +34,6 @@ except ImportError:  # Windows does not provide the Unix resource module.
 
 
 RESET = "\x1b[0m"
-FG_DEFAULT = "\x1b[39m"
 
 SQUARE_BITS = (
     (0, 3),
@@ -335,6 +334,10 @@ class Postman:
     handed_over: bool = False
     last_collapse_x: float = -1000000.0
     crate_id: int = -1
+    route: tuple = ()
+    route_index: int = 0
+    route_progress: float = 0.0
+    route_length: float = 1.0
 
 
 @dataclass
@@ -346,6 +349,48 @@ class Parachutist:
     timer: float
     canopy_open: bool
     phase: float
+
+
+@dataclass
+class AircraftCrash:
+    event_index: int
+    aircraft_type: str
+    direction: int
+    x: float
+    y: float
+    start_y: float
+    vx: float
+    vy: float
+    rotation: float
+    angular_velocity: float
+    scale: float
+    target_scale: float
+    target_y: float
+    depth_mode: str
+    age: float = 0.0
+
+
+@dataclass
+class CrashParticle:
+    x: float
+    y: float
+    vx: float
+    vy: float
+    ttl: float
+    maximum_ttl: float
+    kind: str
+
+
+@dataclass
+class GroundExplosion:
+    x: float
+    y: float
+    kind: str
+    duration: float
+    scale: float
+    seed: int
+    foreground: bool = False
+    age: float = 0.0
 
 
 @dataclass
@@ -409,6 +454,7 @@ class DownwashParticle:
     vy: float
     ttl: float
     maximum_ttl: float
+    depth: float = 1.0
 
 
 @dataclass
@@ -546,9 +592,10 @@ def sky_event_list(value):
     if value.strip().lower() == "none":
         return ()
     if value.strip().lower() in ("auto", "all"):
-        return ("aeroplane", "helicopter", "kite", "ufo", "santa", "superman")
-    return choice_list(value, ("aeroplane", "helicopter", "kite", "ufo", "santa",
-                               "superman"),
+        return ("aeroplane", "helicopter", "airwolf", "kite", "ufo", "santa",
+                "superman")
+    return choice_list(value, ("aeroplane", "helicopter", "airwolf", "kite", "ufo",
+                               "santa", "superman"),
                        "sky events")
 
 
@@ -563,6 +610,12 @@ def ufo_type_list(value):
         return ("saucer", "orb", "delta")
     return choice_list(value, ("saucer", "orb", "delta"),
                        "space-vehicle types")
+
+
+def explosion_type_list(value):
+    if value.strip().lower() in ("auto", "all"):
+        return ("fiery", "nuclear")
+    return choice_list(value, ("fiery", "nuclear"), "explosion types")
 
 
 def triangle(surface, centre_x, top, half_width, height, colour, priority,
@@ -809,29 +862,44 @@ def cached_tree_pixels(tree_seed, height, layer, lights, tree_type, settings,
     draw_tree(surface, rng, centre, base, height, layer, lights, tree_type,
               tree_args, sway=0.0, segment_budget=[segment_allowance])
     return tuple(
-        (index % width - centre, index // width - base, pixel)
+        (index % width - centre, index // width - base,
+         pixel[0], pixel[1])
         for index, pixel in enumerate(surface.pixels) if pixel is not None
     )
 
 
-def draw_cached_tree(surface, centre, base, height, sway, pixels):
+def draw_cached_tree(surface, centre, base, height, sway, pixels, force=False):
     """Apply cheap height-weighted sway while compositing cached geometry."""
     inverse_height = 1.0 / max(1.0, height)
     width = surface.width
+    surface_height = surface.height
     surface_pixels = surface.pixels
     column_bits = surface._column_bits
     centre = int(centre)
     base = int(base)
-    for dx, dy, (colour, priority) in pixels:
-        crown_fraction = max(0.0, min(1.0, -dy * inverse_height))
-        offset = int(round(sway * crown_fraction * crown_fraction))
+    # Geometry contains many pixels at each y. Compute the height-weighted
+    # displacement once per scanline rather than repeating min/max, multiply
+    # and round for every painted pixel. At a 303-column viewport this removes
+    # roughly one million Python operations from each scenery rebuild.
+    offsets = {}
+    for dy in range(-int(height) - 24, 9):
+        crown_fraction = -dy * inverse_height
+        if crown_fraction <= 0.0:
+            offsets[dy] = 0
+        elif crown_fraction >= 1.0:
+            offsets[dy] = int(round(sway))
+        else:
+            offsets[dy] = int(round(
+                sway * crown_fraction * crown_fraction))
+    for dx, dy, colour, priority in pixels:
+        offset = offsets.get(dy, 0)
         x = centre + dx + offset
         y = base + dy
-        if not (0 <= x < width and 0 <= y < surface.height):
+        if not (0 <= x < width and 0 <= y < surface_height):
             continue
         index = y * width + x
         current = surface_pixels[index]
-        if current is None or priority >= current[1]:
+        if force or current is None or priority >= current[1]:
             surface_pixels[index] = (colour, priority)
             column_bits[x] |= 1 << y
 
@@ -908,28 +976,94 @@ def cabin_door_targets(args, width, height, snow_line):
 
 
 def cabin_path_network(args, width, height, snow_line):
-    """Shared dirt route: one road plus a spur to every exact cabin door."""
+    """Shared dirt route with perspective-split diagonal, curved or curly spurs."""
     doors = cabin_door_targets(args, width, height, snow_line)
     road_y = min(height - 2, snow_line + max(1, int(height * 0.035)))
     spurs = []
     for cabin_index, door_x, door_y, _ in doors:
-        junction_x = max(2.0, min(width - 3.0, door_x))
-        bend_y = road_y + (door_y - road_y) * 0.42
-        spurs.append((cabin_index, ((junction_x, road_y),
-                                    (junction_x, bend_y),
-                                    (door_x, door_y))))
+        side = -1.0 if door_x < width * 0.5 else 1.0
+        if abs(door_x - width * 0.5) < 1.0:
+            side = -1.0 if cabin_index % 2 == 0 else 1.0
+        perspective = max(6.0, abs(road_y - door_y) * 0.42 + height * 0.035)
+        junction_x = max(2.0, min(width - 3.0, door_x + side * perspective))
+        requested = args.cabin_path_style
+        style = (("diagonal", "curve", "curly")[cabin_index % 3]
+                 if requested == "auto" else requested)
+        samples = 2 if style == "diagonal" else 18
+        points = []
+        control_x = (junction_x + door_x) * 0.5 - side * perspective * 0.55
+        control_y = road_y + (door_y - road_y) * 0.40
+        for sample in range(samples):
+            amount = sample / max(1, samples - 1)
+            inverse = 1.0 - amount
+            x = (inverse * inverse * junction_x +
+                 2 * inverse * amount * control_x + amount * amount * door_x)
+            y = (inverse * inverse * road_y +
+                 2 * inverse * amount * control_y + amount * amount * door_y)
+            if style == "curly":
+                envelope = math.sin(math.pi * amount)
+                x += (math.sin(amount * math.tau * 1.55 + cabin_index * 0.7) *
+                      args.cabin_path_curl * perspective * 0.42 * envelope)
+            points.append((x, y))
+        spurs.append((cabin_index, tuple(points)))
     return road_y, tuple(spurs)
 
 
-def helicopter_landing_x(args, width, height, snow_line):
-    """Choose the widest cabin gap, leaving rotor clearance at both edges."""
-    centres = sorted(item[0] for item in cabin_layout(
-        args, width, height, snow_line))
-    clearance = min(width * 0.18, 42.0)
-    boundaries = [clearance] + centres + [width - clearance]
-    gaps = [(right - left, (left + right) * 0.5)
-            for left, right in zip(boundaries, boundaries[1:])]
-    return max(gaps, default=(0.0, width * 0.5))[1]
+def helicopter_landing_x(args, width, height, snow_line, event_index=0):
+    """Choose any repeatable viewport region rather than a centre-locked pad."""
+    rng = random.Random(args.seed + 88301 + event_index * 211)
+    return rng.uniform(width * 0.14, width * 0.86)
+
+
+def safe_helicopter_landing_x(args, engine, event_index):
+    """Keep a repeatable landing point clear of live people and rabbits.
+
+    The target is chosen once at the beginning of an event. Downwash exclusion
+    prevents a late actor crossing without ever moving the committed craft.
+    """
+    # Once an event has selected a pad it must never choose again. Previously
+    # a rabbit or postman entering the exclusion test could replace this value
+    # mid-flight; the craft visibly teleported to the opposite side before its
+    # departure. The live exclusion zone now moves actors, not the aircraft.
+    if event_index in engine.helicopter_landing_targets:
+        return engine.helicopter_landing_targets[event_index]
+    proposed = helicopter_landing_x(
+        args, engine.width, engine.height,
+        int(round(engine.scenery_ground_y)), event_index)
+    blockers = [rabbit.x for rabbit in engine.rabbits
+                if rabbit.state not in ("hidden", "abducting")]
+    if engine.postman.state != "hidden":
+        blockers.append(engine.postman.x)
+    clearance = max(28.0, engine.width * 0.055)
+    if not blockers or all(abs(proposed - x) >= clearance for x in blockers):
+        chosen = proposed
+    else:
+        rng = random.Random(args.seed + 88711 + event_index * 223)
+        candidates = [proposed]
+        candidates.extend(rng.uniform(engine.width * 0.12, engine.width * 0.88)
+                          for _ in range(18))
+        chosen = max(
+            candidates,
+            key=lambda candidate: min(abs(candidate - x) for x in blockers),
+        )
+    chosen = max(engine.width * 0.10, min(engine.width * 0.90, chosen))
+    engine.helicopter_landing_targets[event_index] = chosen
+    if len(engine.helicopter_landing_targets) > 16:
+        del engine.helicopter_landing_targets[
+            min(engine.helicopter_landing_targets)]
+    return chosen
+
+
+def helicopter_landing_depth(engine, event_index):
+    """Return one persistent perspective lane for a helicopter event."""
+    if event_index not in engine.helicopter_landing_depths:
+        rng = random.Random(engine.args.seed + 89101 + event_index * 227)
+        # The range spans distant cabin paths through the foreground road.
+        engine.helicopter_landing_depths[event_index] = rng.uniform(0.38, 0.98)
+        if len(engine.helicopter_landing_depths) > 16:
+            del engine.helicopter_landing_depths[
+                min(engine.helicopter_landing_depths)]
+    return engine.helicopter_landing_depths[event_index]
 
 
 def cabin_door_rect(centre_x, base, cabin_height, cabin_type):
@@ -1014,6 +1148,15 @@ def draw_cabin(surface, centre_x, base, cabin_height, variant=0, cabin_type="cot
                      (255, 236, 157), 36)
 
 
+def reindeer_scale(width, height):
+    return max(0.70, min(1.50, (width // 140) / 3.0,
+                          (height // 48) / 3.0))
+
+
+def reindeer_apparent_height(width, height):
+    return 37.0 * reindeer_scale(width, height)
+
+
 def draw_reindeer(surface, width, height, snow_line):
     # A readable left-facing seasonal reindeer: four depth-separated legs,
     # chest/neck/head anatomy, muzzle and eye, branching antlers, scarf, spots,
@@ -1022,8 +1165,7 @@ def draw_reindeer(surface, width, height, snow_line):
     # Earlier versions reached scale 4 on large PUA canvases, occupying a
     # disproportionate third of the scene. Retain sub-pixel scaling here so
     # the same artwork is approximately one third of that linear footprint.
-    scale = max(0.70, min(1.50, (width // 140) / 3.0,
-                              (height // 48) / 3.0))
+    scale = reindeer_scale(width, height)
     x = int(width * 0.81)
     base = min(height - 1, snow_line + 2 * scale)
     body_y = base - 9 * scale
@@ -1134,17 +1276,57 @@ def gust_at(args, elapsed):
     return args.gust_strength * math.sin(math.tau * elapsed / args.gust_period)
 
 
+def draw_horizon_structure(surface, args, snow_line):
+    """Add lowEd sparse earth and miniature huts below an artificial horizon."""
+    if args.horizon_structure == "none":
+        return
+    horizon = max(1, min(snow_line - 2,
+                         int(round(surface.height * args.horizon_height))))
+    rng = random.Random(args.seed + 77177)
+    if args.horizon_structure in ("dirt", "both"):
+        colours = ((52, 42, 34), (73, 52, 37), (91, 66, 43), (43, 47, 39))
+        for y in range(horizon, snow_line):
+            depth = (y - horizon) / max(1, snow_line - horizon)
+            chance = args.horizon_dirt_density * (0.22 + depth * 0.78)
+            stride = max(1, int(3 - depth * 2))
+            for x in range((y + args.seed) % stride, surface.width, stride):
+                if rng.random() < chance:
+                    jitter = int(round(args.horizon_randomness * rng.uniform(-2, 2)))
+                    surface.pixel(x + jitter, y, colours[rng.randrange(len(colours))], 7)
+    if args.horizon_structure in ("huts", "both"):
+        count = int(round(surface.width * args.horizon_hut_density / 18.0))
+        for index in range(count):
+            local = random.Random(args.seed + 78101 + index * 101)
+            depth = local.uniform(0.08, 0.88)
+            base = horizon + depth * max(2, snow_line - horizon - 2)
+            scale = 0.20 + depth * 0.34
+            width = max(3, int(surface.height * 0.10 * scale))
+            height = max(3, int(width * local.uniform(0.72, 1.05)))
+            x = local.uniform(2, surface.width - 3)
+            x += local.uniform(-1, 1) * args.horizon_randomness * width
+            wall = ((91, 61, 43), (106, 72, 47), (78, 61, 49))[index % 3]
+            roof = ((75, 31, 43), (56, 45, 67), (72, 55, 45))[index % 3]
+            surface.rectangle(x - width, base - height,
+                              x + width, base, wall, 9)
+            filled_polygon(surface, ((x - width * 1.2, base - height),
+                                     (x, base - height * 1.65),
+                                     (x + width * 1.2, base - height)), roof, 10)
+            surface.pixel(x, base - height * 0.45, (244, 187, 72), 11)
+
+
 def build_scenery(args, width, height, ground_y, elapsed=0.0):
     """Draw scenery against immutable terrain, never the accumulating bank."""
     surface = Surface(width, height)
     rng = random.Random(args.seed + 7331)
     snow_line = max(0, min(height - 1, int(round(ground_y))))
+    draw_horizon_structure(surface, args, snow_line)
+    plans = []
+    tree_cache_context = None
     if ("trees" in args.scenery_set and args.tree_density > 0 and
             args.max_trees > 0):
         # Formula branches share a frame-wide budget. Filled conifer canopies
         # still render after it is exhausted, so extreme inputs degrade in
         # botanical detail rather than frame rate.
-        plans = []
         tree_serial = 0
         for layer, scale in enumerate((0.34, 0.44, 0.59, 0.76), start=1):
             layer_cap = args.max_trees // 4 + (layer <= args.max_trees % 4)
@@ -1173,15 +1355,35 @@ def build_scenery(args, width, height, ground_y, elapsed=0.0):
             args.tree_thickness_exponent, args.conifer_colour_variation)
         per_tree_budget = (args.tree_segment_budget // len(plans)
                            if plans else 0)
+        tree_cache_context = (settings, per_tree_budget)
         for tree_seed, centre, base, tree_height, layer, lights, tree_type, sway in plans:
             pixels = cached_tree_pixels(
                 tree_seed, int(round(tree_height)), layer, lights, tree_type,
                 settings, per_tree_budget)
             draw_cached_tree(surface, centre, base, tree_height, sway, pixels)
     if "cabin" in args.scenery_set:
-        for centre, base, cabin_height, variant, cabin_type in cabin_layout(
-                args, width, height, snow_line):
+        cabins = cabin_layout(args, width, height, snow_line)
+        for centre, base, cabin_height, variant, cabin_type in cabins:
             draw_cabin(surface, centre, base, cabin_height, variant, cabin_type)
+        # Re-composite only trees whose ground contact is visually nearer than
+        # at least one cabin. This makes depth follow base position instead of
+        # the old fixed "cabins always win" draw order.
+        if tree_cache_context:
+            settings, per_tree_budget = tree_cache_context
+            for (tree_seed, centre, base, tree_height, layer, lights,
+                 tree_type, sway) in plans:
+                occludes_cabin = any(
+                    base >= cabin_base and
+                    abs(centre - cabin_centre) <
+                    max(tree_height * 0.48, cabin_height * 1.15)
+                    for cabin_centre, cabin_base, cabin_height, _, _ in cabins)
+                if not occludes_cabin:
+                    continue
+                pixels = cached_tree_pixels(
+                    tree_seed, int(round(tree_height)), layer, lights,
+                    tree_type, settings, per_tree_budget)
+                draw_cached_tree(surface, centre, base, tree_height, sway,
+                                 pixels, force=True)
     if "reindeer" in args.scenery_set:
         draw_reindeer(surface, width, height, snow_line)
     return surface
@@ -1489,6 +1691,34 @@ def sky_event_quiet_time(args, kind):
     return args.flyby_interval
 
 
+def sky_event_slot_duration(args, kind, travel_distance):
+    """Reserve enough schedule time for every phase of one sky event."""
+    travel = travel_distance / sky_event_speed(args, kind)
+    quiet = sky_event_quiet_time(args, kind)
+    if kind in ("helicopter", "airwolf"):
+        hover = args.helicopter_hover_seconds
+        descent = max(1.0, hover * 0.72)
+        ascent = max(1.0, hover * 0.72)
+        turn = max(0.8, hover * 0.85)
+        return (travel * 0.68 + quiet + hover + descent +
+                args.helicopter_wait_max + ascent + turn)
+    if kind == "ufo" and args.ufo_abduction:
+        return travel + quiet + args.ufo_hover_seconds
+    return travel + quiet
+
+
+def highest_cabin_silhouette_y(args, width, height, snow_line):
+    """Topmost roof/chimney pixel used as a helicopter clearance plane."""
+    tops = []
+    for _, base, cabin_height, _, cabin_type in cabin_layout(
+            args, width, height, snow_line):
+        # A-frame apexes reach 1.46 cabin heights above the base. Rectangular
+        # cabins have a chimney whose top reaches 1.54 heights above the base.
+        silhouette_height = 1.46 if cabin_type == "a-frame" else 1.54
+        tops.append(base - cabin_height * silhouette_height)
+    return min(tops) if tops else None
+
+
 def current_sky_event_state(args, engine, elapsed):
     """Return flyby geometry plus phase data used by interactive events."""
     if not args.sky_events:
@@ -1499,15 +1729,8 @@ def current_sky_event_state(args, engine, elapsed):
         return None
     margin = sky_event_margin(engine)
     travel_distance = engine.width + margin * 2
-    durations = [
-        travel_distance / sky_event_speed(args, kind) +
-        sky_event_quiet_time(args, kind) +
-        (args.ufo_hover_seconds
-         if args.ufo_abduction and kind == "ufo" else 0.0) +
-        (args.helicopter_hover_seconds * 2.0 + args.helicopter_wait_max
-         if kind == "helicopter" else 0.0)
-        for kind in args.sky_events
-    ]
+    durations = [sky_event_slot_duration(args, kind, travel_distance)
+                 for kind in args.sky_events]
     rotation_duration = sum(durations)
     rotations = int(shifted / rotation_duration)
     local = shifted - rotations * rotation_duration
@@ -1544,7 +1767,7 @@ def current_sky_event_state(args, engine, elapsed):
             phase = "departure"
             phase_progress = (progress - 0.5) * 2.0
     else:
-        if local > travel_time and kind != "helicopter":
+        if local > travel_time and kind not in ("helicopter", "airwolf"):
             return None
         progress = min(1.0, local / max(0.001, travel_time))
     if ufo_encounter:
@@ -1566,10 +1789,13 @@ def current_sky_event_state(args, engine, elapsed):
         if direction < 0:
             x = engine.width - x
     if kind == "aeroplane":
+        if (engine.args.aircraft_crash and
+                event_index in engine.ejection_events):
+            return
         unit = aeroplane_flyby_unit(engine)
         minimum_y, maximum_y = 19 * unit, engine.height - 18 * unit
-    elif kind == "helicopter":
-        unit = compact_flyby_unit(engine, 70) * 1.15
+    elif kind in ("helicopter", "airwolf"):
+        unit = compact_flyby_unit(engine, 70) * 2.30
         minimum_y, maximum_y = 14 * unit, engine.height - 22 * unit
     elif kind == "kite":
         unit = compact_flyby_unit(engine, 72) * 0.72
@@ -1597,10 +1823,11 @@ def current_sky_event_state(args, engine, elapsed):
         elif args.superman_path == "arc":
             y -= math.sin(math.pi * progress) * engine.height * 0.18
         y = max(minimum_y, min(maximum_y, y))
-    elif kind == "helicopter":
+    elif kind in ("helicopter", "airwolf"):
         # A complete cinematic pass: point-like nose-on approach, hover,
-        # descent, configurable ground wait, lift, five-frame turn and rear
-        # recession.  The landing location is stable for this event.
+        # descent, configurable ground wait, vertical roof-clearance lift,
+        # thirteen-frame stationary turn and rear recession. The landing
+        # location and perspective lane are stable for this event.
         wait_rng = random.Random(args.seed + 82001 + event_index * 179)
         wait_seconds = wait_rng.uniform(args.helicopter_wait_min,
                                         args.helicopter_wait_max)
@@ -1608,59 +1835,103 @@ def current_sky_event_state(args, engine, elapsed):
         hover = args.helicopter_hover_seconds
         descent = max(1.0, hover * 0.72)
         ascent = max(1.0, hover * 0.72)
+        turn = max(0.8, hover * 0.85)
         departure = travel_time * 0.34
         boundaries = (approach, approach + hover,
                       approach + hover + descent,
                       approach + hover + descent + wait_seconds,
-                      approach + hover + descent + wait_seconds + ascent)
-        landing_x = helicopter_landing_x(
-            args, engine.width, engine.height,
-            int(round(engine.scenery_ground_y)))
+                      approach + hover + descent + wait_seconds + ascent,
+                      approach + hover + descent + wait_seconds + ascent + turn)
+        landing_x = safe_helicopter_landing_x(args, engine, event_index)
+        landing_depth = helicopter_landing_depth(engine, event_index)
+        landing_scale = 0.42 + 0.58 * landing_depth
         distant_x = landing_x - direction * engine.width * 0.16
-        sky_y = max(minimum_y, engine.height * 0.16)
-        hover_y = min(maximum_y, engine.height * 0.33)
-        ground_y = min(engine.height - 8 * unit,
-                       engine.scenery_ground_y - 7 * unit)
+        horizon_y = max(engine.height * 0.42,
+                        engine.scenery_ground_y - engine.height * 0.36)
+        ground_contact_y = (horizon_y * (1.0 - landing_depth) +
+                            engine.scenery_ground_y * landing_depth)
+        ground_y = min(engine.height - 8 * unit * landing_scale,
+                       ground_contact_y - 7 * unit * landing_scale)
+        hover_y = max(minimum_y * landing_scale,
+                      ground_y - engine.height * 0.20 * landing_scale)
+        sky_y = max(minimum_y * 0.08, hover_y - engine.height * 0.13)
+        snow_line = max(0, min(
+            engine.height - 1, int(round(engine.scenery_ground_y))))
+        cabin_roof_y = highest_cabin_silhouette_y(
+            args, engine.width, engine.height, snow_line)
+        if cabin_roof_y is None:
+            clearance_y = hover_y
+        else:
+            # Gear/stores end about twelve model units below the craft centre.
+            # Thirteen units plus raster rounding keeps the complete silhouette
+            # above every roof before yaw begins.
+            clearance_y = min(
+                hover_y,
+                cabin_roof_y - 13 * unit * landing_scale,
+            )
+            clearance_y = max(minimum_y * landing_scale, clearance_y)
         if local < boundaries[0]:
             phase = "heli_approach"
             phase_progress = local / max(0.001, approach)
             ease = phase_progress ** 2 * (3 - 2 * phase_progress)
             x = distant_x * (1 - ease) + landing_x * ease
             y = sky_y * (1 - ease) + hover_y * ease
-            scale = 0.04 + 0.96 * ease
+            scale = 0.04 + (landing_scale - 0.04) * ease
             orientation = 0
         elif local < boundaries[1]:
             phase = "heli_hover"
             phase_progress = (local - boundaries[0]) / max(0.001, hover)
-            x, y, scale, orientation = landing_x, hover_y, 1.0, 0
+            x, y, scale, orientation = landing_x, hover_y, landing_scale, 0
         elif local < boundaries[2]:
             phase = "heli_descent"
             phase_progress = (local - boundaries[1]) / max(0.001, descent)
             ease = phase_progress ** 2 * (3 - 2 * phase_progress)
-            x, y, scale = landing_x, hover_y * (1 - ease) + ground_y * ease, 1.0
+            x, y, scale = (landing_x, hover_y * (1 - ease) + ground_y * ease,
+                           landing_scale)
             orientation = 0
         elif local < boundaries[3]:
             phase = "heli_landed"
             phase_progress = (local - boundaries[2]) / max(0.001, wait_seconds)
-            x, y, scale, orientation = landing_x, ground_y, 1.0, 0
+            x, y, scale, orientation = landing_x, ground_y, landing_scale, 0
         elif local < boundaries[4]:
             phase = "heli_takeoff"
             phase_progress = (local - boundaries[3]) / max(0.001, ascent)
             ease = phase_progress ** 2 * (3 - 2 * phase_progress)
-            x, y, scale = landing_x, ground_y * (1 - ease) + hover_y * ease, 1.0
-            orientation = min(4, int(phase_progress * 5.0))
+            x, y, scale = (landing_x,
+                           ground_y * (1 - ease) + clearance_y * ease,
+                           landing_scale)
+            orientation = 0
+        elif local < boundaries[5]:
+            phase = "heli_turn"
+            phase_progress = (local - boundaries[4]) / max(0.001, turn)
+            x, y, scale = landing_x, clearance_y, landing_scale
+            orientation = min(12, int(round(phase_progress * 12.0)))
         else:
-            depart_local = local - boundaries[4]
+            depart_local = local - boundaries[5]
             if depart_local > departure:
                 return None
             phase = "heli_departure"
             phase_progress = depart_local / max(0.001, departure)
             ease = phase_progress ** 2 * (3 - 2 * phase_progress)
             x = landing_x + direction * engine.width * 0.18 * ease
-            y = hover_y * (1 - ease) + sky_y * ease
-            scale = 1.0 - 0.96 * ease
-            orientation = 4
-        progress = min(1.0, local / max(0.001, boundaries[4] + departure))
+            # Recede toward a low horizon instead of climbing into the same
+            # high lane used by ordinary flybys.
+            departure_y = min(
+                ground_y - 3 * unit * landing_scale,
+                max(hover_y + engine.height * 0.06,
+                    engine.height * 0.46))
+            scale = landing_scale * (1.0 - 0.98 * ease)
+            desired_y = clearance_y * (1 - ease) + departure_y * ease
+            if cabin_roof_y is None:
+                y = desired_y
+            else:
+                # Permit the receding craft to settle toward its low horizon,
+                # but never let its lower silhouette cross a cabin roof while
+                # it is still large enough to overlap one on screen.
+                safe_y = cabin_roof_y - 13 * unit * scale
+                y = min(desired_y, safe_y)
+            orientation = 12
+        progress = min(1.0, local / max(0.001, boundaries[5] + departure))
     else:
         y = rng.uniform(minimum_y, maximum_y)
         if kind == "kite":
@@ -1687,7 +1958,15 @@ def current_sky_event_state(args, engine, elapsed):
         "event_index": event_index, "phase": phase,
         "phase_progress": max(0.0, min(1.0, phase_progress)),
         "scale": scale,
-        "orientation": orientation if kind == "helicopter" else None,
+        "scene_depth": (landing_depth
+                         if kind in ("helicopter", "airwolf") else None),
+        "ground_contact_y": (ground_contact_y
+                             if kind in ("helicopter", "airwolf") else None),
+        "cabin_roof_y": (cabin_roof_y
+                         if kind in ("helicopter", "airwolf") else None),
+        "roof_clearance_y": (clearance_y
+                             if kind in ("helicopter", "airwolf") else None),
+        "orientation": orientation if kind in ("helicopter", "airwolf") else None,
         "aircraft_type": (
             args.aeroplane_types[event_index % len(args.aeroplane_types)]
             if kind == "aeroplane" else None),
@@ -1731,9 +2010,11 @@ def draw_lightning(surface, engine):
         y += segment_height * rng.uniform(0.72, 1.18)
         points.append((x, y))
     bolt_colour = tuple(int(205 + 50 * fraction) for _ in range(3))
-    glow_colour = (145, 190, 255)
+    edge_colour = (36, 92, 255)
+    glow_colour = (95, 205, 255)
     for left, right in zip(points, points[1:]):
-        thick_line(surface, *left, *right, 2.2, glow_colour, 57)
+        thick_line(surface, *left, *right, 4.0, edge_colour, 56)
+        thick_line(surface, *left, *right, 2.3, glow_colour, 57)
         surface.line(*left, *right, bolt_colour, 58)
     candidates = list(range(1, max(2, len(points) - 2)))
     rng.shuffle(candidates)
@@ -1745,6 +2026,10 @@ def draw_lightning(surface, engine):
         end_y = start_y + length * rng.uniform(0.55, 0.95)
         mid_x = (start_x + end_x) * 0.5 + rng.uniform(-3, 3)
         mid_y = (start_y + end_y) * 0.5
+        thick_line(surface, start_x, start_y, mid_x, mid_y,
+                   2.7, edge_colour, 56)
+        thick_line(surface, mid_x, mid_y, end_x, end_y,
+                   2.7, edge_colour, 56)
         surface.line(start_x, start_y, mid_x, mid_y, glow_colour, 57)
         surface.line(mid_x, mid_y, end_x, end_y, bolt_colour, 58)
 
@@ -1800,22 +2085,48 @@ def draw_ufo_beam(surface, engine, elapsed, event):
                     (224, 255, 249))
     segments = max(12, int(beam_depth / max(1.0, 2.8 * unit)))
     motion = int(elapsed * 14)
-    for ribbon in range(2):
-        previous = None
-        phase = elapsed * (5.2 + ribbon * 0.55) + ribbon * math.pi
-        for segment in range(segments + 1):
-            fraction = segment / segments
-            ribbon_y = top_y + beam_depth * fraction
-            span = (2.0 + 5.0 * fraction) * unit
-            ribbon_x = x + math.sin(phase + fraction * math.tau * 2.0) * span
-            if previous is not None and (segment + motion + ribbon * 2) % 5 < 2:
-                surface.line(*previous, ribbon_x, ribbon_y,
-                             beam_palette[ribbon], 53)
-            previous = (ribbon_x, ribbon_y)
+    style = engine.args.ufo_beam_style
+    if style == "spiral":
+        for ribbon in range(2):
+            previous = None
+            phase = elapsed * (5.2 + ribbon * 0.55) + ribbon * math.pi
+            for segment in range(segments + 1):
+                fraction = segment / segments
+                ribbon_y = top_y + beam_depth * fraction
+                span = (2.0 + 5.0 * fraction) * unit
+                ribbon_x = x + math.sin(
+                    phase + fraction * math.tau * 2.0) * span
+                if previous is not None and (segment + motion + ribbon * 2) % 5 < 2:
+                    surface.line(*previous, ribbon_x, ribbon_y,
+                                 beam_palette[ribbon], 53)
+                previous = (ribbon_x, ribbon_y)
+    elif style == "lattice":
+        spacing = max(5.0, 8.0 * unit)
+        offset = (elapsed * 11.0) % spacing
+        beam_y = top_y + offset
+        while beam_y < target_y:
+            fraction = (beam_y - top_y) / beam_depth
+            span = (3.0 + 6.0 * fraction) * unit
+            next_y = min(target_y, beam_y + spacing * 0.72)
+            surface.line(x - span, beam_y, x + span, next_y,
+                         beam_palette[int(beam_y) % len(beam_palette)], 53)
+            surface.line(x + span, beam_y, x - span, next_y,
+                         beam_palette[(int(beam_y) + 2) % len(beam_palette)], 53)
+            beam_y += spacing
+    elif style == "stargate":
+        for shaft in (-1, 0, 1):
+            shaft_x = x + shaft * 4.2 * unit
+            phase = int(elapsed * 18 + shaft * 2)
+            for segment in range(segments):
+                if (segment + phase) % 6 < 2:
+                    y0 = top_y + beam_depth * segment / segments
+                    y1 = top_y + beam_depth * (segment + 1) / segments
+                    surface.line(shaft_x, y0, shaft_x, y1,
+                                 beam_palette[(segment + shaft) % 5], 54)
     ring_spacing = max(6.0, beam_depth / 4.0)
     scan_y = top_y + (elapsed * 14.0) % ring_spacing
     ring_index = 0
-    while scan_y < target_y:
+    while scan_y < target_y and style in ("spiral", "rings", "stargate"):
         fraction = (scan_y - top_y) / beam_depth
         span = (3.0 + 5.0 * fraction) * unit
         colour = beam_palette[(ring_index + int(elapsed * 5)) % len(beam_palette)]
@@ -1830,6 +2141,331 @@ def draw_ufo_beam(surface, engine, elapsed, event):
         spark_x = x + spark_rng.uniform(-span, span)
         surface.pixel(spark_x, spark_y,
                       beam_palette[spark_rng.randrange(len(beam_palette))], 56)
+
+
+def draw_ah64_helicopter(surface, engine, elapsed, event):
+    """Render a yawed AH-64 or Airwolf-style craft from one production model.
+
+    The longitudinal profile, tandem canopy, nacelles, stores, gear, sensors,
+    tail and rotor are projected independently. This avoids morphing one oval
+    into the old front-view egg/side-view sausage while keeping all thirteen
+    turn frames geometrically continuous.
+    """
+    x, y = event["x"], event["y"]
+    direction = event["direction"]
+    unit = compact_flyby_unit(engine, 70) * 2.30 * event.get("scale", 1.0)
+    orientation = max(0, min(12, int(event.get("orientation", 0))))
+    airwolf = event.get("kind") == "airwolf"
+    yaw = math.pi * orientation / 12.0
+    sine, cosine = math.sin(yaw), math.cos(yaw)
+    axial = abs(cosine)
+    rear = cosine < 0
+
+    if airwolf:
+        outline = (7, 9, 11)
+        shadow = (22, 25, 28)
+        olive = (39, 42, 44)
+        olive_mid = (63, 67, 69)
+        olive_light = (155, 160, 161)
+        panel = (16, 18, 20)
+        glass = (38, 55, 62)
+        glass_light = (157, 191, 198)
+        metal = (116, 122, 124)
+    else:
+        outline = (17, 22, 18)
+        shadow = (38, 48, 29)
+        olive = (62, 76, 39)
+        olive_mid = (82, 96, 48)
+        olive_light = (116, 126, 66)
+        panel = (48, 59, 37)
+        glass = (27, 54, 61)
+        glass_light = (88, 139, 143)
+        metal = (113, 119, 105)
+
+    def project(lateral, vertical, longitudinal):
+        # A small elevation component makes the rotor a projected disc rather
+        # than two lines occupying the same row.
+        return (
+            x + direction * (lateral * cosine + longitudinal * sine) * unit,
+            y + (vertical + longitudinal * cosine * 0.045) * unit,
+        )
+
+    def profile_polygon(stations, colour, priority, inset=0.0):
+        upper = []
+        lower = []
+        for longitudinal, top, bottom, half_width in stations:
+            centre_x, centre_y = project(0, 0, longitudinal)
+            visible_half = half_width * (0.18 + 0.82 * axial) * unit
+            upper.append((centre_x - visible_half + inset,
+                          centre_y + top * unit))
+            lower.append((centre_x + visible_half - inset,
+                          centre_y + bottom * unit))
+        filled_polygon(surface, upper + list(reversed(lower)), colour, priority)
+
+    # Tail and fin remain narrow in side view, instead of being inflated to
+    # the same thickness as the crew/engine compartment.
+    profile_polygon(((-43, -4, 2, 1.6), (-35, -4, 3, 2.1),
+                     (-13, -6, 5, 4.5)), outline, 63)
+    profile_polygon(((-42, -3, 1, 1.0), (-34, -3, 2, 1.3),
+                     (-12, -5, 4, 3.4)), olive, 64)
+    tail_x, tail_y = project(0, 0, -40)
+    fin_side = max(0.18, abs(sine))
+    filled_polygon(surface, (
+        (tail_x - direction * 4 * unit * fin_side, tail_y),
+        (tail_x - direction * 2 * unit * fin_side, tail_y - 14 * unit),
+        (tail_x + direction * 4 * unit * fin_side, tail_y - 6 * unit),
+        (tail_x + direction * 5 * unit * fin_side, tail_y + 2 * unit),
+    ), outline, 65)
+    filled_polygon(surface, (
+        (tail_x - direction * 2.8 * unit * fin_side, tail_y - unit),
+        (tail_x - direction * 1.4 * unit * fin_side, tail_y - 11 * unit),
+        (tail_x + direction * 2.8 * unit * fin_side, tail_y - 5 * unit),
+        (tail_x + direction * 3.4 * unit * fin_side, tail_y + unit),
+    ), olive_mid, 66)
+
+    # Angular armoured fuselage: narrow nose, stepped cockpit, broad engines,
+    # then a compact aft taper. A dark outer pass keeps the silhouette crisp.
+    body = (((-16, -5, 5, 4.2), (-5, -8, 7, 7.4),
+             (7, -9, 7, 7.1), (17, -6, 5, 4.7),
+             (28, -1, 3, 1.5)) if airwolf else
+            ((-14, -7, 6, 5.0), (-5, -10, 8, 8.5),
+             (6, -10, 8, 8.0), (14, -7, 6, 5.0),
+             (23, -2, 4, 2.0)))
+    profile_polygon(body, outline, 65)
+    body_inner = tuple((z, top + 0.9, bottom - 0.7,
+                        max(0.8, width - 1.0))
+                       for z, top, bottom, width in body)
+    profile_polygon(body_inner, olive, 66)
+
+    # Tandem gunner/pilot canopy: the rear cockpit is taller and visibly
+    # stepped above the forward cockpit in oblique and side projections.
+    canopy = (((1, -8.1, -3.4, 5.4), (8, -12.0, -3.5, 5.1),
+               (16, -9.0, -2.9, 3.8), (23, -2.7, -1.0, 1.4))
+              if airwolf else
+              ((2, -10.1, -4.0, 5.5), (8, -13.2, -4.1, 5.0),
+               (14, -9.4, -3.3, 4.1), (20, -3.0, -1.2, 1.7)))
+    profile_polygon(canopy, outline, 67)
+    canopy_inner = tuple((z, top + 1.0, bottom - 0.8,
+                          max(0.7, width - 1.2))
+                         for z, top, bottom, width in canopy)
+    profile_polygon(canopy_inner, glass, 68)
+    rear_screen = project(0, -8.1, 7.8)
+    front_screen = project(0, -5.8, 14.2)
+    surface.line(rear_screen[0] - 4 * axial * unit, rear_screen[1],
+                 rear_screen[0] + 4 * axial * unit, rear_screen[1],
+                 glass_light, 69)
+    surface.line(front_screen[0], front_screen[1] - 3 * unit,
+                 front_screen[0], front_screen[1] + 2 * unit,
+                 glass_light, 69)
+    if abs(sine) > 0.28:
+        for longitudinal in (8.2, 14.0):
+            surface.line(*project(0, -11.0, longitudinal),
+                         *project(0, -3.5, longitudinal), outline, 70)
+        for longitudinal in (9.7, 15.7):
+            crew_x, crew_y = project(0, -5.4, longitudinal)
+            surface.pixel(crew_x, crew_y, (202, 174, 96), 70)
+
+    # Axial views otherwise collapse most longitudinal detail into the same
+    # PUA4 cells. Reassert the paired canopy panes, frames and engine mouths
+    # after projection so the nose-on AH-64 and Airwolf faces remain readable.
+    if abs(sine) < 0.24 and not rear:
+        pane_offset = 3.3 * unit
+        pane_width = 3.0 * unit
+        pane_top, pane_bottom = y - 11.0 * unit, y - 4.0 * unit
+        for side in (-1, 1):
+            pane_x = x + side * pane_offset
+            filled_polygon(surface, (
+                (pane_x - pane_width, pane_bottom),
+                (pane_x - pane_width * 0.72, pane_top),
+                (pane_x + pane_width * 0.72, pane_top),
+                (pane_x + pane_width, pane_bottom),
+            ), outline, 70)
+            filled_polygon(surface, (
+                (pane_x - pane_width * 0.66, pane_bottom - unit),
+                (pane_x - pane_width * 0.45, pane_top + unit),
+                (pane_x + pane_width * 0.45, pane_top + unit),
+                (pane_x + pane_width * 0.66, pane_bottom - unit),
+            ), glass_light if airwolf else glass, 71)
+            surface.line(pane_x - pane_width * 0.30, pane_top + 1.3 * unit,
+                         pane_x + pane_width * 0.25, pane_bottom - 1.3 * unit,
+                         glass_light, 72)
+        surface.line(x, pane_top - unit, x, pane_bottom + unit, outline, 72)
+
+    # Twin engine nacelles remain visually separate from the central fuselage.
+    for lateral in (-9.5, 9.5):
+        engine_x, engine_y = project(lateral, -5.5, -2)
+        if abs(sine) < 0.35:
+            nacelle_width = (3.6 + 2.7 * axial) * unit
+            filled_ellipse(surface, engine_x, engine_y,
+                           nacelle_width, 4.4 * unit, outline, 68)
+            filled_ellipse(surface, engine_x, engine_y,
+                           max(unit, nacelle_width - unit), 3.2 * unit,
+                           shadow if rear else olive_mid, 69)
+        else:
+            housing = (
+                project(lateral, -9.1, -7),
+                project(lateral, -9.1, 4),
+                project(lateral, -2.2, 5.5),
+                project(lateral, -1.5, -6),
+            )
+            filled_polygon(surface, housing, outline, 68)
+            inner = (
+                project(lateral, -8.0, -6),
+                project(lateral, -8.0, 3),
+                project(lateral, -3.0, 4.2),
+                project(lateral, -2.6, -5),
+            )
+            filled_polygon(surface, inner,
+                           shadow if rear else olive_mid, 69)
+        intake_x, intake_y = project(lateral, -5.6, 2.1)
+        filled_ellipse(surface, intake_x, intake_y,
+                       max(unit, 2.5 * axial * unit), 2.2 * unit,
+                       shadow, 70)
+
+    if abs(sine) < 0.24 and not rear:
+        for side in (-1, 1):
+            intake_x = x + side * 9.5 * unit
+            filled_ellipse(surface, intake_x, y - 4.8 * unit,
+                           3.0 * unit, 3.7 * unit, outline, 72)
+            filled_ellipse(surface, intake_x, y - 4.8 * unit,
+                           1.8 * unit, 2.5 * unit, panel, 73)
+        filled_ellipse(surface, x, y + 0.8 * unit,
+                       2.8 * unit, 2.2 * unit, outline, 73)
+        surface.pixel(x - unit, y + 0.5 * unit, glass_light, 74)
+        surface.pixel(x + unit, y + 0.5 * unit, glass_light, 74)
+
+    # Stub wings, four pylons, rocket pods and Hellfire-like rails.
+    wing_left = project(-21, 1.5, -1)
+    wing_right = project(21, 1.5, -1)
+    thick_line(surface, *wing_left, *wing_right,
+               max(1.4, 2.8 * unit), outline, 68)
+    surface.line(*project(-20, 0.7, -1), *project(20, 0.7, -1),
+                 olive_light, 69)
+    if airwolf and abs(sine) > 0.18:
+        # The supplied Airwolf reference is defined by a near-black body and
+        # one continuous red lower accent from tail boom to pointed nose.
+        surface.line(*project(0, 2.3, -39), *project(0, 2.8, 25),
+                     (210, 34, 39), 72)
+        surface.line(*project(0, 1.2, -36), *project(0, 1.7, 21),
+                     (238, 82, 72), 73)
+    for lateral in (-20, -14, 14, 20):
+        pylon_top = project(lateral, 2.0, -1)
+        pylon_bottom = project(lateral, 6.4, -1)
+        thick_line(surface, *pylon_top, *pylon_bottom,
+                   max(1.0, 1.2 * unit), outline, 69)
+        store_x, store_y = pylon_bottom
+        if abs(lateral) > 17:
+            filled_ellipse(surface, store_x, store_y,
+                           3.0 * unit, 2.3 * unit, outline, 70)
+            filled_ellipse(surface, store_x, store_y,
+                           2.1 * unit, 1.5 * unit, panel, 71)
+            for port in (-1, 0, 1):
+                surface.pixel(store_x + port * unit, store_y,
+                              metal, 72)
+        else:
+            surface.line(store_x - 2.4 * unit, store_y,
+                         store_x + 2.4 * unit, store_y,
+                         olive_light, 71)
+            surface.line(store_x - 2.0 * unit, store_y + unit,
+                         store_x + 2.0 * unit, store_y + unit,
+                         outline, 71)
+
+    # Nose sensor, chin turret and articulated 30 mm chain gun.
+    sensor_x, sensor_y = project(0, 1.3, 23)
+    filled_ellipse(surface, sensor_x, sensor_y,
+                   (2.4 + axial * 1.3) * unit, 2.8 * unit, outline, 70)
+    filled_ellipse(surface, sensor_x, sensor_y,
+                   (1.4 + axial) * unit, 1.8 * unit, shadow, 71)
+    gun_x, gun_y = project(0, 5.2, 16)
+    filled_ellipse(surface, gun_x, gun_y, 2.2 * unit, 2.0 * unit,
+                   outline, 71)
+    gun_tip = project(0, 8.8, 20)
+    thick_line(surface, gun_x, gun_y, *gun_tip,
+               max(1.0, 1.1 * unit), metal, 72)
+
+    # Three-point landing gear is visibly independent from the fuselage.
+    for lateral, longitudinal in ((-7, -5), (7, -5), (0, 14)):
+        gear_top = project(lateral, 5.0, longitudinal)
+        gear_bottom = project(lateral, 11.2, longitudinal)
+        surface.line(*gear_top, *gear_bottom, outline, 70)
+        wheel_x, wheel_y = gear_bottom
+        filled_ellipse(surface, wheel_x, wheel_y,
+                       1.6 * unit, 1.2 * unit, outline, 71)
+
+    # Panel breaks and a tail-rotor disc add readable mechanical detail in the
+    # oblique/side views without turning the axial silhouette back into a blob.
+    if abs(sine) > 0.24:
+        surface.line(*project(0, -2, -10), *project(0, 3, 11), panel, 70)
+        surface.line(*project(0, 2, -32), *project(0, 2, -17), olive_light, 68)
+        tail_radius = (1.2 + 5.5 * abs(sine)) * unit
+        rotor_phase = elapsed * 19.0
+        for blade in range(4):
+            angle = rotor_phase + blade * math.pi / 2
+            surface.line(tail_x, tail_y - 4 * unit,
+                         tail_x + math.cos(angle) * tail_radius,
+                         tail_y - 4 * unit + math.sin(angle) * tail_radius,
+                         outline, 72)
+        filled_ellipse(surface, tail_x, tail_y - 4 * unit,
+                       1.2 * unit, 1.2 * unit, metal, 73)
+
+    # Mast, Longbow radar and four tapered rotor blades. Each blade is a filled
+    # projected quadrilateral, so rotation reads as a disc instead of an X.
+    mast_bottom = project(0, -10, -1)
+    mast_top = project(0, -17, -1)
+    thick_line(surface, *mast_bottom, *mast_top,
+               max(1.0, 1.8 * unit), metal, 72)
+    rotor_phase = elapsed * 12.0 + 0.55
+    hub_x, hub_y = mast_top
+    for blade in range(4):
+        angle = rotor_phase + blade * math.pi / 2
+        root = 3.0
+        span = 38.0
+        root_lateral = math.cos(angle) * root
+        root_longitudinal = -1 + math.sin(angle) * root
+        tip_lateral = math.cos(angle) * span
+        tip_longitudinal = -1 + math.sin(angle) * span
+        root_point = (
+            x + direction * (root_lateral * cosine +
+                             root_longitudinal * sine) * unit,
+            y + (-17 + root_longitudinal * cosine * 0.20) * unit,
+        )
+        tip_point = (
+            x + direction * (tip_lateral * cosine +
+                             tip_longitudinal * sine) * unit,
+            y + (-17 + tip_longitudinal * cosine * 0.20) * unit,
+        )
+        vx, vy = tip_point[0] - root_point[0], tip_point[1] - root_point[1]
+        length = max(0.001, math.hypot(vx, vy))
+        nx, ny = -vy / length, vx / length
+        root_half, tip_half = 1.30 * unit, 0.42 * unit
+        filled_polygon(surface, (
+            (root_point[0] + nx * root_half, root_point[1] + ny * root_half),
+            (tip_point[0] + nx * tip_half, tip_point[1] + ny * tip_half),
+            (tip_point[0] - nx * tip_half, tip_point[1] - ny * tip_half),
+            (root_point[0] - nx * root_half, root_point[1] - ny * root_half),
+        ), shadow if airwolf else olive_mid, 73)
+        surface.line(*root_point,
+                     root_point[0] + vx * 0.62,
+                     root_point[1] + vy * 0.62, olive_light, 74)
+    filled_ellipse(surface, hub_x, hub_y, 2.4 * unit, 1.8 * unit,
+                   metal, 75)
+    radar_x, radar_y = project(0, -21, -1)
+    if airwolf:
+        filled_ellipse(surface, radar_x, radar_y,
+                       2.5 * unit, 1.4 * unit, outline, 74)
+        filled_ellipse(surface, radar_x, radar_y,
+                       1.5 * unit, 0.8 * unit, metal, 75)
+    else:
+        filled_ellipse(surface, radar_x, radar_y,
+                       5.0 * unit, 2.2 * unit, outline, 74)
+        filled_ellipse(surface, radar_x, radar_y,
+                       4.0 * unit, 1.4 * unit, olive_mid, 75)
+
+    warning = ((255, 45, 30) if int(elapsed * 5) % 2 else (60, 255, 132))
+    for lateral in (-21, 21):
+        light_x, light_y = project(lateral, 0.2, -1)
+        filled_ellipse(surface, light_x, light_y,
+                       max(0.8, unit), max(0.8, unit), warning, 76)
 
 
 def draw_sky_event(surface, engine, elapsed, include_beam=True):
@@ -1857,6 +2493,8 @@ def draw_sky_event(surface, engine, elapsed, include_beam=True):
     kind = event["kind"]
     x, y = event["x"], event["y"]
     direction, event_index = event["direction"], event["event_index"]
+    if kind == "aeroplane" and event_index in engine.ejection_events:
+        return
 
     def point(dx, dy):
         return x + direction * dx, y + dy
@@ -1939,71 +2577,8 @@ def draw_sky_event(surface, engine, elapsed, include_beam=True):
                                  (trail - 1) * unit)
             surface.line(start_x, start_y, end_x, end_y,
                          (143, 164, 180), 54)
-    elif kind == "helicopter":
-        unit = compact_flyby_unit(engine, 70) * 1.15 * event.get("scale", 1.0)
-        olive, olive_light = (69, 91, 40), (126, 146, 65)
-        dark, glass, glass_light = (25, 31, 26), (31, 58, 66), (82, 128, 133)
-        orientation = event.get("orientation", 0)
-        rotor_span = (32 + 4 * abs(math.sin(elapsed * 15.0))) * unit
-        if orientation in (0, 4):
-            # Detailed axial views: broad rotor, paired intakes, segmented
-            # canopy and landing gear. Rear view substitutes the tail housing.
-            rear = orientation == 4
-            filled_ellipse(surface, x, y, 13 * unit, 10 * unit, olive, 66)
-            filled_polygon(surface, (
-                (x - 8 * unit, y - 6 * unit), (x + 8 * unit, y - 6 * unit),
-                (x + 6 * unit, y + 3 * unit), (x - 6 * unit, y + 3 * unit),
-            ), dark if rear else glass, 68)
-            if not rear:
-                surface.line(x, y - 6 * unit, x, y + 3 * unit,
-                             glass_light, 69)
-                filled_ellipse(surface, x - 9 * unit, y - 4 * unit,
-                               3 * unit, 3 * unit, dark, 69)
-                filled_ellipse(surface, x + 9 * unit, y - 4 * unit,
-                               3 * unit, 3 * unit, dark, 69)
-                surface.rectangle(x - 2 * unit, y + unit,
-                                  x + 2 * unit, y + 7 * unit,
-                                  olive_light, 69)
-            else:
-                filled_ellipse(surface, x, y - 2 * unit,
-                               4 * unit, 4 * unit, dark, 69)
-                thick_line(surface, x, y - 7 * unit, x, y - 16 * unit,
-                           max(1.0, unit * 2), olive, 67)
-            surface.line(x - 17 * unit, y + 2 * unit,
-                         x + 17 * unit, y + 2 * unit, olive_light, 67)
-            surface.line(x - 14 * unit, y + 2 * unit,
-                         x - 17 * unit, y + 7 * unit, dark, 69)
-            surface.line(x + 14 * unit, y + 2 * unit,
-                         x + 17 * unit, y + 7 * unit, dark, 69)
-            surface.line(x - 9 * unit, y + 10 * unit,
-                         x + 9 * unit, y + 10 * unit, dark, 70)
-        else:
-            # Three intermediate turn frames interpolate the boom and cabin,
-            # avoiding a single-frame snap from head-on to profile.
-            side = orientation / 4.0
-            tail = 18 + 17 * side
-            thick_line(surface, *point(-7 * unit, unit),
-                       *point(-tail * unit, -2 * unit), 5 * unit,
-                       olive, 64)
-            surface.line(*point(-tail * unit, -9 * unit),
-                         *point(-tail * unit, 6 * unit), dark, 68)
-            filled_ellipse(surface, x + direction * 4 * unit, y,
-                           (13 + 3 * side) * unit, 9 * unit, olive, 66)
-            filled_polygon(surface, [point(dx * unit, dy * unit) for dx, dy in (
-                (4, -7), (16, -4), (17, 3), (5, 6),
-            )], glass, 68)
-            surface.line(*point(-10 * unit, 10 * unit),
-                         *point(16 * unit, 10 * unit), dark, 70)
-            tail_x, tail_y = point(-tail * unit, -2 * unit)
-            tail_radius = 7 * unit
-            surface.line(tail_x - tail_radius, tail_y,
-                         tail_x + tail_radius, tail_y, dark, 69)
-            surface.line(tail_x, tail_y - tail_radius,
-                         tail_x, tail_y + tail_radius, dark, 69)
-        surface.line(x - rotor_span, y - 12 * unit,
-                     x + rotor_span, y - 12 * unit, dark, 71)
-        thick_line(surface, x, y - 11 * unit, x, y - 6 * unit,
-                   max(1.0, unit), dark, 70)
+    elif kind in ("helicopter", "airwolf"):
+        draw_ah64_helicopter(surface, engine, elapsed, event)
     elif kind == "kite":
         unit = compact_flyby_unit(engine, 72) * 0.72
         red, gold, blue, dark = ((235, 52, 68), (255, 198, 55),
@@ -2355,6 +2930,150 @@ def draw_parachutists(surface, engine):
                      x + 2 * scale + swing, y + 5 * scale, body, 59)
 
 
+def draw_aircraft_crashes(surface, engine):
+    """Draw spinning disabled aircraft, layered fire/smoke and impacts."""
+    for particle in engine.crash_particles:
+        fraction = max(0.0, particle.ttl / particle.maximum_ttl)
+        if particle.kind == "fire":
+            colour = (255, int(70 + 150 * fraction), 18)
+            radius = 0.8 + 2.2 * fraction
+        else:
+            shade = int(42 + 92 * fraction)
+            colour = (shade, shade, min(150, shade + 13))
+            radius = 1.2 + 4.0 * (1.0 - fraction)
+        filled_ellipse(surface, particle.x, particle.y, radius, radius * 0.72,
+                       colour, 58 if particle.kind == "smoke" else 60)
+
+    for crash in engine.aircraft_crashes:
+        unit = aeroplane_flyby_unit(engine) * max(0.12, crash.scale)
+        cosine, sine = math.cos(crash.rotation), math.sin(crash.rotation)
+
+        def point(dx, dy):
+            dx *= crash.direction
+            return (crash.x + (dx * cosine - dy * sine) * unit,
+                    crash.y + (dx * sine + dy * cosine) * unit)
+
+        body = (220, 226, 218)
+        shade = (110, 128, 137)
+        accent = (215, 55, 42)
+        filled_polygon(surface, [point(dx, dy) for dx, dy in (
+            (-30, -3), (20, -4), (31, 0), (20, 4), (-30, 3),
+        )], body, 62)
+        filled_polygon(surface, [point(dx, dy) for dx, dy in (
+            (-5, -2), (-20, -16), (-8, -17), (11, -2),
+        )], accent, 63)
+        filled_polygon(surface, [point(dx, dy) for dx, dy in (
+            (-3, 2), (-18, 15), (-5, 16), (13, 2),
+        )], shade, 61)
+        filled_polygon(surface, [point(dx, dy) for dx, dy in (
+            (-25, -2), (-30, -14), (-22, -14), (-13, -2),
+        )], accent, 64)
+        flame_base = point(-31, 0)
+        flame_tip = point(-43 - 5 * math.sin(engine.elapsed * 17), 0)
+        thick_line(surface, *flame_base, *flame_tip,
+                   max(1.0, 4 * unit), (255, 67, 18), 63)
+        surface.line(*point(-31, 0), *point(-40, 0), (255, 231, 74), 64)
+
+    for explosion in engine.ground_explosions:
+        fraction = min(1.0, explosion.age / max(0.001, explosion.duration))
+        scale = max(0.2, explosion.scale)
+        rng = random.Random(explosion.seed + int(explosion.age * 12))
+        fade_progress = max(0.0, min(1.0, (fraction - 0.62) / 0.38))
+        fade = 1.0 - fade_progress * fade_progress * (3.0 - 2.0 * fade_progress)
+
+        def faded(colour, floor=0.04):
+            strength = floor + (1.0 - floor) * fade
+            return tuple(int(channel * strength) for channel in colour)
+
+        if explosion.kind == "nuclear":
+            flash = max(0.0, 1.0 - fraction * 8.0)
+            if flash > 0:
+                filled_ellipse(surface, explosion.x, explosion.y,
+                               (8 + 36 * (1 - flash)) * scale,
+                               (5 + 21 * (1 - flash)) * scale,
+                               (255, 248, 206), 66)
+            rise = min(1.0, fraction * 2.9)
+            pulse = 1.0 + 0.07 * math.sin(explosion.age * 7.0)
+            stem_height = (12 + 58 * rise) * scale
+            stem_width = (3 + 8 * rise) * scale
+            # Ground fireball and lateral shock front establish the huge hot
+            # base before the stem/cap rise above it.
+            ground_radius = (12 + 48 * rise) * scale
+            for lobe in range(18):
+                angle = math.tau * lobe / 18
+                distance = ground_radius * rng.uniform(0.20, 0.92)
+                palette = ((255, 30, 8), (255, 79, 8), (255, 151, 17),
+                           (255, 225, 63))
+                filled_ellipse(
+                    surface,
+                    explosion.x + math.cos(angle) * distance,
+                    explosion.y - abs(math.sin(angle)) * distance * 0.25,
+                    ground_radius * rng.uniform(0.09, 0.21),
+                    ground_radius * rng.uniform(0.05, 0.13),
+                    faded(palette[lobe % len(palette)]), 63)
+            ring_radius = ground_radius * (0.65 + 0.55 * fraction)
+            surface.line(explosion.x - ring_radius, explosion.y + scale,
+                         explosion.x + ring_radius, explosion.y + scale,
+                         faded((255, 190, 44)), 64)
+            surface.rectangle(explosion.x - stem_width,
+                              explosion.y - stem_height,
+                              explosion.x + stem_width, explosion.y,
+                              faded((218, 44, 12)), 63)
+            surface.rectangle(explosion.x - stem_width * 0.52,
+                              explosion.y - stem_height,
+                              explosion.x + stem_width * 0.52, explosion.y,
+                              faded((255, 151, 19)), 64)
+            surface.rectangle(explosion.x - stem_width * 0.20,
+                              explosion.y - stem_height,
+                              explosion.x + stem_width * 0.20, explosion.y,
+                              faded((255, 240, 128)), 65)
+            cap_y = explosion.y - stem_height
+            cap_width = (14 + 54 * rise) * scale * pulse
+            hot_palette = ((198, 20, 9), (255, 48, 8), (255, 103, 10),
+                           (255, 174, 28), (255, 229, 85))
+            for lobe in range(23):
+                angle = math.tau * lobe / 23
+                lx = explosion.x + math.cos(angle) * cap_width * 0.62
+                ly = cap_y + math.sin(angle) * cap_width * 0.25
+                filled_ellipse(surface, lx, ly,
+                               cap_width * rng.uniform(0.18, 0.32),
+                               cap_width * rng.uniform(0.12, 0.24),
+                               faded(hot_palette[lobe % len(hot_palette)]), 64)
+            filled_ellipse(surface, explosion.x, cap_y,
+                           cap_width * 0.72, cap_width * 0.29,
+                           faded((255, 65, 8)), 65)
+            filled_ellipse(surface, explosion.x, cap_y - cap_width * 0.06,
+                           cap_width * 0.50, cap_width * 0.19,
+                           faded((255, 166, 23)), 66)
+            filled_ellipse(surface, explosion.x, cap_y - cap_width * 0.10,
+                           cap_width * 0.25, cap_width * 0.10,
+                           faded((255, 247, 168)), 67)
+            for ember in range(16):
+                ex = explosion.x + rng.uniform(-cap_width, cap_width)
+                ey = cap_y + rng.uniform(-cap_width * 0.38, stem_height * 0.72)
+                surface.pixel(ex, ey,
+                              faded(hot_palette[(ember + 2) % len(hot_palette)]),
+                              68)
+        else:
+            expansion = min(1.0, fraction * 4.0)
+            radius = (7 + 38 * expansion) * scale
+            for lobe in range(24):
+                angle = math.tau * lobe / 24 + fraction * 2.0
+                distance = radius * rng.uniform(0.15, 0.78)
+                colour = ((255, 242, 126), (255, 201, 42), (255, 111, 13),
+                          (238, 42, 12), (128, 22, 18))[lobe % 5]
+                filled_ellipse(
+                    surface,
+                    explosion.x + math.cos(angle) * distance,
+                    explosion.y - abs(math.sin(angle)) * distance * 0.72,
+                    radius * rng.uniform(0.12, 0.27),
+                    radius * rng.uniform(0.09, 0.20), faded(colour), 64)
+            filled_ellipse(surface, explosion.x,
+                           explosion.y - radius * 0.30,
+                           radius * 0.34, radius * 0.28,
+                           faded((255, 235, 112)), 66)
+
+
 def draw_plough(surface, engine):
     plough = engine.plough
     if not plough.active:
@@ -2481,6 +3200,11 @@ class SnowEngine:
         self.parachutists = []
         self.ejection_events = set()
         self.pilot_ejection_count = 0
+        self.aircraft_crashes = []
+        self.crash_particles = []
+        self.crash_particle_credit = 0.0
+        self.ground_explosions = []
+        self.aircraft_impact_count = 0
         self.present_drops = []
         self.present_drop_keys = set()
         self.present_delivery_count = 0
@@ -2489,12 +3213,11 @@ class SnowEngine:
         self.supply_crates = []
         self.crate_debris = []
         self.helicopter_crate_events = set()
-        self.downwash_particles = []
-        self.downwash_credit = 0.0
-        self.downwash_snow_events = 0
-        self.supply_crates = []
-        self.crate_debris = []
-        self.helicopter_crate_events = set()
+        self.helicopter_landing_targets = {}
+        self.helicopter_landing_depths = {}
+        self.helicopter_exclusion_active = False
+        self.helicopter_exclusion_x = 0.0
+        self.helicopter_exclusion_radius = 0.0
         self.downwash_particles = []
         self.downwash_credit = 0.0
         self.downwash_snow_events = 0
@@ -2515,6 +3238,7 @@ class SnowEngine:
         self.shed_count = 0
         self.shed_cooldown = 0.0
         self.tower_ages = [0.0] * width
+        self.mass_fallaway_ages = [0.0] * width
         self.tower_collapses = []
         self.tower_collapse_count = 0
         self.rabbits = []
@@ -2540,6 +3264,11 @@ class SnowEngine:
         self.telemetry_cpu = time.process_time()
         self.cpu_percent = 0.0
         self.render_ms = 0.0
+        self.pipeline_ms = 0.0
+        self.present_ms = 0.0
+        self.frame_output_bytes = 0
+        self.frame_overruns = 0
+        self.maximum_frame_lag_ms = 0.0
         self.dashboard_tab = 0
         self.glyphs_seen = set()
 
@@ -2550,10 +3279,12 @@ class SnowEngine:
         old_width, old_height = self.width, self.height
         old_depths = self.depths
         old_tower_ages = self.tower_ages
+        old_mass_ages = self.mass_fallaway_ages
         scale_x = width / old_width
         scale_y = height / old_height
         depths = []
         tower_ages = []
+        mass_ages = []
         for x in range(width):
             source = (x + 0.5) * old_width / width - 0.5
             left = max(0, min(old_width - 1, int(math.floor(source))))
@@ -2563,6 +3294,8 @@ class SnowEngine:
             depths.append(min(height * 0.86, value * scale_y))
             tower_ages.append(old_tower_ages[left] * (1.0 - fraction) +
                               old_tower_ages[right] * fraction)
+            mass_ages.append(old_mass_ages[left] * (1.0 - fraction) +
+                             old_mass_ages[right] * fraction)
         for flake in self.flakes:
             flake.x *= scale_x
             flake.y *= scale_y
@@ -2589,6 +3322,20 @@ class SnowEngine:
             pilot.y *= scale_y
             pilot.vx *= scale_x
             pilot.vy *= scale_y
+        for crash in self.aircraft_crashes:
+            crash.x *= scale_x
+            crash.y *= scale_y
+            crash.vx *= scale_x
+            crash.vy *= scale_y
+            crash.target_y *= scale_y
+        for particle in self.crash_particles:
+            particle.x *= scale_x
+            particle.y *= scale_y
+            particle.vx *= scale_x
+            particle.vy *= scale_y
+        for explosion in self.ground_explosions:
+            explosion.x *= scale_x
+            explosion.y *= scale_y
         for present in self.present_drops:
             present.x *= scale_x
             present.y *= scale_y
@@ -2629,6 +3376,9 @@ class SnowEngine:
         self.postman.door_y *= scale_y
         self.postman.road_x *= scale_x
         self.postman.road_y *= scale_y
+        self.postman.route = tuple((x * scale_x, y * scale_y)
+                                   for x, y in self.postman.route)
+        self.postman.route_length *= math.hypot(scale_x, scale_y) / math.sqrt(2.0)
         if self.postman.last_collapse_x > -100000:
             self.postman.last_collapse_x *= scale_x
         self.postman.figure_height *= scale_y
@@ -2637,6 +3387,12 @@ class SnowEngine:
         self.ufo_target_x_by_event = {
             key: value * scale_x for key, value in self.ufo_target_x_by_event.items()
         }
+        self.helicopter_landing_targets = {
+            key: value * scale_x
+            for key, value in self.helicopter_landing_targets.items()
+        }
+        self.helicopter_exclusion_x *= scale_x
+        self.helicopter_exclusion_radius *= scale_x
         self.width = width
         self.height = height
         self.plough.path_y = self.height * (1.0 - self.args.plough_clear_to) - 1
@@ -2644,6 +3400,7 @@ class SnowEngine:
             self.plough.y = self.plough.path_y
         self.depths = depths
         self.tower_ages = tower_ages
+        self.mass_fallaway_ages = mass_ages
         self.shedding = None
         self.tower_collapses = []
         self.scenery_surfaces = [[] for _ in range(width)]
@@ -2899,6 +3656,44 @@ class SnowEngine:
             if not self.collapse_near(x, exclusion):
                 self.begin_tower_collapse(x)
 
+    def mass_fallaway_deadline(self, x):
+        mixed = (self.args.seed * 2246822519 + x * 3266489917) & 0xFFFFFFFF
+        fraction = mixed / 0xFFFFFFFF
+        return (self.args.snow_fallaway_min_seconds +
+                (self.args.snow_fallaway_max_seconds -
+                 self.args.snow_fallaway_min_seconds) * fraction)
+
+    def detect_mass_fallaways(self, dt):
+        """Count down sustained local mass, then release that complete area."""
+        threshold = self.args.snow_fallaway_threshold
+        if not self.args.accumulate or threshold <= 0:
+            self.mass_fallaway_ages = [0.0] * self.width
+            return
+        candidates = []
+        sample_step = max(1, int(self.width * 0.008))
+        for x in range(0, self.width, sample_step):
+            if self.depths[x] / self.height >= threshold:
+                self.mass_fallaway_ages[x] += dt
+                if self.mass_fallaway_ages[x] >= self.mass_fallaway_deadline(x):
+                    candidates.append((self.mass_fallaway_ages[x], x))
+            else:
+                self.mass_fallaway_ages[x] = 0.0
+        span = max(3, int(self.width * self.args.snow_fallaway_width))
+        for _, centre in sorted(candidates, reverse=True):
+            if len(self.tower_collapses) >= 8 or self.collapse_near(centre, span):
+                continue
+            shoulder = max(span, int(self.width * 0.035))
+            target = min(
+                self.depths[centre],
+                (self.depths[(centre - shoulder) % self.width] +
+                 self.depths[(centre + shoulder) % self.width]) * 0.25,
+                self.height * threshold * 0.58)
+            self.tower_collapses.append(
+                BankCollapse(centre, span, max(0.0, target), generation=3))
+            self.tower_collapse_count += 1
+            for offset in range(-span * 2, span * 2 + 1):
+                self.mass_fallaway_ages[(centre + offset) % self.width] = 0.0
+
     def step_tower_collapses(self, dt):
         survivors = []
         completed = []
@@ -3038,6 +3833,14 @@ class SnowEngine:
             proposed_x = weed.x + weed.direction * speed * dt
             track = self.width + weed.radius * 4
             proposed_x = ((proposed_x + weed.radius * 2) % track) - weed.radius * 2
+            if (self.helicopter_exclusion_active and
+                    abs(proposed_x - self.helicopter_exclusion_x) <
+                    self.helicopter_exclusion_radius + weed.radius):
+                weed.direction = (-1 if weed.x <= self.helicopter_exclusion_x
+                                  else 1)
+                weed.blocked_time = 0.0
+                weed.vertical_speed = 0.0
+                continue
             current_support = self.surface_y(weed.x) - weed.radius
             next_support = self.surface_y(proposed_x) - weed.radius
             if not self.physics.ground_enabled:
@@ -3129,8 +3932,10 @@ class SnowEngine:
     def step_helicopter(self, dt, elapsed):
         """Create landed cargo and couple rotor energy into air and loose snow."""
         state = current_sky_event_state(self.args, self, elapsed)
-        active = state is not None and state["kind"] == "helicopter"
+        active = (state is not None and
+                  state["kind"] in ("helicopter", "airwolf"))
         intensity = 0.0
+        self.helicopter_exclusion_active = False
         if active:
             phase = state["phase"]
             intensity = {
@@ -3139,6 +3944,7 @@ class SnowEngine:
                 "heli_descent": 0.45 + state["phase_progress"] * 0.55,
                 "heli_landed": 1.0,
                 "heli_takeoff": 1.0 - state["phase_progress"] * 0.58,
+                "heli_turn": 0.30,
                 "heli_departure": 0.18,
             }.get(phase, 0.0) * self.args.helicopter_downwash
             if (phase == "heli_landed" and state["phase_progress"] >= 0.34 and
@@ -3146,39 +3952,102 @@ class SnowEngine:
                 self.helicopter_crate_events.add(state["event_index"])
                 snow_line = max(0, min(
                     self.height - 1, int(round(self.scenery_ground_y))))
-                ground_y, _ = cabin_path_network(
+                road_y, _ = cabin_path_network(
                     self.args, self.width, self.height, snow_line)
                 self.supply_crates.append(SupplyCrate(
                     crate_id=state["event_index"],
                     x=state["x"] + state["direction"] * 17,
-                    y=ground_y))
+                    y=state.get("ground_contact_y", road_y)))
                 self.supply_crates = self.supply_crates[-8:]
 
-            radius = max(10.0, min(self.width * 0.18,
-                                   34.0 * state.get("scale", 1.0)))
+            radius = max(10.0, min(
+                self.width * 0.42,
+                34.0 * state.get("scale", 1.0) *
+                self.args.helicopter_downwash_width))
+            if phase in ("heli_hover", "heli_descent", "heli_landed",
+                         "heli_takeoff"):
+                # A landed rotor disc is a hard dynamic exclusion zone. The
+                # site was selected clear of people/rabbits; this guard keeps
+                # all ground actors from walking or rolling back underneath.
+                self.helicopter_exclusion_active = True
+                self.helicopter_exclusion_x = state["x"]
+                self.helicopter_exclusion_radius = max(22.0, radius * 0.82)
+                for rabbit in self.rabbits:
+                    if (rabbit.state not in ("hidden", "abducting") and
+                            abs(rabbit.x - state["x"]) <
+                            self.helicopter_exclusion_radius):
+                        rabbit.direction = -1 if rabbit.x <= state["x"] else 1
+                        rabbit.x = (state["x"] + rabbit.direction *
+                                    self.helicopter_exclusion_radius)
+                        rabbit.state = "startled"
+                        rabbit.timer = max(rabbit.timer, 1.4)
+                if (self.postman.state != "hidden" and
+                        abs(self.postman.x - state["x"]) <
+                        self.helicopter_exclusion_radius):
+                    side = -1 if self.postman.x <= state["x"] else 1
+                    self.postman.x = (state["x"] + side *
+                                      self.helicopter_exclusion_radius)
+                for weed in self.tumbleweeds:
+                    limit = self.helicopter_exclusion_radius + weed.radius
+                    if abs(weed.x - state["x"]) < limit:
+                        weed.direction = -1 if weed.x <= state["x"] else 1
+                        weed.x = state["x"] + weed.direction * limit
             # Airborne precipitation is pushed radially away and slightly up.
             if intensity > 0.02:
                 for particle in self.flakes:
                     dx = particle.x - state["x"]
                     dy = particle.y - state["y"]
                     distance = math.hypot(dx, dy)
-                    if 0.5 < distance < radius * 1.8:
-                        coupling = (1.0 - distance / (radius * 1.8)) * intensity
-                        particle.x += dx / distance * coupling * 28.0 * dt
-                        particle.y -= coupling * 10.0 * dt
+                    if 0.5 < distance < radius * 2.4:
+                        coupling = (1.0 - distance / (radius * 2.4)) * intensity
+                        particle.x += dx / distance * coupling * 58.0 * dt
+                        particle.y -= coupling * 24.0 * dt
+                        particle.drift += dx / distance * coupling * 3.5
+                for chunk in self.chunks:
+                    dx = chunk.x - state["x"]
+                    distance = abs(dx)
+                    if distance < radius * 1.5:
+                        coupling = (1.0 - distance / (radius * 1.5)) * intensity
+                        chunk.drift += (1 if dx >= 0 else -1) * coupling * 18.0
+                        chunk.speed += coupling * 9.0
+                retained = []
+                for patch in self.resting_snow:
+                    dx = patch.x - state["x"]
+                    if abs(dx) < radius * 1.25 and intensity > 0.35:
+                        self.chunks.append(FallingChunk(
+                            x=patch.x, y=patch.y,
+                            speed=self.args.fall_speed * self.rng.uniform(0.8, 1.5),
+                            drift=(1 if dx >= 0 else -1) *
+                                  self.rng.uniform(8.0, 24.0) * intensity,
+                            shape=patch.shape, colour=patch.colour))
+                    else:
+                        retained.append(patch)
+                self.resting_snow = retained
                 self.downwash_credit += dt * 46.0 * intensity
                 count = min(18, int(self.downwash_credit))
                 self.downwash_credit -= count
                 for _ in range(count):
                     angle = self.rng.uniform(0.12, math.pi - 0.12)
                     speed = self.rng.uniform(16.0, 42.0) * intensity
+                    visual_unit = (compact_flyby_unit(self, 70) * 2.30 *
+                                   state.get("scale", 1.0))
+                    # Begin below and outside the fuselage silhouette. The
+                    # rotor stream used to be emitted at (x,y+4..10), which
+                    # visibly painted snow through the centre of the craft.
+                    side = self.rng.choice((-1, 1))
+                    inner = max(10.5 * visual_unit, radius * 0.22)
+                    outer = max(inner + 1.0, radius * 0.72)
+                    outward = ((0.45 + 0.55 * abs(math.cos(angle))) *
+                               speed * side)
                     self.downwash_particles.append(DownwashParticle(
-                        x=state["x"] + self.rng.uniform(-4, 4),
-                        y=state["y"] + self.rng.uniform(4, 10),
-                        vx=math.cos(angle) * speed,
+                        x=state["x"] + side * self.rng.uniform(inner, outer),
+                        y=state["y"] + self.rng.uniform(
+                            11.5, 15.5) * visual_unit,
+                        vx=outward,
                         vy=abs(math.sin(angle)) * speed * 0.45,
                         ttl=self.rng.uniform(0.55, 1.35),
-                        maximum_ttl=1.35))
+                        maximum_ttl=1.35,
+                        depth=state.get("scene_depth", 1.0)))
                 # Near-ground downwash scours a shallow bowl and ejects snow.
                 if phase in ("heli_descent", "heli_landed", "heli_takeoff"):
                     centre = int(round(state["x"]))
@@ -3187,7 +4056,7 @@ class SnowEngine:
                         index = max(0, min(self.width - 1, centre + offset))
                         taper = max(0.0, 1.0 - abs(offset) / span)
                         removed = min(self.depths[index],
-                                      dt * intensity * taper * 1.6)
+                                      dt * intensity * taper * 8.5)
                         self.depths[index] -= removed
                     self.downwash_snow_events += 1
         else:
@@ -3346,7 +4215,16 @@ class SnowEngine:
             pace = (self.args.rabbit_speed * parallax *
                     (1.85 if rabbit.state == "startled" else 1.0))
             if rabbit.state != "eating":
-                rabbit.x += rabbit.direction * pace * dt
+                proposed_x = rabbit.x + rabbit.direction * pace * dt
+                if (self.helicopter_exclusion_active and
+                        abs(proposed_x - self.helicopter_exclusion_x) <
+                        self.helicopter_exclusion_radius):
+                    rabbit.direction = (-1 if rabbit.x <=
+                                        self.helicopter_exclusion_x else 1)
+                    rabbit.state = "startled"
+                    rabbit.timer = max(rabbit.timer, 1.2)
+                else:
+                    rabbit.x = proposed_x
                 rabbit.phase += dt * (7.5 if rabbit.state == "startled" else 5.0)
             if int(rabbit.phase / math.tau) > old_cycle and rabbit.state == "hopping":
                 rabbit.hops_before_pause -= 1
@@ -3418,7 +4296,7 @@ class SnowEngine:
             self.height - 1, int(round(self.scenery_ground_y))))
         targets = cabin_door_targets(
             self.args, self.width, self.height, snow_line)
-        path_road_y, _ = cabin_path_network(
+        path_road_y, path_spurs = cabin_path_network(
             self.args, self.width, self.height, snow_line)
         if not enabled or not targets:
             postman.state = "hidden"
@@ -3444,14 +4322,23 @@ class SnowEngine:
             postman.door_figure_height = min(
                 postman.road_figure_height, door_height * 0.88)
             postman.figure_height = postman.road_figure_height
-            postman.road_x = (door_x - postman.direction * max(
-                4.0, postman.figure_height * 0.72))
-            postman.road_y = path_road_y
+            route = next(points for index, points in path_spurs
+                         if index == cabin_index)
+            postman.route = route
+            postman.route_index = 0
+            postman.route_progress = 0.0
+            postman.road_x, postman.road_y = route[0]
             postman.target_x = postman.road_x
             # A distant cabin's actual elevated door is the destination. The
             # road remains on the foreground terrain, producing a genuinely
             # long perspective walk and continuous scale change.
             postman.door_y = min(postman.road_y - 2.0, door_bottom)
+            if postman.route:
+                postman.route = (*postman.route[:-1],
+                                 (postman.door_x, postman.door_y))
+            postman.route_length = max(1.0, sum(
+                math.hypot(right[0] - left[0], right[1] - left[1])
+                for left, right in zip(postman.route, postman.route[1:])))
             postman.phase = 0.0
             postman.turn_progress = 0.0
             postman.handed_over = False
@@ -3507,6 +4394,8 @@ class SnowEngine:
                 1.0, postman.turn_progress + dt / turn_seconds)
             if postman.turn_progress >= 1.0:
                 postman.state = "approaching"
+                postman.route_index = min(1, len(postman.route) - 1)
+                postman.route_progress = 0.0
                 postman.phase = 0.0
             return
 
@@ -3523,14 +4412,13 @@ class SnowEngine:
                 -1.0, postman.turn_progress - dt / (turn_seconds * 1.35))
             if postman.turn_progress <= -1.0:
                 postman.state = "returning"
+                postman.route_index = max(0, len(postman.route) - 2)
+                postman.route_progress = 1.0
                 postman.phase = 0.0
             return
 
         if postman.state in ("approaching", "returning"):
-            destination_x = (postman.door_x if postman.state == "approaching"
-                             else postman.road_x)
-            destination_y = (postman.door_y if postman.state == "approaching"
-                             else postman.road_y)
+            destination_x, destination_y = postman.route[postman.route_index]
             dx, dy = destination_x - postman.x, destination_y - postman.y
             distance = math.hypot(dx, dy)
             speed = self.args.postman_speed * (
@@ -3540,35 +4428,44 @@ class SnowEngine:
             if distance <= max(0.25, movement):
                 postman.x, postman.y = destination_x, destination_y
                 if postman.state == "approaching":
-                    postman.figure_height = postman.door_figure_height
-                    postman.state = "posting"
-                    postman.timer = max(
-                        0.65, min(1.2, self.args.postman_stop_seconds * 0.25))
-                    postman.phase = 0.0
+                    if postman.route_index < len(postman.route) - 1:
+                        postman.route_index += 1
+                    else:
+                        postman.figure_height = postman.door_figure_height
+                        postman.state = "posting"
+                        postman.timer = max(
+                            0.65, min(1.2, self.args.postman_stop_seconds * 0.25))
+                        postman.phase = 0.0
                 else:
-                    postman.figure_height = postman.road_figure_height
-                    postman.state = "turning_out"
-                    postman.turn_progress = -1.0
+                    if postman.route_index > 0:
+                        postman.route_index -= 1
+                    else:
+                        postman.figure_height = postman.road_figure_height
+                        postman.state = "turning_out"
+                        postman.turn_progress = -1.0
                 return
-            postman.x += dx / distance * movement
-            postman.y += dy / distance * movement
+            proposed_x = postman.x + dx / distance * movement
+            proposed_y = postman.y + dy / distance * movement
+            if (self.helicopter_exclusion_active and
+                    abs(proposed_x - self.helicopter_exclusion_x) <
+                    self.helicopter_exclusion_radius):
+                return
+            postman.x = proposed_x
+            postman.y = proposed_y
             if postman.state == "approaching":
                 self.collapse_postman_path(postman)
-            total_distance = max(0.001, math.hypot(
-                postman.door_x - postman.road_x,
-                postman.door_y - postman.road_y))
             if postman.state == "approaching":
-                progress = 1.0 - math.hypot(
-                    postman.door_x - postman.x,
-                    postman.door_y - postman.y) / total_distance
+                postman.route_progress = min(
+                    1.0, postman.route_progress + movement / postman.route_length)
+                progress = postman.route_progress
                 start_height = postman.road_figure_height
                 end_height = postman.door_figure_height
             else:
-                progress = 1.0 - math.hypot(
-                    postman.road_x - postman.x,
-                    postman.road_y - postman.y) / total_distance
-                start_height = postman.door_figure_height
-                end_height = postman.road_figure_height
+                postman.route_progress = max(
+                    0.0, postman.route_progress - movement / postman.route_length)
+                progress = postman.route_progress
+                start_height = postman.road_figure_height
+                end_height = postman.door_figure_height
             progress = max(0.0, min(1.0, progress))
             postman.figure_height = (
                 start_height + (end_height - start_height) * progress)
@@ -3593,7 +4490,12 @@ class SnowEngine:
             return
 
         old_x = postman.x
-        postman.x += postman.direction * self.args.postman_speed * dt
+        proposed_x = postman.x + postman.direction * self.args.postman_speed * dt
+        if (self.helicopter_exclusion_active and
+                abs(proposed_x - self.helicopter_exclusion_x) <
+                self.helicopter_exclusion_radius):
+            return
+        postman.x = proposed_x
         postman.y = path_road_y
         postman.phase += dt * self.args.postman_speed * 0.62
         if postman.state in ("walking_to", "walking_to_crate"):
@@ -3755,6 +4657,109 @@ class SnowEngine:
             canopy_open=False, phase=0.0,
         ))
         self.pilot_ejection_count += 1
+        if self.args.aircraft_crash:
+            depth_mode = self.args.aircraft_crash_depth
+            if depth_mode == "auto":
+                depth_mode = event_rng.choice(("away", "toward"))
+            target_y = (self.height * event_rng.uniform(0.48, 0.62)
+                        if depth_mode == "away" else
+                        self.surface_y(state["x"]) - 1.0)
+            self.aircraft_crashes.append(AircraftCrash(
+                event_index=state["event_index"],
+                aircraft_type=state.get("aircraft_type") or "commuter",
+                direction=state["direction"],
+                x=state["x"], y=state["y"], start_y=state["y"],
+                vx=state["direction"] * self.args.flyby_speed * 0.48,
+                vy=-self.args.aircraft_crash_descent *
+                   self.args.aircraft_crash_arc,
+                rotation=0.0,
+                angular_velocity=(state["direction"] * math.tau *
+                                  self.args.aircraft_crash_spin),
+                scale=1.0,
+                target_scale=0.22 if depth_mode == "away" else 1.75,
+                target_y=target_y, depth_mode=depth_mode,
+            ))
+
+    def step_aircraft_crashes(self, dt):
+        """Advance disabled aircraft, persistent trails and ground impacts."""
+        survivors = []
+        for crash in self.aircraft_crashes:
+            crash.age += dt
+            crash.vy += self.args.aircraft_crash_descent * 1.28 * dt
+            crash.vx *= max(0.0, 1.0 - dt * 0.12)
+            crash.x += crash.vx * dt
+            crash.y += crash.vy * dt
+            crash.rotation += crash.angular_velocity * dt
+            progress = max(0.0, min(
+                1.0, (crash.y - crash.start_y) /
+                max(1.0, crash.target_y - crash.start_y)))
+            ease = progress * progress * (3.0 - 2.0 * progress)
+            crash.scale = 1.0 + (crash.target_scale - 1.0) * ease
+            self.crash_particle_credit += (
+                dt * 28.0 * self.args.aircraft_crash_smoke)
+            count = min(10, int(self.crash_particle_credit))
+            self.crash_particle_credit -= count
+            for index in range(count):
+                maximum = self.rng.uniform(1.4, 4.8)
+                self.crash_particles.append(CrashParticle(
+                    x=crash.x - crash.vx * dt * self.rng.uniform(1.0, 3.2),
+                    y=crash.y + self.rng.uniform(-2.0, 2.0) * crash.scale,
+                    vx=-crash.vx * self.rng.uniform(0.02, 0.08) +
+                       self.rng.uniform(-2.5, 2.5),
+                    vy=self.rng.uniform(-4.0, 1.0), ttl=maximum,
+                    maximum_ttl=maximum,
+                    kind="fire" if index % 4 == 0 else "smoke",
+                ))
+            if crash.y >= crash.target_y:
+                explosion_kind = self.args.explosion_types[
+                    crash.event_index % len(self.args.explosion_types)]
+                self.ground_explosions.append(GroundExplosion(
+                    x=crash.x, y=crash.target_y, kind=explosion_kind,
+                    duration=self.args.explosion_seconds,
+                    scale=self.args.explosion_size * crash.scale,
+                    seed=self.args.seed + crash.event_index * 991,
+                    foreground=crash.depth_mode == "toward",
+                ))
+                self.aircraft_impact_count += 1
+            elif -100 < crash.x < self.width + 100:
+                survivors.append(crash)
+        self.aircraft_crashes = survivors
+
+        particles = []
+        for particle in self.crash_particles:
+            particle.ttl -= dt
+            particle.x += particle.vx * dt
+            particle.y += particle.vy * dt
+            particle.vy -= 1.4 * dt
+            particle.vx *= max(0.0, 1.0 - dt * 0.25)
+            if particle.ttl > 0:
+                particles.append(particle)
+        self.crash_particles = particles[-900:]
+        explosions = []
+        for explosion in self.ground_explosions:
+            explosion.age += dt
+            if explosion.age < explosion.duration:
+                if explosion.foreground and self.physics.ground_enabled:
+                    fraction = explosion.age / max(0.001, explosion.duration)
+                    heat = max(0.0, 1.0 - fraction) ** 0.55
+                    base_radius = 52.0 if explosion.kind == "nuclear" else 32.0
+                    radius = max(7, int(base_radius * explosion.scale *
+                                        (0.45 + 0.55 * min(1.0, fraction * 4))))
+                    centre = int(round(explosion.x))
+                    for x in range(max(0, centre - radius),
+                                   min(self.width, centre + radius + 1)):
+                        taper = max(0.0, 1.0 - abs(x - centre) / radius)
+                        melt = dt * (15.0 if explosion.kind == "nuclear" else 9.0)
+                        self.depths[x] = max(
+                            0.0, self.depths[x] - melt * heat * taper)
+                        self.tower_ages[x] = 0.0
+                        self.mass_fallaway_ages[x] = 0.0
+                    self.resting_snow = [
+                        patch for patch in self.resting_snow
+                        if abs(patch.x - explosion.x) >= radius
+                    ]
+                explosions.append(explosion)
+        self.ground_explosions = explosions[-12:]
 
     def step_plough(self, dt):
         if not self.args.snow_plough:
@@ -3864,18 +4869,21 @@ class SnowEngine:
 
         self.shed_cooldown = max(0.0, self.shed_cooldown - dt)
         self.step_plough(dt)
+        # Establish the live rotor exclusion before any ground actor advances.
+        self.step_helicopter(dt, elapsed)
         self.step_tumbleweeds(dt, elapsed)
         self.step_santa_trail(dt, elapsed)
         self.step_ufo_trail(dt, elapsed)
-        self.step_helicopter(dt, elapsed)
         self.step_santa_presents(dt, elapsed)
         self.step_parachutists(dt, elapsed)
+        self.step_aircraft_crashes(dt)
         self.step_lightning(dt)
         self.step_rabbits(dt, elapsed)
         self.step_postman(dt)
         self.step_ufo_abduction(elapsed)
         if self.physics.ground_enabled:
             self.detect_tower_collapses(dt)
+            self.detect_mass_fallaways(dt)
             self.step_tower_collapses(dt)
         else:
             self.tower_collapses = []
@@ -3907,6 +4915,8 @@ LIVE_OPTION_DESTS = frozenset({
     "shed_threshold", "shed_to", "shed_width", "shed_rate",
     "tower_collapse", "tower_age", "tower_age_jitter", "tower_prominence",
     "tower_collapse_rate", "tower_cascade_chance", "tower_cascade_radius",
+    "snow_fallaway_threshold", "snow_fallaway_min_seconds",
+    "snow_fallaway_max_seconds", "snow_fallaway_width",
     "scenery", "cabin", "reindeer", "no_trees", "tree_density", "max_trees",
     "tree_sway", "tree_types", "tree_branches", "tree_branch_levels",
     "tree_branch_angle", "tree_length_ratio", "tree_trunk_thickness",
@@ -3916,7 +4926,9 @@ LIVE_OPTION_DESTS = frozenset({
     "object_snow_hold", "object_snow_hold_jitter", "object_snow_adhesion",
     "cabin_count", "max_cabins", "cabin_scale",
     "cabin_types", "cabin_size_variation", "cabin_depth_share",
-    "cabin_depth_scale",
+    "cabin_depth_scale", "cabin_path_style", "cabin_path_curl",
+    "horizon_structure", "horizon_dirt_density", "horizon_randomness",
+    "horizon_height", "horizon_hut_density",
     "ambient", "leaf_count", "tumbleweed_count", "ambient_speed",
     "tumbleweed_climb", "tumbleweed_collapse_pressure",
     "rabbit_count", "rabbit_interval", "rabbit_speed", "sky_events",
@@ -3925,8 +4937,13 @@ LIVE_OPTION_DESTS = frozenset({
     "superman_path", "superman_frequency", "superman_speed",
     "helicopter_hover_seconds", "helicopter_wait_min",
     "helicopter_wait_max", "helicopter_downwash",
+    "helicopter_downwash_width",
     "aeroplane_types", "pilot_ejection",
     "ejection_chance", "parachute_fall_speed",
+    "aircraft_crash", "aircraft_crash_depth", "aircraft_crash_descent",
+    "aircraft_crash_arc", "aircraft_crash_spin", "aircraft_crash_smoke",
+    "explosion_types", "explosion_size", "explosion_seconds",
+    "ufo_beam_style",
     "ufo_types", "ufo_trail_seconds", "ufo_trail_length",
     "snow_plough", "plough_interval",
     "santa_scale_min", "santa_scale_max", "santa_arc_height", "santa_trail_seconds",
@@ -4109,8 +5126,11 @@ def draw_crates(surface, engine):
                      colour, 86)
 
 
-def draw_downwash(surface, engine):
+def draw_downwash(surface, engine, near=None):
     for particle in engine.downwash_particles:
+        particle_near = particle.depth >= 0.68
+        if near is not None and particle_near != near:
+            continue
         fade = max(0.0, particle.ttl / particle.maximum_ttl)
         colour = tuple(int(channel * (0.28 + 0.72 * fade))
                        for channel in (215, 239, 246))
@@ -4155,9 +5175,18 @@ def render_surface(background, engine):
     elapsed = getattr(engine, "elapsed", 0.0)
     draw_clouds(surface, engine, elapsed, near=False)
     event = current_sky_event_state(engine.args, engine, elapsed)
-    draw_sky_event(surface, engine, elapsed, include_beam=False)
+    helicopter_near = bool(
+        event is not None and
+        event["kind"] in ("helicopter", "airwolf") and
+        event.get("scene_depth", 0.0) >= 0.68)
+    # In distant phases the wake shares the flight layer and is painted first,
+    # so the aircraft always occludes it rather than wearing it as a texture.
+    draw_downwash(surface, engine, near=False)
+    if not helicopter_near:
+        draw_sky_event(surface, engine, elapsed, include_beam=False)
     draw_clouds(surface, engine, elapsed, near=True)
     draw_parachutists(surface, engine)
+    draw_aircraft_crashes(surface, engine)
     draw_present_drops(surface, engine)
     surface.pixels = [(pixel[0], 3) if pixel is not None else None
                       for pixel in surface.pixels]
@@ -4179,11 +5208,12 @@ def render_surface(background, engine):
             surface.pixels[index] = pixel
     draw_accumulation(surface, engine)
     draw_cabin_paths(surface, engine)
-    if (event is not None and event["kind"] == "helicopter" and
-            event["phase"] in ("heli_descent", "heli_landed", "heli_takeoff")):
-        # Once the aircraft commits to landing it moves into the foreground;
-        # copy its pixels with an explicitly promoted priority. The distant
-        # copy was already occluded naturally by the scenery.
+    draw_downwash(surface, engine, near=True)
+    if helicopter_near:
+        # A helicopter owns one perspective lane for its entire event. Near
+        # craft are composited over scenery from approach through departure;
+        # distant craft were painted before scenery above and stay occluded
+        # even after descending. Phase can no longer flip the depth order.
         landing_layer = Surface(surface.width, surface.height)
         draw_sky_event(landing_layer, engine, elapsed, include_beam=False)
         for index, pixel in enumerate(landing_layer.pixels):
@@ -4191,7 +5221,6 @@ def render_surface(background, engine):
                 surface.pixels[index] = (pixel[0], max(85, pixel[1]))
     draw_object_snow(surface, engine)
     draw_ambient(surface, engine, getattr(engine, "elapsed", 0.0))
-    draw_downwash(surface, engine)
     draw_crates(surface, engine)
     for rabbit in engine.rabbits:
         if rabbit.state == "abducting" and rabbit.depth >= 0.68:
@@ -4202,6 +5231,19 @@ def render_surface(background, engine):
                 rabbit.depth >= 0.68):
             draw_rabbit(surface, engine, rabbit)
     draw_postman(surface, engine)
+    if ("reindeer" in engine.args.scenery_set and
+            engine.postman.state != "hidden" and
+            engine.postman.figure_height <
+            reindeer_apparent_height(engine.width, engine.height)):
+        # Apparent height is the depth proxy shared by the two figures. A
+        # smaller postman is behind the reindeer; a taller one remains in
+        # front. Copy only the animal at promoted priority, not all scenery.
+        animal_layer = Surface(surface.width, surface.height)
+        draw_reindeer(animal_layer, engine.width, engine.height,
+                      int(round(engine.scenery_ground_y)))
+        for index, pixel in enumerate(animal_layer.pixels):
+            if pixel is not None:
+                surface.pixels[index] = (pixel[0], max(106, pixel[1]))
     for chunk in engine.chunks:
         draw_shape(surface, chunk.shape, chunk.x, chunk.y, chunk.colour, 82)
     draw_precipitation(surface, engine, "foreground")
@@ -4219,7 +5261,7 @@ def encode_surface(surface, codec, columns, rows, stats=None):
     ordinary foreground glyphs and reverse video is never emitted.
     """
     lines = []
-    blank_cells = populated_cells = background_cells = 0
+    blank_cells = populated_cells = background_cells = seam_guard_cells = 0
     masks_used = set()
     coloured_cells = set()
     part0_cells = part1_cells = 0
@@ -4240,12 +5282,15 @@ def encode_surface(surface, codec, columns, rows, stats=None):
                 cell_pixels.extend(pixels[start:start + codec.cell_width])
             if not any(cell_pixels):
                 blank_cells += 1
+                reset_codes = []
                 if active_colour is not None:
-                    parts.append(FG_DEFAULT)
-                    active_colour = None
+                    reset_codes.append("39")
                 if active_background is not None:
-                    parts.append("\x1b[49m")
-                    active_background = None
+                    reset_codes.append("49")
+                if reset_codes:
+                    parts.append("\x1b[" + ";".join(reset_codes) + "m")
+                active_colour = None
+                active_background = None
                 parts.append(" ")
                 continue
 
@@ -4310,27 +5355,44 @@ def encode_surface(surface, codec, columns, rows, stats=None):
                     background = rear_colour
 
             quantized = tuple((channel // 4) * 4 for channel in colour)
-            if quantized != active_colour:
-                parts.append("\x1b[38;2;%d;%d;%dm" % quantized)
-                active_colour = quantized
+            # A strict cell-owned font deliberately has no horizontal
+            # overhang. At some CoreText/WezTerm pixel sizes that leaves a
+            # device-pixel rounding gap at the glyph/line-box boundary. A
+            # full-mask glyph has no transparent samples, so painting the same
+            # colour behind it is visually exact while keeping the real PUA
+            # full-mask glyph in the terminal cell. This prevents the terminal
+            # default black from leaking through as a grid.
+            seam_guard = mask == full_mask and background is None
+            if seam_guard:
+                background = colour
             quantized_background = (tuple((channel // 4) * 4 for channel in background)
                                     if background is not None else None)
             populated_cells += 1
             masks_used.add(mask)
             coloured_cells.add((mask, quantized, quantized_background))
-            if quantized_background is not None:
+            if seam_guard:
+                seam_guard_cells += 1
+            elif quantized_background is not None:
                 background_cells += 1
             if codec.name == "pua4":
                 if mask < 0x8000:
                     part0_cells += 1
                 else:
                     part1_cells += 1
+            # WezTerm flushes its printable-codepoint buffer at every control
+            # sequence. Combine foreground and background changes into one SGR
+            # so a two-colour cell creates one shaping boundary, not two.
+            sgr_codes = []
+            if quantized != active_colour:
+                sgr_codes.append("38;2;%d;%d;%d" % quantized)
             if quantized_background != active_background:
-                if quantized_background is None:
-                    parts.append("\x1b[49m")
-                else:
-                    parts.append("\x1b[48;2;%d;%d;%dm" % quantized_background)
-                active_background = quantized_background
+                sgr_codes.append(
+                    "49" if quantized_background is None else
+                    "48;2;%d;%d;%d" % quantized_background)
+            if sgr_codes:
+                parts.append("\x1b[" + ";".join(sgr_codes) + "m")
+            active_colour = quantized
+            active_background = quantized_background
             parts.append(chr(codec.codepoint(mask)))
         parts.append(RESET)
         active_colour = None
@@ -4342,6 +5404,7 @@ def encode_surface(surface, codec, columns, rows, stats=None):
             "blank_cells": blank_cells,
             "populated_cells": populated_cells,
             "background_cells": background_cells,
+            "seam_guard_cells": seam_guard_cells,
             "unique_masks": len(masks_used),
             "reused_masks": max(0, populated_cells - len(masks_used)),
             "unique_coloured_cells": len(coloured_cells),
@@ -4356,10 +5419,11 @@ def encode_surface_native(surface, codec, columns, rows, analyser, stats=None):
     """Build ANSI from Rust-analysed cell records; output semantics match Python."""
     records = analyser.analyse(surface, codec, columns, rows)
     lines = []
-    blank_cells = populated_cells = background_cells = 0
+    blank_cells = populated_cells = background_cells = seam_guard_cells = 0
     masks_used, coloured_cells = set(), set()
     part0_cells = part1_cells = 0
     active_colour = active_background = None
+    full_mask = (1 << (codec.cell_width * codec.cell_height)) - 1
     for cell_y in range(rows):
         parts = []
         for cell_x in range(columns):
@@ -4367,34 +5431,45 @@ def encode_surface_native(surface, codec, columns, rows, analyser, stats=None):
             record = records[index:index + 10]
             if not record[9]:
                 blank_cells += 1
+                reset_codes = []
                 if active_colour is not None:
-                    parts.append(FG_DEFAULT)
-                    active_colour = None
+                    reset_codes.append("39")
                 if active_background is not None:
-                    parts.append("\x1b[49m")
-                    active_background = None
+                    reset_codes.append("49")
+                if reset_codes:
+                    parts.append("\x1b[" + ";".join(reset_codes) + "m")
+                active_colour = None
+                active_background = None
                 parts.append(" ")
                 continue
             mask = record[0] | record[1] << 8
             colour = tuple(record[2:5])
             background = tuple(record[5:8]) if record[8] else None
-            if colour != active_colour:
-                parts.append("\x1b[38;2;%d;%d;%dm" % colour)
-                active_colour = colour
+            seam_guard = mask == full_mask and background is None
+            if seam_guard:
+                background = colour
             populated_cells += 1
             masks_used.add(mask)
             coloured_cells.add((mask, colour, background))
-            if background is not None:
+            if seam_guard:
+                seam_guard_cells += 1
+            elif background is not None:
                 background_cells += 1
             if codec.name == "pua4":
                 if mask < 0x8000:
                     part0_cells += 1
                 else:
                     part1_cells += 1
+            sgr_codes = []
+            if colour != active_colour:
+                sgr_codes.append("38;2;%d;%d;%d" % colour)
             if background != active_background:
-                parts.append("\x1b[49m" if background is None else
-                             "\x1b[48;2;%d;%d;%dm" % background)
-                active_background = background
+                sgr_codes.append("49" if background is None else
+                                 "48;2;%d;%d;%d" % background)
+            if sgr_codes:
+                parts.append("\x1b[" + ";".join(sgr_codes) + "m")
+            active_colour = colour
+            active_background = background
             parts.append(chr(codec.codepoint(mask)))
         parts.append(RESET)
         active_colour = active_background = None
@@ -4404,6 +5479,7 @@ def encode_surface_native(surface, codec, columns, rows, analyser, stats=None):
             "cells": columns * rows, "blank_cells": blank_cells,
             "populated_cells": populated_cells,
             "background_cells": background_cells,
+            "seam_guard_cells": seam_guard_cells,
             "unique_masks": len(masks_used),
             "reused_masks": max(0, populated_cells - len(masks_used)),
             "unique_coloured_cells": len(coloured_cells),
@@ -4553,29 +5629,35 @@ def detailed_dashboard_lines(args, engine, codec, stats, columns):
             (f" → SPEED {args.flyby_speed:.1f} VPX/s | QUIET {args.flyby_interval:.1f}s | "
              f"EJECTIONS {engine.pilot_ejection_count} / ACTIVE {len(engine.parachutists)} | "
              f"HELI WAIT {args.helicopter_wait_min:.1f}–{args.helicopter_wait_max:.1f}s "
-             f"DOWNWASH ×{args.helicopter_downwash:.1f} CRATES {len(engine.supply_crates)}"),
+             f"DOWNWASH ×{args.helicopter_downwash:.1f}/W{args.helicopter_downwash_width:.1f} "
+             f"CRATES {len(engine.supply_crates)}"),
             (f" ◆ SUPERMAN {args.superman_path.upper()} {args.superman_speed:.1f} VPX/s "
              f"{args.superman_frequency:.1f}/min | SANTA SCALE "
              f"{args.santa_scale_min:.2f}↔{args.santa_scale_max:.2f} | "
              f"TRAIL ×{args.santa_trail_length:.1f}, {args.santa_trail_seconds:.1f}s / "
              f"{len(engine.santa_trail)} SPARKS | GIFTS {args.santa_presents_min}–"
              f"{args.santa_presents_max}/DROP, {engine.present_delivery_count} DELIVERED"),
-            (f" ⌁ UFO {','.join(args.ufo_types).upper()} | ABDUCTION {'ON' if args.ufo_abduction else 'OFF'} | "
-             f"BEAM {'ACTIVE' if engine.ufo_beam_active else 'HIDDEN'} | "
-             f"CAPTURES {engine.ufo_abduction_count} | PLASMA {len(engine.ufo_trail)}"),
+            (f" ⌁ UFO {','.join(args.ufo_types).upper()} | "
+             f"BEAM {args.ufo_beam_style.upper()}/"
+             f"{'ACTIVE' if engine.ufo_beam_active else 'HIDDEN'} | "
+             f"CAPTURES {engine.ufo_abduction_count} PLASMA {len(engine.ufo_trail)} | "
+             f"CRASHES {engine.aircraft_impact_count} "
+             f"EXPLOSIONS {len(engine.ground_explosions)}"),
         ]
     else:
         cache = cached_tree_pixels.cache_info()
         postman_cache = cached_postman_pixels.cache_info()
         page = [
             (f" ◆ PROCESS CPU {cpu_percent:5.1f}% {graph_bar(cpu_percent, 100)} | "
-             f"FRAME {engine.render_ms:6.1f} ms / {frame_budget:5.1f} ms "
-             f"{graph_bar(engine.render_ms, frame_budget)}"),
-            f" ◆ MEMORY {memory} | GRID CELLS {stats['cells']:,} | ACTIVE {populated:,}",
+             f"PIPELINE {engine.pipeline_ms:6.1f} + TTY {engine.present_ms:5.1f} ms / "
+             f"{frame_budget:5.1f} {graph_bar(engine.pipeline_ms + engine.present_ms, frame_budget)}"),
+            (f" ◆ MEMORY {memory} | GRID CELLS {stats['cells']:,} | ACTIVE {populated:,} | "
+             f"OUTPUT {engine.frame_output_bytes / 1024.0:,.1f} KiB"),
             (f" ◆ LOAD: FLAKES {len(engine.flakes):,} TREES≤{args.max_trees} | "
              f"TREE CACHE {cache.hits:,}H/{cache.misses:,}M | POSTMAN {postman_cache.hits:,}H/{postman_cache.misses:,}M"),
             (f" ◆ ENCODER {'RUST NATIVE' if engine.native_analyser else 'PYTHON'} | "
-             "LOWER FPS/PARTICLES/BRANCH DEPTH/BUDGET OR TERMINAL DIMENSIONS IF OVER BUDGET"),
+             f"MISSED DEADLINES {engine.frame_overruns:,} MAX LAG {engine.maximum_frame_lag_ms:.1f} ms | "
+             f"SEAM GUARDS {stats.get('seam_guard_cells', 0):,}"),
         ]
     lines = [dashboard_tab_strip(engine), *page]
     colours = ("\x1b[38;2;75;225;240m", "\x1b[38;2;255;182;72m",
@@ -4712,6 +5794,14 @@ def viewer_quit_key(key):
     return key in ("q", "Q", "\x1b")
 
 
+def settle_frame_deadline(deadline, now):
+    """Return sleep, next schedule base and lag without catch-up bursts."""
+    delay = deadline - now
+    if delay > 0:
+        return delay, deadline, 0.0
+    return 0.0, now, -delay
+
+
 def animate(args):
     columns, rows = terminal_size(args)
     codec, scene_rows, engine, background = make_runtime(args, columns, rows)
@@ -4735,6 +5825,7 @@ def animate(args):
     keyboard_context.__enter__()
     try:
         while True:
+            frame_started = time.perf_counter()
             key = poll_terminal_key()
             if key == "\t" and args.detailed_dashboard:
                 engine.dashboard_tab = (engine.dashboard_tab + 1) % len(DASHBOARD_TABS)
@@ -4774,18 +5865,28 @@ def animate(args):
             engine.update_scenery_collision(background)
             output = complete_frame(args, codec, scene_rows, engine, background,
                                     columns, frame, elapsed)
+            engine.pipeline_ms = (time.perf_counter() - frame_started) * 1000.0
             clear = "\x1b[2J" if resized else ""
-            sys.stdout.write("\x1b[?2026h" + clear + "\x1b[H" + output + "\x1b[?2026l")
+            payload = "\x1b[?2026h" + clear + "\x1b[H" + output + "\x1b[?2026l"
+            engine.frame_output_bytes = len(payload.encode("utf-8"))
+            present_started = time.perf_counter()
+            sys.stdout.write(payload)
             sys.stdout.flush()
+            engine.present_ms = (time.perf_counter() - present_started) * 1000.0
             frame += 1
             elapsed += dt
-            delay = deadline - time.monotonic()
+            delay, deadline, lag = settle_frame_deadline(
+                deadline, time.monotonic())
             if delay > 0:
                 time.sleep(delay)
-            elif delay < -1.0:
-                # A large resize or live FPS change should not leave scheduling
-                # permanently behind the wall clock.
-                deadline = time.monotonic()
+            else:
+                # Never attempt to catch up a missed presentation deadline by
+                # bursting several complete frames at the terminal. Those
+                # frames cannot all be painted and appear as motion jumps.
+                lag_ms = lag * 1000.0
+                engine.frame_overruns += 1
+                engine.maximum_frame_lag_ms = max(
+                    engine.maximum_frame_lag_ms, lag_ms)
     finally:
         keyboard_context.__exit__(*sys.exc_info())
         sys.stdout.write(RESET + "\x1b[?25h\x1b[?1049l")
@@ -5027,7 +6128,7 @@ def build_parser():
     banks.add_argument("--no-accumulation", dest="accumulate", action="store_false",
                        help="let flakes fall without adding them to the snow bank")
     banks.set_defaults(accumulate=True)
-    banks.add_argument("--shed-threshold", type=float, default=0.50,
+    banks.add_argument("--shed-threshold", type=float, default=0.82,
                        help="maximum bank fraction that triggers a fall-away")
     banks.add_argument("--shed-to", type=float, default=0.36,
                        help="local bank fraction after a fall-away")
@@ -5050,6 +6151,14 @@ def build_parser():
                        help="chance that a completed collapse destabilises a nearby tower")
     banks.add_argument("--tower-cascade-radius", type=float, default=0.10,
                        help="display-width fraction searched for a cascading collapse")
+    banks.add_argument("--snow-fallaway-threshold", type=float, default=0.50,
+                       help="local depth fraction that starts a mass/countdown fall-away")
+    banks.add_argument("--snow-fallaway-min-seconds", type=float, default=8.0,
+                       help="minimum countdown after local snow reaches the trigger height")
+    banks.add_argument("--snow-fallaway-max-seconds", type=float, default=22.0,
+                       help="maximum deterministic countdown before local snow falls away")
+    banks.add_argument("--snow-fallaway-width", type=float, default=0.06,
+                       help="display-width fraction removed around a triggered area")
 
     scenery = parser.add_argument_group("seasonal scenery")
     scenery.add_argument("--scenery", default="trees",
@@ -5118,6 +6227,24 @@ def build_parser():
                          help="fraction of cabins placed in a smaller elevated distance lane")
     scenery.add_argument("--cabin-depth-scale", type=float, default=0.56,
                          help="perspective scale applied to distant cabins")
+    scenery.add_argument("--cabin-path-style",
+                         choices=("auto", "diagonal", "curve", "curly"),
+                         default="auto",
+                         help="shape of the shared postman/dirt approach paths")
+    scenery.add_argument("--cabin-path-curl", type=float, default=0.72,
+                         help="lateral amplitude multiplier for curly paths")
+    scenery.add_argument("--horizon-structure",
+                         choices=("none", "dirt", "huts", "both"),
+                         default="none",
+                         help="add sparse earth and/or receding huts behind foreground scenery")
+    scenery.add_argument("--horizon-dirt-density", type=float, default=0.28,
+                         help="fraction of background horizon samples painted as earth")
+    scenery.add_argument("--horizon-randomness", type=float, default=0.55,
+                         help="horizontal/vertical disorder in distant earth and huts")
+    scenery.add_argument("--horizon-height", type=float, default=0.48,
+                         help="vertical scene fraction at the artificial horizon")
+    scenery.add_argument("--horizon-hut-density", type=float, default=0.18,
+                         help="small distant huts per nominal background area")
     scenery.add_argument("--ambient", default="auto",
                          help="auto, none, leaves, tumbleweed, all, or a comma list")
     scenery.add_argument("--leaf-count", type=int,
@@ -5151,7 +6278,7 @@ def build_parser():
                         help="visit-frequency factor across every cabin; 0 disables deliveries")
     events.add_argument("--sky-events", type=sky_event_list,
                         default=sky_event_list("auto"),
-                        help="none, auto/all, or comma list: aeroplane,helicopter,kite,ufo,santa,superman")
+                        help="none, auto/all, or comma list: aeroplane,helicopter,airwolf,kite,ufo,santa,superman")
     events.add_argument("--flyby-interval", type=float, default=48.0,
                         help="quiet seconds between occasional sky crossings")
     events.add_argument("--flyby-speed", type=float, default=32.0,
@@ -5171,6 +6298,8 @@ def build_parser():
                         help="maximum seconds landed before leaving the supply crate")
     events.add_argument("--helicopter-downwash", type=float, default=1.0,
                         help="rotor coupling into precipitation and loose ground snow")
+    events.add_argument("--helicopter-downwash-width", type=float, default=1.0,
+                        help="horizontal/radial multiplier for rotor disturbance")
     events.add_argument("--aeroplane-types", type=aeroplane_type_list,
                         default=aeroplane_type_list("all"),
                         help="auto/all or comma list: commuter,airliner")
@@ -5181,6 +6310,31 @@ def build_parser():
                         help="repeatable chance [0,1] of ejection during each aeroplane pass")
     events.add_argument("--parachute-fall-speed", type=float, default=5.0,
                         help="opened-parachute descent speed in virtual pixels per second")
+    events.add_argument("--aircraft-crash", action=argparse.BooleanOptionalAction,
+                        default=True,
+                        help="turn an ejected aircraft into a rotating, burning ground impact")
+    events.add_argument("--aircraft-crash-depth",
+                        choices=("auto", "away", "toward"), default="auto",
+                        help="whether the disabled aircraft recedes or grows while descending")
+    events.add_argument("--aircraft-crash-descent", type=float, default=22.0,
+                        help="base vertical descent speed after ejection")
+    events.add_argument("--aircraft-crash-arc", type=float, default=0.55,
+                        help="initial upward arc before the steep descent, 0 to 2")
+    events.add_argument("--aircraft-crash-spin", type=float, default=2.4,
+                        help="aircraft rotations per second while falling")
+    events.add_argument("--aircraft-crash-smoke", type=float, default=1.0,
+                        help="fire/smoke trail density multiplier")
+    events.add_argument("--explosion-types", type=explosion_type_list,
+                        default=explosion_type_list("all"),
+                        help="auto/all or comma list: fiery,nuclear")
+    events.add_argument("--explosion-size", type=float, default=1.0,
+                        help="impact explosion linear scale")
+    events.add_argument("--explosion-seconds", type=float, default=12.0,
+                        help="lifetime of fiery or mushroom-cloud impact animation")
+    events.add_argument("--ufo-beam-style",
+                        choices=("spiral", "rings", "lattice", "stargate"),
+                        default="spiral",
+                        help="transporter beam animation design")
     events.add_argument("--santa-scale-max", "--santa-scale",
                         dest="santa_scale_max", type=float, default=0.50,
                         help="nearest Santa formation scale; --santa-scale remains an alias")
@@ -5391,7 +6545,7 @@ def pretty_help(parser, mode, colour=True):
         paint("amber", "  Wildlife       ") +
         "  --rabbit-count 2 --rabbit-interval 18 --ambient tumbleweed",
         paint("amber", "  Sky parade     ") +
-        "  --sky-events aeroplane,helicopter,kite,ufo,santa --flyby-interval 12 --flyby-speed 40",
+        "  --sky-events aeroplane,helicopter,airwolf,kite,ufo,santa --flyby-interval 12 --flyby-speed 40",
         paint("amber", "  Twilight sky   ") +
         "  --sky-colours 07152F,315A82,B9D8E8 --sky-stops 0,.58,1 --sky-blend smooth",
         paint("amber", "  Rain shower    ") +
@@ -5481,6 +6635,8 @@ def parse_args(argv=None):
                 ("superman-speed", args.superman_speed),
                 ("helicopter-hover-seconds", args.helicopter_hover_seconds),
                 ("parachute-fall-speed", args.parachute_fall_speed),
+                ("aircraft-crash-descent", args.aircraft_crash_descent),
+                ("explosion-seconds", args.explosion_seconds),
                 ("rain-speed", args.rain_speed),
                 ("lightning-interval", args.lightning_interval),
                 ("ufo-hover-seconds", args.ufo_hover_seconds),
@@ -5504,7 +6660,13 @@ def parse_args(argv=None):
         args.santa_arc_height, args.santa_trail_seconds,
         args.santa_trail_length,
         args.helicopter_wait_min, args.helicopter_wait_max,
-        args.helicopter_downwash,
+        args.helicopter_downwash, args.helicopter_downwash_width,
+        args.cabin_path_curl,
+        args.aircraft_crash_arc, args.aircraft_crash_spin,
+        args.aircraft_crash_smoke, args.explosion_size,
+        args.horizon_dirt_density, args.horizon_randomness,
+        args.horizon_hut_density,
+        args.snow_fallaway_min_seconds, args.snow_fallaway_max_seconds,
         args.ufo_trail_seconds, args.ufo_trail_length,
         args.lightning_flash,
     )
@@ -5562,6 +6724,32 @@ def parse_args(argv=None):
         parser.error("helicopter-wait-min cannot exceed helicopter-wait-max")
     if args.helicopter_downwash > 4:
         parser.error("helicopter-downwash must be in [0, 4]")
+    if not 0.25 <= args.helicopter_downwash_width <= 4:
+        parser.error("helicopter-downwash-width must be in [0.25, 4]")
+    if not 0 <= args.cabin_path_curl <= 2:
+        parser.error("cabin-path-curl must be in [0, 2]")
+    if not 0 <= args.aircraft_crash_arc <= 2:
+        parser.error("aircraft-crash-arc must be in [0, 2]")
+    if not 0 <= args.aircraft_crash_spin <= 12:
+        parser.error("aircraft-crash-spin must be in [0, 12]")
+    if not 0 <= args.aircraft_crash_smoke <= 6:
+        parser.error("aircraft-crash-smoke must be in [0, 6]")
+    if not 0.1 <= args.explosion_size <= 8:
+        parser.error("explosion-size must be in [0.1, 8]")
+    if not 0 <= args.horizon_dirt_density <= 1:
+        parser.error("horizon-dirt-density must be in [0, 1]")
+    if not 0 <= args.horizon_randomness <= 1:
+        parser.error("horizon-randomness must be in [0, 1]")
+    if not 0 <= args.horizon_hut_density <= 2:
+        parser.error("horizon-hut-density must be in [0, 2]")
+    if not 0.15 <= args.horizon_height <= 0.85:
+        parser.error("horizon-height must be in [0.15, 0.85]")
+    if not 0 <= args.snow_fallaway_threshold <= 1:
+        parser.error("snow-fallaway-threshold must be in [0, 1]")
+    if args.snow_fallaway_min_seconds > args.snow_fallaway_max_seconds:
+        parser.error("snow-fallaway-min-seconds cannot exceed its maximum")
+    if not 0.01 <= args.snow_fallaway_width <= 0.5:
+        parser.error("snow-fallaway-width must be in [0.01, 0.5]")
     if not 0 <= args.santa_arc_height <= 0.5:
         parser.error("santa-arc-height must be in [0, 0.5]")
     if not 1 <= args.rain_length <= 40:

@@ -3,11 +3,14 @@
 
 import argparse
 import math
+from pathlib import Path
 import random
 import shutil
 import sys
 import time
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "demos"))
+from native_terminal import terminal_picture
 
 from pua4x4_backend import DOT_BIT, mask_to_codepoint
 PALETTE = (17, 27, 39, 51, 159, 231)  # deep blue through white
@@ -64,16 +67,10 @@ def render(stars, columns, rows, dt):
             put_pixel(masks, shades, width, height, x + 1, y, shade)
             put_pixel(masks, shades, width, height, x, y + 1, shade)
 
-    lines = []
-    for row_masks, row_shades in zip(masks, shades):
-        parts, active = [], None
-        for mask, shade in zip(row_masks, row_shades):
-            if mask and shade != active:
-                parts.append("\x1b[38;5;%dm" % PALETTE[shade])
-                active = shade
-            parts.append(chr(mask_to_codepoint(mask)))
-        lines.append("".join(parts))
-    return "\n".join(lines)
+    colors = [[PALETTE[shade] for shade in row] for row in shades]
+    return terminal_picture(
+        masks, colors, columns, rows, mapping="pua4",
+        colour_mode="indexed", blank_glyph=True, reset_at_end=False)
 
 
 def main():

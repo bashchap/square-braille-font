@@ -1,0 +1,475 @@
+{
+  "document_scope": "mathematics and source-code mapping only; no font claim",
+  "status": "PASS_MATHEMATICS_ONLY",
+  "authoritative_layout": [
+    [
+      3,
+      2,
+      1,
+      0
+    ],
+    [
+      7,
+      6,
+      5,
+      4
+    ],
+    [
+      11,
+      10,
+      9,
+      8
+    ],
+    [
+      15,
+      14,
+      13,
+      12
+    ]
+  ],
+  "bit_label_order_msb_to_lsb": "fedcba9876543210",
+  "formulas": {
+    "terminal_cell_zero_based": "cx = vx // 4; cy = vy // 4",
+    "ansi_cursor_one_based": "column = cx + 1; row = cy + 1",
+    "local_coordinate": "lx = vx % 4; ly = vy % 4",
+    "bit_position": "b = 4 * ly + (3 - lx)",
+    "bit_value": "v = 1 << b",
+    "aggregate_mask": "M = bitwise OR of all v in one terminal cell",
+    "P0": "M < 0x8000: cp = 0xF0000 + M",
+    "P1": "M >= 0x8000: cp = 0x100000 + (M - 0x8000)",
+    "reverse_P0": "M = cp - 0xF0000",
+    "reverse_P1": "M = 0x8000 + (cp - 0x100000)",
+    "reverse_local": "ly = b // 4; lx = 3 - (b % 4)",
+    "reverse_virtual": "vx = 4 * cx + lx; vy = 4 * cy + ly"
+  },
+  "worked_example_v13_v10": {
+    "virtual_x": 13,
+    "virtual_y": 10,
+    "terminal_column_zero_based": 3,
+    "terminal_row_zero_based": 2,
+    "ansi_column_one_based": 4,
+    "ansi_row_one_based": 3,
+    "local_x": 1,
+    "local_y": 2,
+    "bit_position": 10,
+    "bit_value": 1024,
+    "mask_hex": "0x0400",
+    "codepoint_hex": "U+0F0400",
+    "reverse_mask_hex": "0x0400",
+    "reverse_virtual": [
+      13,
+      10
+    ]
+  },
+  "worked_example_corners_and_center": {
+    "local_pixels": [
+      [
+        0,
+        0
+      ],
+      [
+        0,
+        3
+      ],
+      [
+        1,
+        1
+      ],
+      [
+        1,
+        2
+      ],
+      [
+        2,
+        1
+      ],
+      [
+        2,
+        2
+      ],
+      [
+        3,
+        0
+      ],
+      [
+        3,
+        3
+      ]
+    ],
+    "mask_hex": "0x9669",
+    "binary_msb_to_lsb": "1001011001101001",
+    "codepoint_hex": "U+101669",
+    "bitmap": [
+      "#..#",
+      ".##.",
+      ".##.",
+      "#..#"
+    ]
+  },
+  "one_bit_records": [
+    {
+      "local_x": 0,
+      "local_y": 0,
+      "bit_position": 3,
+      "bit_value_decimal": 8,
+      "mask_hex": "0x0008",
+      "part": 0,
+      "codepoint_hex": "U+0F0008",
+      "reverse_local_x": 0,
+      "reverse_local_y": 0
+    },
+    {
+      "local_x": 1,
+      "local_y": 0,
+      "bit_position": 2,
+      "bit_value_decimal": 4,
+      "mask_hex": "0x0004",
+      "part": 0,
+      "codepoint_hex": "U+0F0004",
+      "reverse_local_x": 1,
+      "reverse_local_y": 0
+    },
+    {
+      "local_x": 2,
+      "local_y": 0,
+      "bit_position": 1,
+      "bit_value_decimal": 2,
+      "mask_hex": "0x0002",
+      "part": 0,
+      "codepoint_hex": "U+0F0002",
+      "reverse_local_x": 2,
+      "reverse_local_y": 0
+    },
+    {
+      "local_x": 3,
+      "local_y": 0,
+      "bit_position": 0,
+      "bit_value_decimal": 1,
+      "mask_hex": "0x0001",
+      "part": 0,
+      "codepoint_hex": "U+0F0001",
+      "reverse_local_x": 3,
+      "reverse_local_y": 0
+    },
+    {
+      "local_x": 0,
+      "local_y": 1,
+      "bit_position": 7,
+      "bit_value_decimal": 128,
+      "mask_hex": "0x0080",
+      "part": 0,
+      "codepoint_hex": "U+0F0080",
+      "reverse_local_x": 0,
+      "reverse_local_y": 1
+    },
+    {
+      "local_x": 1,
+      "local_y": 1,
+      "bit_position": 6,
+      "bit_value_decimal": 64,
+      "mask_hex": "0x0040",
+      "part": 0,
+      "codepoint_hex": "U+0F0040",
+      "reverse_local_x": 1,
+      "reverse_local_y": 1
+    },
+    {
+      "local_x": 2,
+      "local_y": 1,
+      "bit_position": 5,
+      "bit_value_decimal": 32,
+      "mask_hex": "0x0020",
+      "part": 0,
+      "codepoint_hex": "U+0F0020",
+      "reverse_local_x": 2,
+      "reverse_local_y": 1
+    },
+    {
+      "local_x": 3,
+      "local_y": 1,
+      "bit_position": 4,
+      "bit_value_decimal": 16,
+      "mask_hex": "0x0010",
+      "part": 0,
+      "codepoint_hex": "U+0F0010",
+      "reverse_local_x": 3,
+      "reverse_local_y": 1
+    },
+    {
+      "local_x": 0,
+      "local_y": 2,
+      "bit_position": 11,
+      "bit_value_decimal": 2048,
+      "mask_hex": "0x0800",
+      "part": 0,
+      "codepoint_hex": "U+0F0800",
+      "reverse_local_x": 0,
+      "reverse_local_y": 2
+    },
+    {
+      "local_x": 1,
+      "local_y": 2,
+      "bit_position": 10,
+      "bit_value_decimal": 1024,
+      "mask_hex": "0x0400",
+      "part": 0,
+      "codepoint_hex": "U+0F0400",
+      "reverse_local_x": 1,
+      "reverse_local_y": 2
+    },
+    {
+      "local_x": 2,
+      "local_y": 2,
+      "bit_position": 9,
+      "bit_value_decimal": 512,
+      "mask_hex": "0x0200",
+      "part": 0,
+      "codepoint_hex": "U+0F0200",
+      "reverse_local_x": 2,
+      "reverse_local_y": 2
+    },
+    {
+      "local_x": 3,
+      "local_y": 2,
+      "bit_position": 8,
+      "bit_value_decimal": 256,
+      "mask_hex": "0x0100",
+      "part": 0,
+      "codepoint_hex": "U+0F0100",
+      "reverse_local_x": 3,
+      "reverse_local_y": 2
+    },
+    {
+      "local_x": 0,
+      "local_y": 3,
+      "bit_position": 15,
+      "bit_value_decimal": 32768,
+      "mask_hex": "0x8000",
+      "part": 1,
+      "codepoint_hex": "U+100000",
+      "reverse_local_x": 0,
+      "reverse_local_y": 3
+    },
+    {
+      "local_x": 1,
+      "local_y": 3,
+      "bit_position": 14,
+      "bit_value_decimal": 16384,
+      "mask_hex": "0x4000",
+      "part": 0,
+      "codepoint_hex": "U+0F4000",
+      "reverse_local_x": 1,
+      "reverse_local_y": 3
+    },
+    {
+      "local_x": 2,
+      "local_y": 3,
+      "bit_position": 13,
+      "bit_value_decimal": 8192,
+      "mask_hex": "0x2000",
+      "part": 0,
+      "codepoint_hex": "U+0F2000",
+      "reverse_local_x": 2,
+      "reverse_local_y": 3
+    },
+    {
+      "local_x": 3,
+      "local_y": 3,
+      "bit_position": 12,
+      "bit_value_decimal": 4096,
+      "mask_hex": "0x1000",
+      "part": 0,
+      "codepoint_hex": "U+0F1000",
+      "reverse_local_x": 3,
+      "reverse_local_y": 3
+    }
+  ],
+  "boundary_records": [
+    {
+      "mask_decimal": 0,
+      "mask_hex": "0x0000",
+      "binary_msb_to_lsb": "0000000000000000",
+      "part": 0,
+      "codepoint_hex": "U+0F0000",
+      "reverse_mask_hex": "0x0000",
+      "bitmap": [
+        "....",
+        "....",
+        "....",
+        "...."
+      ]
+    },
+    {
+      "mask_decimal": 1,
+      "mask_hex": "0x0001",
+      "binary_msb_to_lsb": "0000000000000001",
+      "part": 0,
+      "codepoint_hex": "U+0F0001",
+      "reverse_mask_hex": "0x0001",
+      "bitmap": [
+        "...#",
+        "....",
+        "....",
+        "...."
+      ]
+    },
+    {
+      "mask_decimal": 8,
+      "mask_hex": "0x0008",
+      "binary_msb_to_lsb": "0000000000001000",
+      "part": 0,
+      "codepoint_hex": "U+0F0008",
+      "reverse_mask_hex": "0x0008",
+      "bitmap": [
+        "#...",
+        "....",
+        "....",
+        "...."
+      ]
+    },
+    {
+      "mask_decimal": 1024,
+      "mask_hex": "0x0400",
+      "binary_msb_to_lsb": "0000010000000000",
+      "part": 0,
+      "codepoint_hex": "U+0F0400",
+      "reverse_mask_hex": "0x0400",
+      "bitmap": [
+        "....",
+        "....",
+        ".#..",
+        "...."
+      ]
+    },
+    {
+      "mask_decimal": 32766,
+      "mask_hex": "0x7FFE",
+      "binary_msb_to_lsb": "0111111111111110",
+      "part": 0,
+      "codepoint_hex": "U+0F7FFE",
+      "reverse_mask_hex": "0x7FFE",
+      "bitmap": [
+        "###.",
+        "####",
+        "####",
+        ".###"
+      ]
+    },
+    {
+      "mask_decimal": 32767,
+      "mask_hex": "0x7FFF",
+      "binary_msb_to_lsb": "0111111111111111",
+      "part": 0,
+      "codepoint_hex": "U+0F7FFF",
+      "reverse_mask_hex": "0x7FFF",
+      "bitmap": [
+        "####",
+        "####",
+        "####",
+        ".###"
+      ]
+    },
+    {
+      "mask_decimal": 32768,
+      "mask_hex": "0x8000",
+      "binary_msb_to_lsb": "1000000000000000",
+      "part": 1,
+      "codepoint_hex": "U+100000",
+      "reverse_mask_hex": "0x8000",
+      "bitmap": [
+        "....",
+        "....",
+        "....",
+        "#..."
+      ]
+    },
+    {
+      "mask_decimal": 32769,
+      "mask_hex": "0x8001",
+      "binary_msb_to_lsb": "1000000000000001",
+      "part": 1,
+      "codepoint_hex": "U+100001",
+      "reverse_mask_hex": "0x8001",
+      "bitmap": [
+        "...#",
+        "....",
+        "....",
+        "#..."
+      ]
+    },
+    {
+      "mask_decimal": 38505,
+      "mask_hex": "0x9669",
+      "binary_msb_to_lsb": "1001011001101001",
+      "part": 1,
+      "codepoint_hex": "U+101669",
+      "reverse_mask_hex": "0x9669",
+      "bitmap": [
+        "#..#",
+        ".##.",
+        ".##.",
+        "#..#"
+      ]
+    },
+    {
+      "mask_decimal": 65534,
+      "mask_hex": "0xFFFE",
+      "binary_msb_to_lsb": "1111111111111110",
+      "part": 1,
+      "codepoint_hex": "U+107FFE",
+      "reverse_mask_hex": "0xFFFE",
+      "bitmap": [
+        "###.",
+        "####",
+        "####",
+        "####"
+      ]
+    },
+    {
+      "mask_decimal": 65535,
+      "mask_hex": "0xFFFF",
+      "binary_msb_to_lsb": "1111111111111111",
+      "part": 1,
+      "codepoint_hex": "U+107FFF",
+      "reverse_mask_hex": "0xFFFF",
+      "bitmap": [
+        "####",
+        "####",
+        "####",
+        "####"
+      ]
+    }
+  ],
+  "test_counts": {
+    "local_one_bit_round_trips": 16,
+    "virtual_round_trips": 30720,
+    "terminal_dimensions": [
+      80,
+      24
+    ],
+    "virtual_dimensions": [
+      320,
+      96
+    ],
+    "all_masks_round_tripped": 65536,
+    "unique_codepoints": 65536,
+    "codepoints_per_part": 32768,
+    "boolean_operation_assertions": 3145728,
+    "project_implementation": {
+      "local_position_cases": 16,
+      "complete_mask_cases": 65536,
+      "functions_compared_per_mask": 4
+    },
+    "triangle_mapping": {
+      "triangle_virtual_pixels": 10860,
+      "nonempty_terminal_cells": 718,
+      "missing_after_decode": 0,
+      "unexpected_after_decode": 0
+    }
+  },
+  "observed_runtime_status": {
+    "result": "FAIL_NOT_EXPLAINED_BY_MATHEMATICS_GATE",
+    "observation": "The supplied Linux triangle screenshots show periodic detached or discontinuous marks on the left edge and visible terminal-cell seams.",
+    "conclusion": "The current visual output is not accepted. Font-outline, runtime selection, shaping, fixed-cell placement and raster repaint remain separate unpassed gates."
+  }
+}

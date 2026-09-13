@@ -1,0 +1,289 @@
+{
+  "audit": "PUA 4x4 v0.4 candidate stored-font proof",
+  "gate": "B - cmap and stored outline identity",
+  "status": "PASS_FONT_STRUCTURE_ONLY",
+  "not_proven_by_this_gate": [
+    "Fontconfig family selection",
+    "Pango shaping and fallback",
+    "terminal cell placement",
+    "terminal raster output"
+  ],
+  "approved_mathematics_evidence": {
+    "file": "/Users/tara/Documents/Codex/2026-07-29/i-want-you-to-create-me/github/square-braille-font/experiments/pua-4x4/output/audit/pua4x4-mathematics-proof-v1.0.json",
+    "sha256": "14c85d95556723bb3ac870301046d62ca348ae96bf01ea5a0336d244b0937011"
+  },
+  "formula": "bit = 4 * local_y + (3 - local_x)",
+  "outline_expectation": "simple union contours equal the selected 4x4 cells exactly; all shared internal edges absent",
+  "parts": [
+    {
+      "part": 0,
+      "file": "/Users/tara/Documents/Codex/2026-07-29/i-want-you-to-create-me/github/square-braille-font/experiments/pua-4x4/build-v0.4-candidate.1/PUA4x4Part0V04Candidate.ttf",
+      "file_size": 1833136,
+      "sha256": "d88567706074a28e6f28be6a2a4b88d0b124f2651852b8217132e5ab05df1ad0",
+      "mask_range": [
+        0,
+        32767
+      ],
+      "codepoint_range": [
+        983040,
+        1015807
+      ],
+      "glyph_count": 32770,
+      "patterns_verified": 32768,
+      "composite_pattern_glyphs": 0,
+      "horizontal_metric_mismatches": 0,
+      "effective_position_mismatches": 0,
+      "format_12_cmap": true,
+      "contour_count_histogram": {
+        "0": 1,
+        "1": 6018,
+        "2": 11095,
+        "3": 9957,
+        "4": 4425,
+        "5": 1084,
+        "6": 174,
+        "7": 13,
+        "8": 1
+      },
+      "point_count_histogram": {
+        "0": 1,
+        "4": 84,
+        "6": 292,
+        "8": 1621,
+        "10": 3427,
+        "12": 6795,
+        "14": 7214,
+        "16": 6804,
+        "18": 3560,
+        "20": 2033,
+        "22": 587,
+        "24": 291,
+        "26": 39,
+        "28": 18,
+        "30": 1,
+        "32": 1
+      }
+    },
+    {
+      "part": 1,
+      "file": "/Users/tara/Documents/Codex/2026-07-29/i-want-you-to-create-me/github/square-braille-font/experiments/pua-4x4/build-v0.4-candidate.1/PUA4x4Part1V04Candidate.ttf",
+      "file_size": 1914152,
+      "sha256": "76366d90c3321612f596956d7a5a09e0a570f5df0b4f51dc04e3d7104f3a7723",
+      "mask_range": [
+        32768,
+        65535
+      ],
+      "codepoint_range": [
+        1048576,
+        1081343
+      ],
+      "glyph_count": 32770,
+      "patterns_verified": 32768,
+      "composite_pattern_glyphs": 0,
+      "horizontal_metric_mismatches": 0,
+      "effective_position_mismatches": 0,
+      "format_12_cmap": true,
+      "contour_count_histogram": {
+        "1": 4959,
+        "2": 10542,
+        "3": 10369,
+        "4": 5135,
+        "5": 1509,
+        "6": 234,
+        "7": 19,
+        "8": 1
+      },
+      "point_count_histogram": {
+        "4": 16,
+        "6": 108,
+        "8": 804,
+        "10": 2437,
+        "12": 5442,
+        "14": 7014,
+        "16": 7292,
+        "18": 4952,
+        "20": 2976,
+        "22": 1189,
+        "24": 421,
+        "26": 89,
+        "28": 24,
+        "30": 3,
+        "32": 1
+      }
+    }
+  ],
+  "patterns_verified": 65536,
+  "unique_codepoints_verified": 65536,
+  "outline_edge_mismatches": 0,
+  "decoded_mask_mismatches": 0,
+  "horizontal_metric_mismatches": 0,
+  "effective_position_mismatches": 0,
+  "composite_pattern_glyphs": 0,
+  "samples": [
+    {
+      "mask": 0,
+      "mask_hex": "0x0000",
+      "binary_msb_to_lsb": "0000000000000000",
+      "part": 0,
+      "codepoint": 983040,
+      "codepoint_hex": "U+0F0000",
+      "bitmap": [
+        "....",
+        "....",
+        "....",
+        "...."
+      ],
+      "expected_boundary_unit_edges": 0
+    },
+    {
+      "mask": 1,
+      "mask_hex": "0x0001",
+      "binary_msb_to_lsb": "0000000000000001",
+      "part": 0,
+      "codepoint": 983041,
+      "codepoint_hex": "U+0F0001",
+      "bitmap": [
+        "...#",
+        "....",
+        "....",
+        "...."
+      ],
+      "expected_boundary_unit_edges": 4
+    },
+    {
+      "mask": 2,
+      "mask_hex": "0x0002",
+      "binary_msb_to_lsb": "0000000000000010",
+      "part": 0,
+      "codepoint": 983042,
+      "codepoint_hex": "U+0F0002",
+      "bitmap": [
+        "..#.",
+        "....",
+        "....",
+        "...."
+      ],
+      "expected_boundary_unit_edges": 4
+    },
+    {
+      "mask": 4,
+      "mask_hex": "0x0004",
+      "binary_msb_to_lsb": "0000000000000100",
+      "part": 0,
+      "codepoint": 983044,
+      "codepoint_hex": "U+0F0004",
+      "bitmap": [
+        ".#..",
+        "....",
+        "....",
+        "...."
+      ],
+      "expected_boundary_unit_edges": 4
+    },
+    {
+      "mask": 8,
+      "mask_hex": "0x0008",
+      "binary_msb_to_lsb": "0000000000001000",
+      "part": 0,
+      "codepoint": 983048,
+      "codepoint_hex": "U+0F0008",
+      "bitmap": [
+        "#...",
+        "....",
+        "....",
+        "...."
+      ],
+      "expected_boundary_unit_edges": 4
+    },
+    {
+      "mask": 1024,
+      "mask_hex": "0x0400",
+      "binary_msb_to_lsb": "0000010000000000",
+      "part": 0,
+      "codepoint": 984064,
+      "codepoint_hex": "U+0F0400",
+      "bitmap": [
+        "....",
+        "....",
+        ".#..",
+        "...."
+      ],
+      "expected_boundary_unit_edges": 4
+    },
+    {
+      "mask": 32767,
+      "mask_hex": "0x7FFF",
+      "binary_msb_to_lsb": "0111111111111111",
+      "part": 0,
+      "codepoint": 1015807,
+      "codepoint_hex": "U+0F7FFF",
+      "bitmap": [
+        "####",
+        "####",
+        "####",
+        ".###"
+      ],
+      "expected_boundary_unit_edges": 16
+    },
+    {
+      "mask": 32768,
+      "mask_hex": "0x8000",
+      "binary_msb_to_lsb": "1000000000000000",
+      "part": 1,
+      "codepoint": 1048576,
+      "codepoint_hex": "U+100000",
+      "bitmap": [
+        "....",
+        "....",
+        "....",
+        "#..."
+      ],
+      "expected_boundary_unit_edges": 4
+    },
+    {
+      "mask": 32769,
+      "mask_hex": "0x8001",
+      "binary_msb_to_lsb": "1000000000000001",
+      "part": 1,
+      "codepoint": 1048577,
+      "codepoint_hex": "U+100001",
+      "bitmap": [
+        "...#",
+        "....",
+        "....",
+        "#..."
+      ],
+      "expected_boundary_unit_edges": 8
+    },
+    {
+      "mask": 38505,
+      "mask_hex": "0x9669",
+      "binary_msb_to_lsb": "1001011001101001",
+      "part": 1,
+      "codepoint": 1054313,
+      "codepoint_hex": "U+101669",
+      "bitmap": [
+        "#..#",
+        ".##.",
+        ".##.",
+        "#..#"
+      ],
+      "expected_boundary_unit_edges": 24
+    },
+    {
+      "mask": 65535,
+      "mask_hex": "0xFFFF",
+      "binary_msb_to_lsb": "1111111111111111",
+      "part": 1,
+      "codepoint": 1081343,
+      "codepoint_hex": "U+107FFF",
+      "bitmap": [
+        "####",
+        "####",
+        "####",
+        "####"
+      ],
+      "expected_boundary_unit_edges": 16
+    }
+  ]
+}

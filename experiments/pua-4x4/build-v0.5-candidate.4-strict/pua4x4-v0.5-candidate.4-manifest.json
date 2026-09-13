@@ -1,0 +1,40 @@
+{
+  "name": "PUA 4x4 v0.5 Candidate 4",
+  "version": "0.5-candidate.4",
+  "mapping": "bit = 4 * local_y + (3 - local_x)",
+  "codepoints": "mask < 0x8000: U+0F0000 + mask; otherwise U+100000 + (mask - 0x8000)",
+  "source_geometry": "Candidate 1 exact core",
+  "geometry_change": "none",
+  "cell_bounds": "x=0..500, y=-200..800; advance=500",
+  "exterior_overfill": 0,
+  "encoding_invariant": "full occupancy remains mask 0xFFFF, codepoint U+107FFF, foreground",
+  "candidate_status": "PASSED LINUX RELEASE GATE: strict hinted geometry preserves foreground ownership and continuous internal U+107FFF joins; no background substitution is used",
+  "parts": [
+    {
+      "part": 0,
+      "source": "PUA4x4Part0V04Candidate.ttf",
+      "filename": "PUA4x4Part0V05Candidate4.ttf",
+      "family": "PUA 4x4 Part 0 v0.5 Candidate 4",
+      "postscript": "PUA4x4Part0V05Candidate4-Regular",
+      "codepoint_start": 983040,
+      "codepoint_end": 1015807,
+      "source_sha256": "d88567706074a28e6f28be6a2a4b88d0b124f2651852b8217132e5ab05df1ad0",
+      "sha256": "7ca7994c0ad220f3115d01c73915b619e89813713d835cc8ba3430c8dfef5d9e",
+      "hinted_nonempty_glyphs": 32767,
+      "maximum_instruction_bytes": 196
+    },
+    {
+      "part": 1,
+      "source": "PUA4x4Part1V04Candidate.ttf",
+      "filename": "PUA4x4Part1V05Candidate4.ttf",
+      "family": "PUA 4x4 Part 1 v0.5 Candidate 4",
+      "postscript": "PUA4x4Part1V05Candidate4-Regular",
+      "codepoint_start": 1048576,
+      "codepoint_end": 1081343,
+      "source_sha256": "76366d90c3321612f596956d7a5a09e0a570f5df0b4f51dc04e3d7104f3a7723",
+      "sha256": "f1b183d7d7ac4f6dc506612efb64db0225f3b6bbfb6b80828e07451fa0c35fe3",
+      "hinted_nonempty_glyphs": 32768,
+      "maximum_instruction_bytes": 196
+    }
+  ]
+}

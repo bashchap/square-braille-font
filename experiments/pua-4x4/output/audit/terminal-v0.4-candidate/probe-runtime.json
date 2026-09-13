@@ -1,0 +1,16 @@
+{
+  "probe": "MATE Terminal v0.4 candidate deterministic field",
+  "terminal_columns": 211,
+  "terminal_rows": 50,
+  "solid_columns": 80,
+  "solid_rows": 20,
+  "solid_mask": "0xFFFF",
+  "solid_codepoint": "U+107FFF",
+  "one_bit_masks_left_to_right": [
+    "0x0008",
+    "0x0004",
+    "0x0002",
+    "0x0001"
+  ],
+  "expectation": "solid field has no internal background pixels; one-bit marks occupy local x=0,1,2,3"
+}

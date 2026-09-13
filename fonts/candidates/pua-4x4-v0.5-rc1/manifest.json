@@ -1,0 +1,20 @@
+{
+  "name": "PUA 4x4 v0.5 RC1",
+  "candidate": "Candidate 4",
+  "mapping": "bit = 4 * local_y + (3 - local_x)",
+  "part_0": {
+    "codepoints": "U+0F0000..U+0F7FFF",
+    "masks": "0x0000..0x7FFF",
+    "file": "PUA4x4Part0V05Candidate4.ttf",
+    "sha256": "7ca7994c0ad220f3115d01c73915b619e89813713d835cc8ba3430c8dfef5d9e"
+  },
+  "part_1": {
+    "codepoints": "U+100000..U+107FFF",
+    "masks": "0x8000..0xFFFF",
+    "file": "PUA4x4Part1V05Candidate4.ttf",
+    "sha256": "f1b183d7d7ac4f6dc506612efb64db0225f3b6bbfb6b80828e07451fa0c35fe3"
+  },
+  "geometry": "Candidate 1 exact core; x=0..500, y=-200..800, advance=500, no exterior overfill",
+  "encoding_invariant": "full occupancy is foreground mask 0xFFFF at U+107FFF",
+  "linux_release_gate": "PASS"
+}

@@ -1,0 +1,2 @@
+350df17c69770d42b52f4f224db4cf210219d0bffa5d43604b98d3d56736f9c9  build-v0.4-candidate.2-hinted/PUA4x4Part0V04Candidate2.ttf
+35d55a31210c19168a80c2c04fb9cb5e7aba2ca9a0b47da57bd5fec76d62ff47  build-v0.4-candidate.2-hinted/PUA4x4Part1V04Candidate2.ttf

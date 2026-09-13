@@ -2,12 +2,15 @@
 """Move a virtual pixel with the arrow keys and leave a colored trail."""
 
 import os
+from pathlib import Path
 import select
 import shutil
 import sys
 import termios
 import tty
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "demos"))
+from native_terminal import terminal_picture
 
 from pua4x4_backend import DOT_BIT, mask_to_codepoint
 TRAIL_COLORS = (25, 27, 33, 39, 45, 51)
@@ -69,20 +72,15 @@ def render(width, height, trail, cursor):
         put(x, y, min(len(TRAIL_COLORS) - 1, index * len(TRAIL_COLORS) // total))
     put(cursor[0], cursor[1], len(TRAIL_COLORS))
 
-    lines = []
     palette = TRAIL_COLORS + (CURSOR_COLOR,)
-    for row_masks, row_shades in zip(masks, shades):
-        parts, active = [], None
-        for mask, shade in zip(row_masks, row_shades):
-            if mask and shade != active:
-                parts.append("\x1b[38;5;%dm" % palette[shade])
-                active = shade
-            parts.append(chr(mask_to_codepoint(mask)))
-        lines.append("".join(parts))
+    colors = [[palette[shade] for shade in row] for row in shades]
     # tty.setraw() disables the terminal driver's NL -> CRLF conversion.
     # Emit CRLF explicitly or each framebuffer row begins at the prior column,
     # causing autowrap plus LF to skip alternating terminal rows.
-    return "\r\n".join(lines)
+    return terminal_picture(
+        masks, colors, columns, rows, mapping="pua4",
+        colour_mode="indexed", blank_glyph=True, carriage_return=True,
+        reset_at_end=False)
 
 
 def main():
