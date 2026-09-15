@@ -30,14 +30,18 @@ simulation or glyph mapping.
 The seasonal verifier compares its complete ANSI output and telemetry with the
 Python implementation byte-for-byte when the release library is available.
 
-On the 2026-09-12 development Mac, repeated PUA4 encoding of a fully rendered
-168x60-cell scene averaged 61.34 ms in Python and 30.21 ms through Rust,
-including buffer marshaling. At 120x36 it averaged 28.01 ms and 13.24 ms.
-These are directional local measurements, not cross-machine guarantees.
+On the 2026-09-15 development Mac, the current full-engine benchmark measured
+the encode phase at 19.90 to 11.15 ms for 120x36, 48.01 to 29.64 ms for
+168x60, and 65.53 to 39.90 ms for 303x46 (Python to Rust, including current
+buffer marshaling). Complete-frame improvement was 16.3% at 303x46. These are
+directional local measurements, not cross-machine guarantees. Full methodology,
+phase tables and migration decisions are in
+`demos/seasonal/PERFORMANCE-2026-09-15.md`.
 
-The next optimization boundary is the mutable virtual-pixel `Surface`. Moving
-that backing store to packed native arrays would remove the current per-frame
-Python marshaling pass and give scenery rasterization the same native data.
+The next optimization boundary is the mutable virtual-pixel `Surface`. Move
+its backing store to packed RGB/priority arrays, then port shared primitives,
+accumulation and cached-tree compositing as batched operations. Keep behavioural
+state machines in Python and avoid a per-pixel FFI boundary.
 
 Not every legacy program should use this encoder. Triangle/vertical seam
 diagnostics intentionally write positioned glyphs directly; catalogues and

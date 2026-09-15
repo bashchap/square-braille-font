@@ -2,6 +2,7 @@
 """Deterministic structural checks for the Christmas snow demo."""
 
 import json
+import math
 import os
 import random
 import tempfile
@@ -19,6 +20,8 @@ from christmas_snow import (
     build_parser,
     build_scenery,
     cached_postman_pixels,
+    npc_figure_height,
+    npc_ground_y,
     cabin_door_targets,
     cabin_path_network,
     cabin_door_rect,
@@ -36,6 +39,7 @@ from christmas_snow import (
     draw_cabin_paths,
     draw_cached_tree,
     draw_clouds,
+    draw_npc,
     draw_postman,
     draw_rabbit,
     draw_reindeer,
@@ -581,6 +585,141 @@ def main():
                   for pixel in cabin_layered.pixels),
           "far rabbit feet leaked below the cabin occlusion footprint")
 
+    npc_args = parse_args([
+        "--mode", "pua4", "--scenery", "none", "--rabbit-count", "0",
+        "--npc-count", "3", "--npc-speed-min", "10",
+        "--npc-speed-max", "10", "--npc-decision-min-seconds", "0.1",
+        "--npc-decision-max-seconds", "0.1", "--npc-response-seconds", "0.05",
+        "--npc-object-awareness", "0", "--npc-avoidance-strength", "0",
+        "--npc-crossing-motivation-min", "0",
+        "--npc-crossing-motivation-max", "0", "--npc-wander-angle", "180",
+        "--npc-reversal-chance", "0", "--npc-side-spawn-share", "1",
+        "--npc-respawn-seconds", "0.1", "--npc-depth-min", "0.2",
+        "--npc-depth-max", "1", "--npc-social-factor", "0",
+        "--npc-social-distance", "0", "--npc-track-id", "1",
+        "--snow-rate", "0", "--max-flakes", "0", "--preload-seconds", "0",
+        "--no-snow-plough", "--no-postman",
+    ])
+    npc_engine = SnowEngine(npc_args, 240, 100)
+    check(len(npc_engine.npcs) == 3 and
+          len({npc.colour for npc in npc_engine.npcs}) == 3,
+          "npc population did not receive distinct configured colours")
+    postal_pixels = cached_postman_pixels(24, 1, 3, 0, False)
+    cached_postman_pixels(24, 1, 3, 0, False, (46, 134, 171))
+    check(cached_postman_pixels(24, 1, 3, 0, False) == postal_pixels,
+          "NPC colour rasterization changed the postman's cached gait")
+    near_npc, far_npc = npc_engine.npcs[:2]
+    near_npc.x, near_npc.depth = 60.0, 1.0
+    far_npc.x, far_npc.depth = 140.0, 0.25
+    for npc in (near_npc, far_npc):
+        npc.heading = npc.desired_heading = 0.0
+        npc.decision_timer = 10.0
+        npc.state = "walking"
+    npc_engine.step_npcs(0.5)
+    check(near_npc.x - 60.0 > far_npc.x - 140.0,
+          "npc speed did not use perspective parallax")
+    check(npc_figure_height(npc_engine, near_npc) >
+          npc_figure_height(npc_engine, far_npc) and
+          npc_ground_y(npc_engine, near_npc) >
+          npc_ground_y(npc_engine, far_npc),
+          "npc depth did not control both scale and projected terrain position")
+
+    # Ground actors must not use the particle system's cyclic x lookup. With
+    # very different edge banks, the old modulo sample jumped an NPC between
+    # the right and left terrain heights while it crossed x=0.
+    edge_args = parse_args([
+        "--mode", "pua4", "--scenery", "none", "--rabbit-count", "0",
+        "--npc-count", "1", "--snow-rate", "0", "--max-flakes", "0",
+        "--preload-seconds", "0", "--no-snow-plough", "--no-postman",
+    ])
+    edge_engine = SnowEngine(edge_args, 120, 80)
+    edge_engine.depths = [0.0] * edge_engine.width
+    edge_engine.depths[-5:] = [edge_engine.height * 0.80] * 5
+    edge_npc = edge_engine.npcs[0]
+    edge_npc.depth = 0.75
+    edge_npc.x = -0.20
+    before_edge = npc_ground_y(edge_engine, edge_npc)
+    edge_npc.x = 0.20
+    after_edge = npc_ground_y(edge_engine, edge_npc)
+    check(abs(after_edge - before_edge) < 1.0,
+          "npc terrain projection wrapped to the opposite viewport edge")
+
+    edge_engine.depths = [edge_engine.height * 0.86] * edge_engine.width
+    edge_npc.depth = edge_args.npc_depth_min
+    horizon_y = edge_engine.height * edge_args.horizon_height
+    check(npc_ground_y(edge_engine, edge_npc) >= horizon_y + 0.5,
+          "distant NPC feet projected above the artificial horizon")
+    normal_height = npc_figure_height(npc_engine, near_npc)
+    npc_args.npc_depth_max = 1.4
+    npc_args.npc_viewport_respawn_chance = 0.0
+    near_npc.depth = 1.39
+    near_npc.heading = near_npc.desired_heading = math.pi * 0.5
+    near_npc.decision_timer = 10.0
+    npc_engine.step_npcs(0.1)
+    check(near_npc.state == "viewport_turn" and
+          math.sin(near_npc.heading) < 0 and
+          npc_figure_height(npc_engine, near_npc) > normal_height * 1.35 and
+          npc_engine.npc_viewport_turns == 1,
+          "near NPC did not enlarge and immediately turn at the viewport")
+    old_depth, old_x = far_npc.depth, far_npc.x
+    far_npc.heading = far_npc.desired_heading = math.pi * 0.5
+    far_npc.decision_timer = 10.0
+    npc_engine.step_npcs(0.25)
+    check(far_npc.depth > old_depth and abs(far_npc.x - old_x) < 0.1,
+          "a 90-degree npc heading was not projected as pure depth movement")
+    npc_args.npc_reversal_chance = 1.0
+    old_direction = near_npc.crossing_direction
+    near_npc.decision_timer = 0.0
+    npc_engine.step_npcs(0.01)
+    check(near_npc.crossing_direction == -old_direction and
+          npc_engine.npc_direction_changes > 0,
+          "npc reversal and decision timing controls were not applied")
+    old_generation = near_npc.generation
+    near_npc.x = npc_engine.width + 100
+    npc_engine.step_npcs(0.01)
+    check(near_npc.state == "hidden",
+          "out-of-bounds npc did not leave its active slot")
+    npc_engine.step_npcs(0.2)
+    check(near_npc.state != "hidden" and
+          near_npc.generation == old_generation + 1,
+          "out-of-bounds npc slot did not spawn a replacement identity")
+    far_npc.x, far_npc.depth = 90.0, 0.30
+    far_npc.heading = far_npc.desired_heading = 0.0
+    far_npc.state = "walking"
+    cover = Surface(240, 100)
+    cover.rectangle(70, 0, 110, 100, (9, 81, 44), 20)
+    far_composite = render_surface(cover, npc_engine)
+    check(not any(pixel is not None and pixel[0] == far_npc.colour
+                  for pixel in far_composite.pixels),
+          "distant npc was not occluded by foreground scenery")
+    far_npc.depth = 0.90
+    near_composite = render_surface(cover, npc_engine)
+    check(any(pixel is not None and pixel[0] == far_npc.colour
+              for pixel in near_composite.pixels),
+          "near npc did not render in front of foreground scenery")
+    tracked_surface = Surface(240, 100)
+    tracked = npc_engine.npcs[1]
+    tracked.x, tracked.depth, tracked.state = 120.0, 0.9, "walking"
+    draw_npc(tracked_surface, npc_engine, tracked)
+    check(any(pixel is not None and pixel[0] == (54, 235, 240)
+              for pixel in tracked_surface.pixels),
+          "tracked npc did not receive its visible locator marker")
+
+    social_args = parse_args([
+        "--mode", "pua4", "--scenery", "none", "--rabbit-count", "0",
+        "--npc-count", "2", "--npc-object-awareness", "0",
+        "--npc-social-factor", "1", "--npc-social-distance", "80",
+        "--snow-rate", "0", "--max-flakes", "0", "--preload-seconds", "0",
+        "--no-postman", "--no-snow-plough",
+    ])
+    social_engine = SnowEngine(social_args, 240, 100)
+    first_social, second_social = social_engine.npcs
+    first_social.x, first_social.depth = 80.0, 0.6
+    second_social.x, second_social.depth = 110.0, 0.6
+    steering = social_engine.npc_steering(first_social)
+    check(steering[2] > 0 and not steering[4],
+          "positive npc social factor did not attract a neighbour")
+
     postman_args = parse_args([
         "--mode", "pua4", "--scenery", "cabin", "--cabin-count", "1",
         "--postman", "--postman-interval", "1", "--postman-speed", "80",
@@ -765,6 +904,22 @@ def main():
     check(sum(pixel is not None for pixel in crash_surface.pixels) > 80,
           "persistent mushroom-cloud explosion lacks animated geometry")
 
+    intact_args = parse_args([
+        "--mode", "pua4", "--sky-events", "aeroplane",
+        "--pilot-ejection", "--ejection-chance", "0",
+        "--flyby-interval", "1", "--flyby-speed", "100",
+        "--snow-rate", "0", "--max-flakes", "0", "--preload-seconds", "0",
+    ])
+    intact_engine = SnowEngine(intact_args, 240, 120)
+    intact_engine.step_parachutists(0.05, ejection_elapsed)
+    intact_state = current_sky_event_state(
+        intact_args, intact_engine, ejection_elapsed)
+    check(intact_state is not None and
+          intact_state["event_index"] in intact_engine.ejection_attempted_events and
+          intact_state["event_index"] not in intact_engine.ejection_events and
+          not intact_engine.parachutists and not intact_engine.aircraft_crashes,
+          "failed ejection probability roll incorrectly removed the intact plane")
+
     superman_base = [
         "--mode", "pua4", "--sky-events", "superman",
         "--superman-frequency", "60", "--superman-speed", "80",
@@ -920,6 +1075,11 @@ def main():
           hidden_engine.abducted_rabbit_index is None and
           not hidden_engine.ufo_beam_active,
           "UFO manufactured a hidden rabbit solely for an abduction")
+    hidden.state, hidden.x = "hopping", 92.0
+    hidden_engine.step_ufo_abduction(early + 0.05)
+    check(hidden_engine.ufo_target_rabbit_index == 0 and
+          hidden.state == "abducting",
+          "UFO did not retry acquisition when an existing rabbit emerged")
 
     trail_surface = Surface(80, 24)
     trail_engine = SnowEngine(large_event_args, 80, 24)
@@ -1130,14 +1290,19 @@ def main():
         control_path.write_text(json.dumps({
             "format": CONTROL_FORMAT, "revision": 7,
             "argv": ["--mode", "pua4", "--wind", "9", "--no-tower-collapse",
-                     "--flake-sizes", "large"],
+                     "--flake-sizes", "large", "--npc-count", "5",
+                     "--npc-wander-angle", "180",
+                     "--npc-social-factor", "-0.4"],
         }), encoding="utf-8")
         listener = ControlListener(control_path, 0.01)
         check(listener.poll(live_args, live_engine, force=True),
               "valid live-control JSON was not applied")
         check(live_args.wind == 9 and not live_args.tower_collapse and
-              all(flake.shape == "large" for flake in live_engine.flakes),
-              "live control did not immediately update numeric, Boolean and flake-size settings")
+              all(flake.shape == "large" for flake in live_engine.flakes) and
+              len(live_engine.npcs) == 5 and
+              live_args.npc_wander_angle == 180 and
+              live_args.npc_social_factor == -0.4,
+              "live control did not immediately update particles or npc behaviour")
         control_path.write_text(json.dumps({
             "format": CONTROL_FORMAT, "revision": 8, "restart": 1,
             "argv": ["--mode", "pua4", "--wind", "11"],
@@ -1268,6 +1433,11 @@ def main():
               for _, points in spurs) and
           sum(pixel is not None for pixel in route_surface.pixels) > 100,
           "perspective-split straight/curved dirt routes missed a cabin door")
+    route_npc = route_engine.npcs[0]
+    route_npc.x, route_npc.depth = 180.0, 0.52
+    route_steering = route_engine.npc_steering(route_npc)
+    check(abs(route_steering[5]) + abs(route_steering[6]) > 0.05,
+          "NPC did not receive steering from the visible dirt path network")
 
     horizon_args = parse_args([
         "--mode", "pua4", "--scenery", "cabin", "--cabin-count", "5",
@@ -1294,8 +1464,70 @@ def main():
     mass_engine = SnowEngine(mass_args, 200, 100)
     mass_engine.detect_mass_fallaways(0.05)
     check(mass_engine.tower_collapses and
-          mass_engine.tower_collapses[0].span >= 20,
+          mass_engine.tower_collapses[0].span >= 20 and
+          mass_engine.mass_fallaway_count > 0,
           "height-triggered local snow countdown did not start its fall-away")
+    collapse = mass_engine.tower_collapses[0]
+    mass_engine.tower_collapses = [collapse]
+    for _ in range(240):
+        mass_engine.step_tower_collapses(0.025)
+        if not mass_engine.tower_collapses:
+            break
+    half = collapse.span // 2
+    left = max(0, collapse.centre - half)
+    right = min(mass_engine.width - 1, collapse.centre + half)
+    edge_deltas = [abs(mass_engine.depths[x + 1] - mass_engine.depths[x])
+                   for x in range(left, right)]
+    check(edge_deltas and max(edge_deltas) < mass_engine.height * 0.10,
+          "mass fall-away retained a straight vertical edge at its shoulder")
+
+    # Exercise the complete production step order with the saved preset's
+    # broad-shed values. Deposits on an active shoulder previously fought the
+    # taper forever, leaving one SHED active and preventing future triggers.
+    shed_args = parse_args([
+        "--mode", "pua4", "--initial-snow", "0.12",
+        "--accumulation", "2.4", "--shed-threshold", "0.37",
+        "--shed-to", "0.10", "--shed-width", "0.40",
+        "--shed-rate", "0.22", "--snow-rate", "525",
+        "--max-flakes", "525", "--preload-seconds", "1",
+        "--snow-fallaway-threshold", "0.50",
+        "--snow-fallaway-min-seconds", "1",
+        "--snow-fallaway-max-seconds", "1", "--no-tower-collapse",
+        "--scenery", "none", "--rabbit-count", "0", "--no-npcs",
+        "--no-postman", "--no-snow-plough",
+    ])
+    shed_engine = SnowEngine(shed_args, 303, 46)
+    shed_engine.depths = [shed_engine.height * 0.34] * shed_engine.width
+    for x in range(120, 181):
+        shed_engine.depths[x] = shed_engine.height * 0.38
+    for frame in range(240):
+        shed_engine.step(0.05, (frame + 1) * 0.05)
+        if shed_engine.shed_count and shed_engine.shedding is None:
+            break
+    check(shed_engine.shed_count == 1 and shed_engine.shedding is None,
+          "preset-rate broad bank collapse did not trigger and finish")
+
+    deposit_args = parse_args([
+        "--mode", "pua4", "--initial-snow", "0.4", "--snow-rate", "0",
+        "--max-flakes", "0", "--preload-seconds", "0",
+        "--scenery", "none", "--rabbit-count", "0", "--no-npcs",
+        "--no-postman", "--no-snow-plough",
+    ])
+    deposit_engine = SnowEngine(deposit_args, 100, 60)
+    deposit_engine.shedding = (50, 20, deposit_engine.depths[40],
+                               deposit_engine.depths[60])
+    inside_before = deposit_engine.depths[50]
+    outside_before = deposit_engine.depths[75]
+    flake = deposit_engine.new_flake()
+    flake.x = 50.0
+    flake.shape = "tiny"
+    deposit_engine.deposit(flake)
+    check(deposit_engine.depths[50] == inside_before,
+          "fresh snow settled on an actively collapsing bank")
+    flake.x = 75.0
+    deposit_engine.deposit(flake)
+    check(deposit_engine.depths[75] > outside_before,
+          "active collapse incorrectly stopped snow outside its footprint")
 
     hero_args = parse_args([
         "--mode", "pua4", "--sky-events", "superman",
@@ -1336,6 +1568,7 @@ def main():
     departure_min_scale = 1.0
     roof_safe_samples = []
     event_depths = set()
+    phase_depths = {}
     event_zero_ground_x = set()
     event_zero_departure_x = []
     for tick in range(1200):
@@ -1345,6 +1578,9 @@ def main():
         if state is not None:
             phases.setdefault(state["phase"], state)
             event_depths.add(round(state["scene_depth"], 3))
+            if state["event_index"] == 0:
+                phase_depths.setdefault(state["phase"], []).append(
+                    state["scene_depth"])
             if (state["event_index"] == 0 and state["phase"] in
                     ("heli_hover", "heli_descent", "heli_landed",
                      "heli_takeoff", "heli_turn")):
@@ -1376,6 +1612,8 @@ def main():
           takeoff_orientations == {0} and
           roof_safe_samples and all(roof_safe_samples) and
           len(event_depths) >= 3 and
+          min(phase_depths["heli_approach"]) < phase_depths["heli_hover"][0] and
+          phase_depths["heli_departure"][-1] < phase_depths["heli_turn"][0] and
           len(event_zero_ground_x) == 1 and
           (all(left <= right for left, right in zip(
               event_zero_departure_x, event_zero_departure_x[1:])) or
@@ -1430,6 +1668,39 @@ def main():
     check(helicopter_args.helicopter_downwash_width == 1.0 and
           reindeer_apparent_height(320, 120) > 0,
           "helicopter width/reindeer apparent-depth controls are unavailable")
+
+    occlusion_args = parse_args([
+        "--mode", "pua4", "--sky-events", "helicopter",
+        "--flyby-interval", "1", "--flyby-speed", "100",
+        "--helicopter-hover-seconds", "1", "--helicopter-wait-min", "1",
+        "--helicopter-wait-max", "1", "--scenery", "none",
+        "--initial-snow", ".86", "--snow-rate", "0", "--max-flakes", "0",
+        "--preload-seconds", "0", "--rabbit-count", "0", "--no-npcs",
+        "--no-postman", "--no-snow-plough",
+    ])
+    occlusion_engine = SnowEngine(occlusion_args, 320, 120)
+    far_departure = next(
+        tick * 0.02 for tick in range(1600)
+        if ((sample := current_sky_event_state(
+            occlusion_args, occlusion_engine, tick * 0.02)) is not None and
+            sample["event_index"] == 0 and
+            sample["phase"] == "heli_departure" and
+            sample["scene_depth"] < 0.30))
+    raw_helicopter = Surface(320, 120)
+    draw_sky_event(raw_helicopter, occlusion_engine, far_departure)
+    occlusion_engine.elapsed = far_departure
+    composited = render_surface(Surface(320, 120), occlusion_engine)
+    raw_indices = [index for index, pixel in enumerate(raw_helicopter.pixels)
+                   if pixel is not None]
+    overlapping = [index for index in raw_indices
+                   if index // occlusion_engine.width >=
+                   occlusion_engine.surface_y(index % occlusion_engine.width)]
+    bank_colours = set(occlusion_engine.palette["bank"])
+    covered = sum(composited.pixels[index] is not None and
+                  composited.pixels[index][0] in bank_colours
+                  for index in overlapping)
+    check(overlapping and covered >= len(overlapping) * 0.90,
+          "receding helicopter remained in front of the foreground snow bank")
 
     # Airwolf is a true selectable event and uses the same complete cinematic
     # state machine, but its black/red model remains distinct at all yaw angles.
@@ -1576,6 +1847,7 @@ def main():
     print("PASS: precipitation depth assignment, weather-off mode and isolated tab previews")
     print("PASS: Superman paths, Santa depth zoom and parallax cloud lanes animate")
     print("PASS: swooping UFO keeps rabbit/beam depth; sparse plasma effects animate")
+    print("PASS: NPCs steer in 360-degree perspective, follow paths, avoid, respawn and track")
     print("PASS: distant cabins; postman cycles, scales, posts and collapses path snow")
     print("PASS: plough preserves snowfall deposited behind its completed blade path")
     print("PASS: Down-arrow escape sequence is not mistaken for the viewer quit key")

@@ -222,6 +222,38 @@ The foreground is not limited to falling snow:
   distant rabbits are smaller, travel more slowly through parallax, sit closer
   to the horizon, and can pass behind cabins and trees; near rabbits pass in
   front.
+- `--npcs` manages colour-varied roaming people using the postman's cached
+  jointed eight-frame gait without using his delivery state machine. NPCs
+  move on an `(x, depth)` ground plane: sideways motion crosses the terminal,
+  depth motion approaches or recedes from the artificial horizon, and every
+  intermediate heading remains perspective-correct. The same depth controls
+  terrain contact, figure scale, parallax speed, and whether scenery occludes
+  the person. `--npc-count` sets the active slots and
+  `--npc-colours` assigns two to eight coat colours. Each person receives a
+  speed between `--npc-speed-min` and `--npc-speed-max`, then reconsiders
+  its heading between `--npc-decision-min-seconds` and
+  `--npc-decision-max-seconds`. `--npc-response-seconds`,
+  `--npc-object-awareness`, and `--npc-avoidance-strength` tune smooth
+  reactions to cabins, other actors, crates, the plough, and a landed
+  helicopter's exclusion zone. The signed crossing-motivation min/max values
+  bias travel toward or away from an assigned side;
+  `--npc-wander-angle 180` permits a complete 360-degree choice, and
+  `--npc-reversal-chance` can swap the intended side. The signed social
+  factor disperses or groups NPCs inside the configured social distance.
+  `--npc-path-adherence` attracts them to the same live, perspective-tapered
+  dirt network used by the postman. Depths above `1` deliberately approach
+  through the near viewport and enlarge the figure for a fourth-wall effect.
+  Actor terrain samples are clamped at the viewport edges rather than wrapping
+  like airborne particles, and are filtered across the figure's footprint, so
+  crossing an edge or a one-column snow step cannot teleport a walking NPC.
+  Even when a bank rises above the artificial horizon, the projected feet stay
+  on the visible ground side of that horizon rather than walking in the sky.
+  At `--npc-depth-max`, `--npc-viewport-respawn-chance` chooses whether the
+  person disappears into a replacement slot or immediately turns away.
+  On leaving any lateral or depth boundary, a slot waits
+  `--npc-respawn-seconds` and receives a new generation, colour, speed, and
+  motivation. Set `--npc-track-id N` to mark slot `N` in cyan and report
+  its generation, state, x position, and depth on the ANIMALS dashboard.
 - `--postman` schedules a postman who walks in from either edge, selects an
   actual cabin door, turns smoothly from a side view to show his back, walks
   from the road to the house, posts a visible letter, waits, turns to face the
@@ -262,6 +294,9 @@ The foreground is not limited to falling snow:
   drifts down at
   `--parachute-fall-speed` in the furthest flight layer. Set
   `--ejection-chance 0` to disable it or `1` to demonstrate every pass.
+  A failed probability roll leaves the original aeroplane visible for its
+  complete crossing; only a successful ejection transfers it to the crash
+  state machine.
   With `--aircraft-crash` (the default), the abandoned aircraft then rolls
   continuously into a steep gravity-driven arc with a fire-and-smoke wake.
   `--aircraft-crash-depth auto|away|toward` chooses whether it shrinks toward
@@ -295,7 +330,9 @@ The foreground is not limited to falling snow:
   `--helicopter-wait-max`, leaves a supply crate, rises vertically until its
   complete lower silhouette clears the highest cabin roof/chimney, passes
   through thirteen stationary orientation frames, then shows its rear and
-  recedes lower toward the artificial horizon. A scale-aware clearance plane
+  recedes lower toward the artificial horizon. Its live depth moves from the
+  landing lane back to the distant layer, allowing trees, cabins and the snow
+  bank to progressively occlude it. A scale-aware clearance plane
   prevents the shrinking craft from crossing back over cabin roofs. Its
   canopy, paired engines, stub wings, weapon pods,
   chin sensor, landing gear and flashing warning lamps remain procedural. The
@@ -327,7 +364,8 @@ The foreground is not limited to falling snow:
   gold and white transporter column. The UFO selects one already-visible
   rabbit, swoops from a distant point toward that rabbit, and freezes directly
   above it before the beam appears. If no rabbit is visible, the flyby proceeds
-  without a beam or capture; no hidden stand-in is created. The selected rabbit
+  without manufacturing a hidden stand-in, but it continues checking during
+  approach so a naturally emerging existing rabbit can still be selected. The selected rabbit
   then rises vertically in front of the sparse beam and shrinks to 10% of the
   UFO's width. Both rabbit and beam retain the rabbit's original depth lane:
   a rabbit that began in front of a cabin remains in front throughout capture,
@@ -658,8 +696,10 @@ the animation. The terminal input mode is temporary and restored on exit.
   populations, hail bounce settings, lightning timing and completed strikes.
 - `TREES` shows species, density, branch formula controls, the segment budget,
   sway and object-snow state.
-- `ANIMALS` shows rabbit states, persistent depth lanes, reactions, postman
-  state/deliveries, and terrain-blocked tumbleweed counts.
+- `ANIMALS` shows NPC population/spawn/exit counts, steering and avoidance
+  totals, the selected tracked identity, crossing/wander/social settings,
+  rabbit states and depth lanes, postman state/deliveries, and terrain-blocked
+  tumbleweed counts.
 - `FLIGHTS` identifies the current distant event and aircraft type, schedule,
   Superman path/frequency/speed, Santa depth-scale range,
   ejected-pilot count, Santa scale/arc/trail state, and UFO vehicle,
@@ -760,13 +800,22 @@ measured scenery at 44.465 -> 33.139 ms (25.5% lower) and the complete frame at
 120.966 -> 110.645 ms (8.5% lower). The benchmark now uses the native encoder
 when `--native-encoder auto` successfully loads it, matching the viewer.
 
-The next optimization boundary is the tuple-based virtual-pixel `Surface`.
-A packed priority/RGB buffer shared with Rust would remove per-frame tuple
-marshalling and provide a native target for filled polygons, thick lines and
-cached-tree compositing. A sprite atlas remains a possible later optimization
-for discrete poses, but profiling shows the shared raster/store path is the
-broader target. Continuous effects such as precipitation, deforming snow and
-tree sway should remain procedural or use deliberately quantized cache steps.
+Fresh full-engine profiling is recorded in
+[`PERFORMANCE-2026-09-15.md`](PERFORMANCE-2026-09-15.md). At 303×46/full physics,
+the Rust path measured 132.90 ms/frame: 62.4% scenery plus raster/compositing,
+30.0% encoding (still including Python tuple packing), and 7.4% simulation plus
+collision. The current Rust encoder reduced total time by 16.3% relative to the
+Python encoder on that workload.
+
+The next optimization boundary is therefore the tuple-based virtual-pixel
+`Surface`, not a rewrite of the behavioural engine. A packed priority/RGB
+buffer shared with Rust removes per-frame tuple marshalling and provides a
+native target for batched rectangles, lines, polygons, accumulation and cached
+tree compositing. Keep event/NPC/postman/rabbit logic and procedural art
+definitions in Python. Fine-grained per-pixel FFI calls are explicitly avoided;
+the native side must consume buffers or command batches. A sprite atlas remains
+a possible later optimization for discrete poses, but profiling shows the
+shared raster/store path is the broader target.
 
 ## Snow controls
 
@@ -816,6 +865,9 @@ tab prints the effective `MIX`, making the applied names and weights visible.
 | `--tower-collapse-rate` | Speed of a local slump |
 | `--tower-cascade-chance` | Probability that one collapse destabilises a neighbour |
 | `--tower-cascade-radius` | Width searched for a chain-reaction candidate |
+| `--snow-fallaway-threshold` | Sustained local bank-height fraction that starts a separate countdown |
+| `--snow-fallaway-min-seconds` / `--snow-fallaway-max-seconds` | Seeded countdown range before that loaded area releases |
+| `--snow-fallaway-width` | Width of each local mass release |
 | `--object-snow` / `--no-object-snow` | Enable sparse temporary snow on scenery surfaces |
 | `--object-snow-capture` | Per-impact retention chance; default 8% |
 | `--object-snow-max` | Hard ceiling for separate retained patches |
@@ -827,7 +879,16 @@ The dashboard reports both maximum and average snow depth. The maximum depth
 triggers shedding because a tall local drift should collapse without requiring
 the whole screen to become half full. The affected section falls toward
 `--shed-to`, emits visible chunks, waits briefly, and then resumes normal
-accumulation.
+accumulation. Broad sheds and mass-triggered releases now preserve their
+outside shoulder heights and use a smooth taper across both sides. They do not
+wrap around viewport edges, so a release cannot leave ruler-straight vertical
+walls or mirror part of itself onto the opposite side. The SNOW dashboard
+reports mass fallaways separately from broad sheds and ordinary tower slumps,
+including the largest active countdown and both configured trigger heights.
+While a footprint is actively collapsing, it rejects new deposits and the
+general angle-of-repose solver cannot refill it from the sides; snowfall still
+accumulates everywhere outside that footprint. This guarantees the event can
+finish and release the broad-shed slot for a later bank.
 
 Broad shedding and local tower collapse solve different problems. A broad shed
 limits the overall high-water mark once any bank crosses `--shed-threshold`.
@@ -990,6 +1051,16 @@ python3 demos/seasonal/benchmark_christmas_snow.py --viewport 168x60 --runs 5
 python3 demos/seasonal/benchmark_christmas_snow.py --viewport 279x43 --json
 ```
 
+For the current full-engine workload and an explicit Python/Rust comparison:
+
+```sh
+cargo build --release --manifest-path native/seasonal_encoder/Cargo.toml
+python3 demos/seasonal/benchmark_christmas_snow.py \
+  --workload full --physics full --encoder both \
+  --sky-event helicopter --start-seconds 15 \
+  --viewport 120x36 --viewport 168x60 --viewport 303x46
+```
+
 The report separates simulation, scenery, collision-index extraction, moving
 object rasterization and glyph encoding. Timings are medians after two warm-up
 frames; compare results only on the same host and terminal-independent workload.
@@ -1002,6 +1073,9 @@ cascade, applies a live JSON revision, and round-trips the TUI's effective
 options back through the production parser. Additional checks cover varied
 cabin types and depth lanes, tumbleweed-aware rabbits, all seven sky events,
 parallax clouds, complete plough clearing, rabbit perspective/occlusion,
+360-degree NPC steering, scale/parallax, scenery occlusion, avoidance,
+social response, replacement spawning and tracked-identity highlighting,
+non-wrapping NPC terrain continuity and horizon-safe foot projection,
 depth-stable existing-rabbit-only UFO capture, Santa depth zoom,
 helicopter/kite/Superman rotation, enlarged moving pilot parachute, cached
 all-cabin postman delivery, connected dirt routes, simultaneous multi-speed

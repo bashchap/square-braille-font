@@ -295,6 +295,8 @@ class BankCollapse:
     span: int
     target: float
     generation: int = 0
+    left_anchor: float = 0.0
+    right_anchor: float = 0.0
 
 
 @dataclass
@@ -338,6 +340,26 @@ class Postman:
     route_index: int = 0
     route_progress: float = 0.0
     route_length: float = 1.0
+
+
+@dataclass
+class NPC:
+    """One independently steered person moving across the perspective plane."""
+
+    npc_id: int
+    generation: int
+    x: float
+    depth: float
+    heading: float
+    desired_heading: float
+    crossing_direction: int
+    crossing_motivation: float
+    speed: float
+    decision_timer: float
+    respawn_timer: float
+    phase: float
+    colour: tuple
+    state: str = "walking"
 
 
 @dataclass
@@ -491,7 +513,7 @@ class SeasonalPhysics:
     def object_is_stable(self, patch):
         return patch.mass * self.GRAVITY < patch.adhesion
 
-    def relax_bank(self, depths, dt):
+    def relax_bank(self, depths, dt, blocked=None):
         """Move excess adjacent depth downhill toward an angle of repose."""
         if (not self.ground_enabled or len(depths) < 2 or
                 self.args.snow_relaxation <= 0):
@@ -508,6 +530,8 @@ class SeasonalPhysics:
             transfer = min(excess * 0.5, maximum_transfer)
             source, destination = ((left, right) if difference > 0 else
                                    (right, left))
+            if blocked is not None and (blocked(source) or blocked(destination)):
+                continue
             delta[source] -= transfer
             delta[destination] += transfer
         for index, change in enumerate(delta):
@@ -1009,6 +1033,24 @@ def cabin_path_network(args, width, height, snow_line):
     return road_y, tuple(spurs)
 
 
+def live_cabin_path_spurs(engine):
+    """Project cabin routes onto the current bank surface and distant doors."""
+    snow_line = max(0, min(
+        engine.height - 1, int(round(engine.scenery_ground_y))))
+    _, spurs = cabin_path_network(
+        engine.args, engine.width, engine.height, snow_line)
+    projected = []
+    for cabin_index, points in spurs:
+        live_points = []
+        for index, (x, door_route_y) in enumerate(points):
+            amount = index / max(1, len(points) - 1)
+            bank_y = engine.surface_y(x) - 1.0
+            y = bank_y * (1.0 - amount) + door_route_y * amount
+            live_points.append((x, y))
+        projected.append((cabin_index, tuple(live_points)))
+    return tuple(projected)
+
+
 def helicopter_landing_x(args, width, height, snow_line, event_index=0):
     """Choose any repeatable viewport region rather than a centre-locked pad."""
     rng = random.Random(args.seed + 88301 + event_index * 211)
@@ -1032,6 +1074,8 @@ def safe_helicopter_landing_x(args, engine, event_index):
         int(round(engine.scenery_ground_y)), event_index)
     blockers = [rabbit.x for rabbit in engine.rabbits
                 if rabbit.state not in ("hidden", "abducting")]
+    blockers.extend(npc.x for npc in engine.npcs
+                    if npc.state != "hidden")
     if engine.postman.state != "hidden":
         blockers.append(engine.postman.x)
     clearance = max(28.0, engine.width * 0.055)
@@ -1481,8 +1525,9 @@ def rabbit_scene_ground_y(engine, rabbit):
     return projected
 
 
-@functools.lru_cache(maxsize=192)
-def cached_postman_pixels(figure_height, direction, gait_frame, pose, delivering):
+@functools.lru_cache(maxsize=768)
+def cached_postman_pixels(figure_height, direction, gait_frame, pose, delivering,
+                          npc_colour=None):
     """Pre-rasterize gait and smooth side/back/front turning poses."""
     figure_height = max(9, int(round(figure_height)))
     scale = figure_height / 16.0
@@ -1499,13 +1544,29 @@ def cached_postman_pixels(figure_height, direction, gait_frame, pose, delivering
     hip_y = base - 6.0 * scale - bob
     shoulder_y = base - 11.0 * scale - bob
     skin = (224, 174, 126)
+    if npc_colour is None:
+        side_tone, back_tone, front_tone = (
+            (194, 42, 47), (119, 25, 35), (211, 49, 52))
+        side_light, back_light, front_light = (
+            (226, 59, 57), (157, 36, 43), (239, 74, 67))
+    else:
+        side_tone = npc_colour
+        back_tone = tuple(max(0, int(channel * 0.55))
+                          for channel in npc_colour)
+        front_tone = tuple(min(255, int(channel * 1.10 + 10))
+                           for channel in npc_colour)
+        side_light = tuple(min(255, int(channel * 1.18 + 12))
+                           for channel in npc_colour)
+        back_light = tuple(min(255, int(channel * 0.72 + 5))
+                           for channel in npc_colour)
+        front_light = tuple(min(255, int(channel * 1.28 + 14))
+                            for channel in npc_colour)
     uniform = tuple(int(side * profile + back * backness + front * frontness)
                     for side, back, front in zip(
-                        (194, 42, 47), (119, 25, 35), (211, 49, 52)))
+                        side_tone, back_tone, front_tone))
     uniform_light = tuple(
         int(side * profile + back * backness + front * frontness)
-        for side, back, front in zip(
-            (226, 59, 57), (157, 36, 43), (239, 74, 67)))
+        for side, back, front in zip(side_light, back_light, front_light))
     trousers = (42, 55, 80)
     boot = (43, 34, 31)
     bag = (112, 67, 38)
@@ -1541,7 +1602,7 @@ def cached_postman_pixels(figure_height, direction, gait_frame, pose, delivering
     surface.line(centre - torso_half, hip_y - 0.4 * scale,
                  centre + torso_half, hip_y - 0.4 * scale,
                  trousers, 94)
-    if frontness > 0.35:
+    if frontness > 0.35 and npc_colour is None:
         surface.line(centre, shoulder_y + scale, centre, hip_y - scale,
                      uniform, 94)
         surface.pixel(centre - scale, shoulder_y + 2 * scale,
@@ -1636,6 +1697,51 @@ def draw_postman(surface, engine):
     centre = int(round(postman.x))
     for dx, dy, (colour, priority) in pixels:
         surface.pixel(centre + dx, base + dy, colour, priority)
+
+
+def npc_figure_height(engine, npc):
+    """Scale the shared model from distant pedestrian to fourth-wall close-up."""
+    near_height = max(15.0, min(31.0, engine.height * 0.19))
+    depth = max(0.05, npc.depth)
+    return near_height * (0.25 + 0.75 * depth ** 1.60)
+
+
+def npc_ground_y(engine, npc):
+    """Project an NPC's depth onto the live terrain and artificial horizon."""
+    horizon = engine.height * max(0.18, min(0.72, engine.args.horizon_height))
+    # A very deep bank may rise above the artificial horizon. Projecting that
+    # raw top as the foreground endpoint put distant NPC feet in the sky. Keep
+    # a narrow ground-plane strip below the horizon, while still following
+    # ordinary bank undulations. The clamped, filtered actor sample also avoids
+    # wrapping an off-screen NPC onto the opposite edge of the snow bank.
+    foreground = max(horizon + 4.0, engine.actor_surface_y(npc.x) - 1.0)
+    return max(horizon + 0.5,
+               horizon + (foreground - horizon) * max(0.0, npc.depth))
+
+
+def draw_npc(surface, engine, npc):
+    if npc.state == "hidden":
+        return
+    height = npc_figure_height(engine, npc)
+    gait_frame = int(npc.phase / math.tau * 8) % 8
+    facing = math.cos(npc.heading)
+    direction = (1 if facing >= 0.0 else -1)
+    # Positive depth motion approaches the viewer, so use the front pose;
+    # negative depth motion exposes the back. Intermediate headings make the
+    # cached turn poses read as a smooth 360-degree direction change.
+    pose = int(round(-4.0 * math.sin(npc.heading)))
+    pixels = cached_postman_pixels(
+        int(round(height)), direction, gait_frame, pose, False,
+        npc.colour)
+    base = int(round(npc_ground_y(engine, npc)))
+    centre = int(round(npc.x))
+    for dx, dy, (colour, priority) in pixels:
+        surface.pixel(centre + dx, base + dy, colour, priority)
+    if npc.npc_id == engine.args.npc_track_id:
+        marker_y = base - int(round(height)) - 5
+        cyan = (54, 235, 240)
+        surface.line(centre - 4, marker_y, centre, marker_y + 4, cyan, 111)
+        surface.line(centre + 4, marker_y, centre, marker_y + 4, cyan, 111)
 
 
 def sky_event_margin(engine):
@@ -1748,6 +1854,7 @@ def current_sky_event_state(args, engine, elapsed):
     phase_progress = local / max(0.001, travel_time)
     ufo_encounter = kind == "ufo" and args.ufo_abduction
     scale = 1.0
+    scene_depth = None
     if ufo_encounter:
         approach = travel_time * 0.5
         hover = args.ufo_hover_seconds
@@ -1857,8 +1964,9 @@ def current_sky_event_state(args, engine, elapsed):
         sky_y = max(minimum_y * 0.08, hover_y - engine.height * 0.13)
         snow_line = max(0, min(
             engine.height - 1, int(round(engine.scenery_ground_y))))
-        cabin_roof_y = highest_cabin_silhouette_y(
+        cabin_roof_y = (highest_cabin_silhouette_y(
             args, engine.width, engine.height, snow_line)
+            if "cabin" in args.scenery_set else None)
         if cabin_roof_y is None:
             clearance_y = hover_y
         else:
@@ -1931,6 +2039,14 @@ def current_sky_event_state(args, engine, elapsed):
                 safe_y = cabin_roof_y - 13 * unit * scale
                 y = min(desired_y, safe_y)
             orientation = 12
+        if phase == "heli_approach":
+            depth_ease = phase_progress ** 2 * (3.0 - 2.0 * phase_progress)
+            scene_depth = 0.06 + (landing_depth - 0.06) * depth_ease
+        elif phase == "heli_departure":
+            depth_ease = phase_progress ** 2 * (3.0 - 2.0 * phase_progress)
+            scene_depth = landing_depth * (1.0 - depth_ease) + 0.06 * depth_ease
+        else:
+            scene_depth = landing_depth
         progress = min(1.0, local / max(0.001, boundaries[5] + departure))
     else:
         y = rng.uniform(minimum_y, maximum_y)
@@ -1958,8 +2074,7 @@ def current_sky_event_state(args, engine, elapsed):
         "event_index": event_index, "phase": phase,
         "phase_progress": max(0.0, min(1.0, phase_progress)),
         "scale": scale,
-        "scene_depth": (landing_depth
-                         if kind in ("helicopter", "airwolf") else None),
+        "scene_depth": scene_depth,
         "ground_contact_y": (ground_contact_y
                              if kind in ("helicopter", "airwolf") else None),
         "cabin_roof_y": (cabin_roof_y
@@ -3198,6 +3313,7 @@ class SnowEngine:
         self.ufo_target_x_by_event = {}
         self.ufo_target_rabbit_by_event = {}
         self.parachutists = []
+        self.ejection_attempted_events = set()
         self.ejection_events = set()
         self.pilot_ejection_count = 0
         self.aircraft_crashes = []
@@ -3239,10 +3355,17 @@ class SnowEngine:
         self.shed_cooldown = 0.0
         self.tower_ages = [0.0] * width
         self.mass_fallaway_ages = [0.0] * width
+        self.mass_fallaway_count = 0
         self.tower_collapses = []
         self.tower_collapse_count = 0
         self.rabbits = []
         self.rabbit_reactions = 0
+        self.npcs = []
+        self.npc_spawn_count = 0
+        self.npc_exit_count = 0
+        self.npc_direction_changes = 0
+        self.npc_avoidance_events = 0
+        self.npc_viewport_turns = 0
         self.postman = Postman(
             x=-20.0, y=height - 1, direction=1, state="hidden",
             timer=(args.postman_interval / max(0.01, args.postman_delivery_frequency) *
@@ -3253,6 +3376,7 @@ class SnowEngine:
         self.postman_snow_collapses = 0
         self.postman_next_cabin = 0
         self.sync_rabbits(initial=True)
+        self.sync_npcs(initial=True)
         self.sync_tumbleweeds(initial=True)
         self.plough = SnowPlough(
             active=False, x=-20.0, direction=1,
@@ -3307,6 +3431,8 @@ class SnowEngine:
             patch.y *= scale_y
         for rabbit in self.rabbits:
             rabbit.x *= scale_x
+        for npc in self.npcs:
+            npc.x *= scale_x
         for weed in self.tumbleweeds:
             weed.x *= scale_x
             weed.y *= scale_y
@@ -3466,6 +3592,29 @@ class SnowEngine:
     def surface_y(self, x):
         return self.height - self.depths[int(x) % self.width]
 
+    def actor_surface_y(self, x):
+        """Return a non-wrapping, locally filtered surface for ground actors.
+
+        Particle physics intentionally wraps horizontally, but a person just
+        outside the left edge must not sample the right edge's snow depth.
+        Filtering across a five-column footprint also turns a one-column bank
+        step into a walkable slope instead of a vertical screen-space snap.
+        """
+        position = max(0.0, min(self.width - 1.0, float(x)))
+
+        def sample(sample_x):
+            sample_x = max(0.0, min(self.width - 1.0, sample_x))
+            left = int(math.floor(sample_x))
+            right = min(self.width - 1, left + 1)
+            fraction = sample_x - left
+            depth = (self.depths[left] * (1.0 - fraction) +
+                     self.depths[right] * fraction)
+            return self.height - depth
+
+        weights = (1.0, 2.0, 3.0, 2.0, 1.0)
+        return sum(weight * sample(position + offset)
+                   for offset, weight in zip(range(-2, 3), weights)) / sum(weights)
+
     def update_scenery_collision(self, surface):
         """Index exposed top edges so flakes may sparsely settle on objects."""
         if not self.physics.object_enabled:
@@ -3550,33 +3699,60 @@ class SnowEngine:
         weight_total = sum(weights)
         for offset in range(-radius, radius + 1):
             x = (centre + offset) % self.width
+            # Fresh flakes cannot settle on snow that is actively giving way.
+            # Letting deposition compete with the tapered, low-speed shoulder
+            # cells could keep one collapse alive for over a minute and block
+            # all subsequent broad sheds.
+            if self.snow_column_collapsing(x):
+                continue
             weight = weights[offset + radius] / weight_total
             self.depths[x] = min(
                 self.height * 0.86,
                 self.depths[x] + amount * weight * (1.6 + extent * 0.8))
 
+    def snow_column_collapsing(self, x):
+        """Whether an in-bounds bank column currently rejects new deposits."""
+        if self.shedding is not None:
+            centre, span, _, _ = self.shedding
+            if abs(x - centre) <= max(2, span // 2):
+                return True
+        return any(abs(x - collapse.centre) <= max(1, collapse.span // 2)
+                   for collapse in self.tower_collapses)
+
     def begin_shed(self):
         peak = max(range(self.width), key=self.depths.__getitem__)
         span = max(4, int(self.width * self.args.shed_width))
-        self.shedding = (peak, span)
+        half = max(2, span // 2)
+        left = max(0, peak - half)
+        right = min(self.width - 1, peak + half)
+        self.shedding = (
+            peak, span, self.depths[left], self.depths[right])
         self.shed_count += 1
 
     def step_shed(self, dt):
         if not self.shedding:
             return
-        centre, span = self.shedding
+        centre, span, left_anchor, right_anchor = self.shedding
         target = self.height * self.args.shed_to
         reduction = self.height * self.args.shed_rate * dt
         removed = []
         complete = True
-        for offset in range(-span // 2, span // 2 + 1):
-            x = (centre + offset) % self.width
-            edge = abs(offset) / max(1, span / 2)
-            local_target = target * (0.82 + edge * 0.18)
+        half = max(2, span // 2)
+        for offset in range(-half, half + 1):
+            x = centre + offset
+            if not 0 <= x < self.width:
+                continue
+            edge = abs(offset) / half
+            feather = edge * edge * (3.0 - 2.0 * edge)
+            anchor = left_anchor if offset < 0 else right_anchor
+            # Blend continuously into the untouched shoulder. The previous
+            # fixed edge target left two ruler-straight vertical snow walls.
+            local_target = target * (1.0 - feather) + anchor * feather
             if self.depths[x] > local_target + 0.25:
                 complete = False
                 old = self.depths[x]
-                self.depths[x] = max(local_target, old - reduction)
+                taper = max(0.08, 1.0 - feather)
+                self.depths[x] = max(local_target, old - reduction * taper)
                 if old - self.depths[x] > 0.1:
                     removed.append((x, self.height - old))
         sample_step = max(1, len(removed) // 8)
@@ -3624,7 +3800,11 @@ class SnowEngine:
         left = self.depths[(centre - shoulder) % self.width]
         right = self.depths[(centre + shoulder) % self.width]
         target = min(self.depths[centre], (left + right) * 0.5 + self.height * 0.015)
-        self.tower_collapses.append(BankCollapse(centre, span, target, generation))
+        half = max(1, span // 2)
+        self.tower_collapses.append(BankCollapse(
+            centre, span, target, generation,
+            self.depths[max(0, centre - half - 1)],
+            self.depths[min(self.width - 1, centre + half + 1)]))
         self.tower_collapse_count += 1
         reset_radius = span * 2
         for offset in range(-reset_radius, reset_radius + 1):
@@ -3663,6 +3843,20 @@ class SnowEngine:
                 (self.args.snow_fallaway_max_seconds -
                  self.args.snow_fallaway_min_seconds) * fraction)
 
+    @property
+    def mass_fallaway_progress(self):
+        """Largest active local fall-away countdown, normalized to 0..1."""
+        threshold = self.args.snow_fallaway_threshold
+        if not self.args.accumulate or threshold <= 0.0:
+            return 0.0
+        progress = 0.0
+        for x, age in enumerate(self.mass_fallaway_ages):
+            if age <= 0.0 or self.depths[x] / self.height < threshold:
+                continue
+            deadline = self.mass_fallaway_deadline(x)
+            progress = max(progress, 1.0 if deadline <= 0.0 else age / deadline)
+        return min(1.0, progress)
+
     def detect_mass_fallaways(self, dt):
         """Count down sustained local mass, then release that complete area."""
         threshold = self.args.snow_fallaway_threshold
@@ -3688,11 +3882,17 @@ class SnowEngine:
                 (self.depths[(centre - shoulder) % self.width] +
                  self.depths[(centre + shoulder) % self.width]) * 0.25,
                 self.height * threshold * 0.58)
-            self.tower_collapses.append(
-                BankCollapse(centre, span, max(0.0, target), generation=3))
+            half = max(1, span // 2)
+            self.tower_collapses.append(BankCollapse(
+                centre, span, max(0.0, target), generation=3,
+                left_anchor=self.depths[max(0, centre - half - 1)],
+                right_anchor=self.depths[min(self.width - 1, centre + half + 1)]))
+            self.mass_fallaway_count += 1
             self.tower_collapse_count += 1
             for offset in range(-span * 2, span * 2 + 1):
-                self.mass_fallaway_ages[(centre + offset) % self.width] = 0.0
+                x = centre + offset
+                if 0 <= x < self.width:
+                    self.mass_fallaway_ages[x] = 0.0
 
     def step_tower_collapses(self, dt):
         survivors = []
@@ -3703,13 +3903,19 @@ class SnowEngine:
             complete = True
             half = max(1, collapse.span // 2)
             for offset in range(-half, half + 1):
-                x = (collapse.centre + offset) % self.width
+                x = collapse.centre + offset
+                if not 0 <= x < self.width:
+                    continue
                 edge = abs(offset) / half
-                local_target = collapse.target + self.height * 0.012 * edge
+                feather = edge * edge * (3.0 - 2.0 * edge)
+                anchor = (collapse.left_anchor if offset < 0 else
+                          collapse.right_anchor)
+                local_target = (collapse.target * (1.0 - feather) +
+                                anchor * feather)
                 if self.depths[x] > local_target + 0.20:
                     complete = False
                     old = self.depths[x]
-                    taper = max(0.30, 1.0 - edge * 0.62)
+                    taper = max(0.08, 1.0 - feather)
                     self.depths[x] = max(local_target, old - reduction * taper)
                     if old - self.depths[x] > 0.08:
                         removed.append((x, self.height - old))
@@ -3790,6 +3996,7 @@ class SnowEngine:
         if not self.physics.object_enabled:
             self.resting_snow = []
         self.sync_rabbits()
+        self.sync_npcs()
         self.sync_tumbleweeds()
         if not self.args.snow_plough:
             self.plough.active = False
@@ -4259,6 +4466,304 @@ class SnowEngine:
             if rabbit.x < -20 or rabbit.x > self.width + 20:
                 self.hide_rabbit(rabbit)
 
+    def spawn_npc(self, npc, initial=False):
+        """Place one NPC on a side/depth boundary with a fresh identity."""
+        npc.generation += 1
+        npc.colour = self.args.npc_colours[
+            (npc.npc_id + npc.generation) %
+            len(self.args.npc_colours)]
+        npc.speed = self.rng.uniform(
+            self.args.npc_speed_min, self.args.npc_speed_max)
+        npc.crossing_motivation = self.rng.uniform(
+            self.args.npc_crossing_motivation_min,
+            self.args.npc_crossing_motivation_max)
+        npc.crossing_direction = self.rng.choice((-1, 1))
+        depth_min = self.args.npc_depth_min
+        depth_max = self.args.npc_depth_max
+        npc.depth = self.rng.uniform(depth_min, depth_max)
+        margin = max(10.0, npc_figure_height(self, npc) * 0.75)
+        if initial:
+            npc.x = self.rng.uniform(margin, max(margin, self.width - margin))
+            base = 0.0 if npc.crossing_direction > 0 else math.pi
+        elif self.rng.random() < self.args.npc_side_spawn_share:
+            npc.x = (-margin if npc.crossing_direction > 0
+                         else self.width + margin)
+            base = 0.0 if npc.crossing_direction > 0 else math.pi
+        else:
+            npc.x = self.rng.uniform(0.0, self.width)
+            if self.rng.random() < 0.5:
+                npc.depth = depth_min - 0.025
+                base = math.pi * 0.5
+            else:
+                npc.depth = depth_max + 0.025
+                base = -math.pi * 0.5
+        spread = math.radians(min(180.0, self.args.npc_wander_angle))
+        npc.heading = base + self.rng.uniform(-spread * 0.28, spread * 0.28)
+        npc.desired_heading = npc.heading
+        npc.decision_timer = self.rng.uniform(
+            self.args.npc_decision_min_seconds,
+            self.args.npc_decision_max_seconds)
+        npc.respawn_timer = 0.0
+        npc.phase = self.rng.uniform(0.0, math.tau)
+        npc.state = "walking"
+        self.npc_spawn_count += 1
+
+    def sync_npcs(self, initial=False):
+        """Apply live population/colour/range controls without resetting motion."""
+        target = self.args.npc_count if self.args.npcs else 0
+        while len(self.npcs) < target:
+            npc_id = len(self.npcs)
+            npc = NPC(
+                npc_id=npc_id, generation=-1, x=0.0,
+                depth=self.args.npc_depth_max, heading=0.0,
+                desired_heading=0.0, crossing_direction=1,
+                crossing_motivation=0.0,
+                speed=self.args.npc_speed_min, decision_timer=0.0,
+                respawn_timer=0.0, phase=0.0,
+                colour=self.args.npc_colours[
+                    npc_id % len(self.args.npc_colours)],
+                state="hidden")
+            self.npcs.append(npc)
+            self.spawn_npc(npc, initial=initial)
+        if len(self.npcs) > target:
+            self.npcs = self.npcs[:target]
+        for npc in self.npcs:
+            npc.speed = max(
+                self.args.npc_speed_min,
+                min(self.args.npc_speed_max, npc.speed))
+            if npc.state == "hidden":
+                npc.respawn_timer = min(
+                    npc.respawn_timer,
+                    self.args.npc_respawn_seconds * 1.30)
+            npc.depth = max(
+                self.args.npc_depth_min - 0.03,
+                min(self.args.npc_depth_max + 0.03, npc.depth))
+            npc.crossing_motivation = max(
+                self.args.npc_crossing_motivation_min,
+                min(self.args.npc_crossing_motivation_max,
+                    npc.crossing_motivation))
+            npc.colour = self.args.npc_colours[
+                (npc.npc_id + npc.generation) %
+                len(self.args.npc_colours)]
+
+    def hide_npc(self, npc):
+        npc.state = "hidden"
+        npc.respawn_timer = self.args.npc_respawn_seconds * self.rng.uniform(
+            0.70, 1.30)
+        self.npc_exit_count += 1
+
+    def choose_npc_heading(self, npc):
+        """Blend side-crossing intent with a configurable full-circle wander."""
+        if self.rng.random() < self.args.npc_reversal_chance:
+            npc.crossing_direction *= -1
+        crossing = 0.0 if npc.crossing_direction > 0 else math.pi
+        motivation = npc.crossing_motivation
+        if motivation < 0.0:
+            crossing += math.pi
+        strength = min(1.0, abs(motivation))
+        spread = math.radians(self.args.npc_wander_angle)
+        wander = crossing + self.rng.uniform(-spread, spread)
+        vector_x = math.cos(crossing) * strength + math.cos(wander) * (1.0 - strength)
+        vector_z = math.sin(crossing) * strength + math.sin(wander) * (1.0 - strength)
+        if abs(vector_x) + abs(vector_z) < 1e-6:
+            wander = self.rng.uniform(-math.pi, math.pi)
+            vector_x, vector_z = math.cos(wander), math.sin(wander)
+        npc.desired_heading = math.atan2(vector_z, vector_x)
+        npc.decision_timer = self.rng.uniform(
+            self.args.npc_decision_min_seconds,
+            self.args.npc_decision_max_seconds)
+        self.npc_direction_changes += 1
+
+    def npc_steering(self, npc):
+        """Return avoidance/social steering in the same x/depth ground plane."""
+        awareness = self.args.npc_object_awareness
+        social_distance = self.args.npc_social_distance
+        plane_height = max(24.0, self.height * 0.72)
+        avoid_x = avoid_z = social_x = social_z = 0.0
+        avoiding = False
+
+        def influence(other_x, other_depth, radius=0.0, weight=1.0):
+            nonlocal avoid_x, avoid_z, avoiding
+            dx = npc.x - other_x
+            dz = (npc.depth - other_depth) * plane_height
+            distance = math.hypot(dx, dz)
+            reach = awareness + radius
+            if reach <= 0.0 or distance >= reach:
+                return
+            if distance < 0.01:
+                angle = (npc.npc_id + 1) * 2.399963
+                dx, dz, distance = math.cos(angle), math.sin(angle), 1.0
+            force = (1.0 - distance / reach) * weight
+            avoid_x += dx / distance * force
+            avoid_z += dz / distance * force
+            avoiding = True
+
+        for other in self.npcs:
+            if other is npc or other.state == "hidden":
+                continue
+            dx = other.x - npc.x
+            dz = (other.depth - npc.depth) * plane_height
+            distance = math.hypot(dx, dz)
+            if 0.01 < distance < social_distance:
+                force = 1.0 - distance / max(0.01, social_distance)
+                social_x += dx / distance * force
+                social_z += dz / distance * force
+            personal_space = max(
+                3.0, (npc_figure_height(self, npc) +
+                      npc_figure_height(self, other)) * 0.16)
+            influence(other.x, other.depth, personal_space, 1.45)
+
+        horizon = self.height * max(0.18, min(0.72, self.args.horizon_height))
+
+        def depth_for(x, y):
+            foreground = max(horizon + 4.0, self.actor_surface_y(x) - 1.0)
+            return max(0.0, min(1.0, (y - horizon) /
+                           max(1.0, foreground - horizon)))
+
+        if self.postman.state != "hidden":
+            influence(self.postman.x, depth_for(self.postman.x, self.postman.y),
+                      max(3.0, self.postman.figure_height * 0.22))
+        for rabbit in self.rabbits:
+            if rabbit.state not in ("hidden", "abducting"):
+                influence(rabbit.x, rabbit.depth, 3.0, 0.72)
+        for weed in self.tumbleweeds:
+            influence(weed.x, depth_for(weed.x, weed.y), weed.radius, 1.15)
+        for crate in self.supply_crates:
+            if crate.state != "removed":
+                influence(crate.x, depth_for(crate.x, crate.y), 5.0, 1.2)
+        if self.plough.active:
+            influence(self.plough.x, 1.0, 14.0, 2.2)
+        if self.helicopter_exclusion_active:
+            influence(self.helicopter_exclusion_x, 1.0,
+                      self.helicopter_exclusion_radius, 2.8)
+
+        if "cabin" in self.args.scenery_set:
+            snow_line = max(0, min(
+                self.height - 1, int(round(self.scenery_ground_y))))
+            aspects = {"cottage": 1.72, "lodge": 2.18, "a-frame": 1.48}
+            for centre, base, cabin_height, _, cabin_type in cabin_layout(
+                    self.args, self.width, self.height, snow_line):
+                cabin_depth = depth_for(centre, base)
+                width = cabin_height * aspects[cabin_type]
+                influence(centre, cabin_depth, width * 0.48, 1.7)
+
+        path_x, path_z = self.npc_path_steering(npc, plane_height)
+        return (avoid_x * self.args.npc_avoidance_strength,
+                avoid_z * self.args.npc_avoidance_strength,
+                social_x * self.args.npc_social_factor,
+                social_z * self.args.npc_social_factor,
+                avoiding, path_x, path_z)
+
+    def npc_path_steering(self, npc, plane_height):
+        """Attract an NPC to the nearest visible dirt route and its tangent."""
+        adherence = self.args.npc_path_adherence
+        if adherence <= 0.0 or "cabin" not in self.args.scenery_set:
+            return 0.0, 0.0
+        horizon = self.height * max(0.18, min(0.72, self.args.horizon_height))
+
+        def plane_point(point):
+            x, y = point
+            foreground = max(horizon + 4.0, self.actor_surface_y(x) - 1.0)
+            depth = ((y - horizon) /
+                     max(1.0, foreground - horizon))
+            return x, max(self.args.npc_depth_min,
+                          min(1.0, depth)) * plane_height
+
+        paths = [((0.0, self.surface_y(0) - 1.0),
+                  (self.width - 1.0,
+                   self.surface_y(self.width - 1) - 1.0))]
+        paths.extend(points for _, points in live_cabin_path_spurs(self))
+        px, pz = npc.x, npc.depth * plane_height
+        nearest = None
+        for points in paths:
+            for left, right in zip(points, points[1:]):
+                ax, az = plane_point(left)
+                bx, bz = plane_point(right)
+                vx, vz = bx - ax, bz - az
+                length_sq = vx * vx + vz * vz
+                if length_sq <= 1e-6:
+                    continue
+                amount = max(0.0, min(
+                    1.0, ((px - ax) * vx + (pz - az) * vz) / length_sq))
+                nx, nz = ax + vx * amount, az + vz * amount
+                dx, dz = nx - px, nz - pz
+                distance = math.hypot(dx, dz)
+                if nearest is None or distance < nearest[0]:
+                    nearest = (distance, dx, dz, vx, vz)
+        if nearest is None:
+            return 0.0, 0.0
+        distance, dx, dz, tangent_x, tangent_z = nearest
+        if distance > 0.01:
+            attraction = min(1.0, distance / max(4.0, plane_height * 0.16))
+            dx, dz = dx / distance * attraction, dz / distance * attraction
+        else:
+            dx = dz = 0.0
+        tangent_length = max(0.01, math.hypot(tangent_x, tangent_z))
+        tangent_x /= tangent_length
+        tangent_z /= tangent_length
+        if tangent_x * npc.crossing_direction < 0:
+            tangent_x, tangent_z = -tangent_x, -tangent_z
+        return ((dx + tangent_x * 0.48) * adherence,
+                (dz + tangent_z * 0.48) * adherence)
+
+    def step_npcs(self, dt):
+        """Steer NPCs smoothly, preserving terrain contact and perspective."""
+        self.sync_npcs()
+        for npc in self.npcs:
+            if npc.state == "hidden":
+                npc.respawn_timer -= dt
+                if npc.respawn_timer <= 0.0:
+                    self.spawn_npc(npc)
+                continue
+            npc.decision_timer -= dt
+            if npc.decision_timer <= 0.0:
+                self.choose_npc_heading(npc)
+            (avoid_x, avoid_z, social_x, social_z, avoiding,
+             path_x, path_z) = self.npc_steering(npc)
+            desired_x = math.cos(npc.desired_heading) + social_x + path_x
+            desired_z = math.sin(npc.desired_heading) + social_z + path_z
+            if avoiding and abs(avoid_x) + abs(avoid_z) > 1e-6:
+                desired_x += avoid_x
+                desired_z += avoid_z
+                if npc.state != "avoiding":
+                    self.npc_avoidance_events += 1
+                npc.state = "avoiding"
+            elif abs(social_x) + abs(social_z) > 0.03:
+                npc.state = "social"
+            else:
+                npc.state = "walking"
+            target = math.atan2(desired_z, desired_x)
+            difference = (target - npc.heading + math.pi) % math.tau - math.pi
+            response = max(0.05, self.args.npc_response_seconds)
+            npc.heading += difference * min(1.0, dt / response)
+            perspective = 0.38 + 0.62 * max(0.0, min(1.0, npc.depth))
+            movement = npc.speed * perspective * dt
+            npc.x += math.cos(npc.heading) * movement
+            next_depth = (npc.depth + math.sin(npc.heading) * movement /
+                          max(24.0, self.height * 0.72))
+            if (next_depth >= self.args.npc_depth_max and
+                    math.sin(npc.heading) > 0.0):
+                npc.depth = self.args.npc_depth_max
+                if self.rng.random() < self.args.npc_viewport_respawn_chance:
+                    self.hide_npc(npc)
+                    continue
+                # The viewport is a real near boundary: turn away immediately
+                # instead of walking in place until the ordinary timer fires.
+                npc.heading = npc.desired_heading = (
+                    -math.pi * 0.5 + self.rng.uniform(-0.48, 0.48))
+                npc.decision_timer = max(
+                    0.25, self.args.npc_response_seconds)
+                npc.state = "viewport_turn"
+                self.npc_viewport_turns += 1
+            else:
+                npc.depth = next_depth
+            npc.phase += movement * 0.78
+            margin = max(12.0, npc_figure_height(self, npc) * 0.75)
+            if (npc.x < -margin or npc.x > self.width + margin or
+                    npc.depth < self.args.npc_depth_min - 0.035 or
+                    npc.depth > self.args.npc_depth_max + 0.035):
+                self.hide_npc(npc)
+
     def collapse_postman_path(self, postman):
         """Compact and slump fresh bank snow under spaced delivery footsteps."""
         if not self.physics.ground_enabled or not self.args.accumulate:
@@ -4296,8 +4801,7 @@ class SnowEngine:
             self.height - 1, int(round(self.scenery_ground_y))))
         targets = cabin_door_targets(
             self.args, self.width, self.height, snow_line)
-        path_road_y, path_spurs = cabin_path_network(
-            self.args, self.width, self.height, snow_line)
+        path_spurs = live_cabin_path_spurs(self)
         if not enabled or not targets:
             postman.state = "hidden"
             return
@@ -4311,7 +4815,7 @@ class SnowEngine:
             postman.direction = self.rng.choice((-1, 1))
             postman.x = (-18.0 if postman.direction > 0
                          else self.width + 18.0)
-            postman.y = path_road_y
+            postman.y = self.surface_y(postman.x) - 1.0
             postman.target_cabin = cabin_index
             postman.door_x = door_x
             rabbit_height = 11.0 * max(
@@ -4496,7 +5000,7 @@ class SnowEngine:
                 self.helicopter_exclusion_radius):
             return
         postman.x = proposed_x
-        postman.y = path_road_y
+        postman.y = self.surface_y(postman.x) - 1.0
         postman.phase += dt * self.args.postman_speed * 0.62
         if postman.state in ("walking_to", "walking_to_crate"):
             crossed = ((postman.direction > 0 and
@@ -4506,7 +5010,7 @@ class SnowEngine:
             if crossed:
                 if postman.state == "walking_to_crate":
                     postman.x = postman.target_x
-                    postman.y = path_road_y
+                    postman.y = self.surface_y(postman.x) - 1.0
                     postman.state = "opening_crate"
                     postman.timer = 1.1
                 else:
@@ -4547,9 +5051,25 @@ class SnowEngine:
             rabbit_index = self.ufo_target_rabbit_by_event.get(event_index)
             if (rabbit_index is None or rabbit_index >= len(self.rabbits) or
                     self.rabbits[rabbit_index].state == "hidden"):
+                # A rabbit may emerge after the UFO's first approach frame.
+                # Keep looking during the approach instead of permanently
+                # invalidating the complete encounter at its start.
+                visible = [
+                    (index, rabbit) for index, rabbit in enumerate(self.rabbits)
+                    if rabbit.state != "hidden" and
+                    4 <= rabbit.x < self.width - 4]
+                if visible:
+                    rabbit_index, rabbit = min(
+                        visible, key=lambda item: abs(item[1].x - target_x))
+                    self.ufo_target_rabbit_by_event[event_index] = rabbit_index
+                    self.ufo_target_x_by_event[event_index] = rabbit.x
+                else:
+                    self.ufo_beam_active = False
+                    self.ufo_target_rabbit_index = None
+                    return
+            if rabbit_index is None:
                 self.ufo_beam_active = False
                 self.ufo_target_rabbit_index = None
-                self.ufo_target_event_index = event_index
                 return
             rabbit = self.rabbits[rabbit_index]
             # Freeze the same already-visible rabbit which established the
@@ -4641,13 +5161,17 @@ class SnowEngine:
         if (not self.args.pilot_ejection or state is None or
                 state["kind"] != "aeroplane" or
                 not 0.46 <= state["phase_progress"] <= 0.72 or
-                state["event_index"] in self.ejection_events):
+                state["event_index"] in self.ejection_attempted_events):
             return
-        self.ejection_events.add(state["event_index"])
+        self.ejection_attempted_events.add(state["event_index"])
         event_rng = random.Random(
             self.args.seed + 94009 + state["event_index"] * 137)
         if event_rng.random() > self.args.ejection_chance:
             return
+        # Only successful ejections suppress the intact flyby. Previously the
+        # event was added before the probability check, so most aeroplanes
+        # vanished at mid-screen without a pilot, crash or explosion.
+        self.ejection_events.add(state["event_index"])
         unit = aeroplane_flyby_unit(self)
         self.parachutists.append(Parachutist(
             x=state["x"] - state["direction"] * 5 * unit,
@@ -4865,7 +5389,11 @@ class SnowEngine:
                 moved_chunks.append(chunk)
         self.chunks = moved_chunks[-180:]
         self.step_object_snow(dt)
-        self.physics.relax_bank(self.depths, dt)
+        # An active failure owns its bank footprint until the slump finishes.
+        # Otherwise the general angle-of-repose pass can continuously refill
+        # its feathered shoulders from a neighbouring drift.
+        self.physics.relax_bank(
+            self.depths, dt, blocked=self.snow_column_collapsing)
 
         self.shed_cooldown = max(0.0, self.shed_cooldown - dt)
         self.step_plough(dt)
@@ -4879,6 +5407,7 @@ class SnowEngine:
         self.step_aircraft_crashes(dt)
         self.step_lightning(dt)
         self.step_rabbits(dt, elapsed)
+        self.step_npcs(dt)
         self.step_postman(dt)
         self.step_ufo_abduction(elapsed)
         if self.physics.ground_enabled:
@@ -4932,6 +5461,16 @@ LIVE_OPTION_DESTS = frozenset({
     "ambient", "leaf_count", "tumbleweed_count", "ambient_speed",
     "tumbleweed_climb", "tumbleweed_collapse_pressure",
     "rabbit_count", "rabbit_interval", "rabbit_speed", "sky_events",
+    "npcs", "npc_count", "npc_colours", "npc_speed_min",
+    "npc_speed_max", "npc_decision_min_seconds",
+    "npc_decision_max_seconds", "npc_response_seconds",
+    "npc_object_awareness", "npc_avoidance_strength",
+    "npc_crossing_motivation_min", "npc_crossing_motivation_max",
+    "npc_wander_angle", "npc_reversal_chance",
+    "npc_side_spawn_share", "npc_respawn_seconds",
+    "npc_depth_min", "npc_depth_max", "npc_social_factor",
+    "npc_social_distance", "npc_path_adherence",
+    "npc_viewport_respawn_chance", "npc_track_id",
     "postman", "postman_interval", "postman_speed", "postman_stop_seconds",
     "postman_delivery_frequency", "flyby_interval", "flyby_speed",
     "superman_path", "superman_frequency", "superman_speed",
@@ -5064,31 +5603,44 @@ def draw_accumulation(surface, engine):
 
 
 def draw_cabin_paths(surface, engine):
-    """Expose an irregular, non-obstructing dirt route through the snow."""
+    """Expose perspective-tapered dirt routes on the live snow surface."""
     if "cabin" not in engine.args.scenery_set:
         return
-    snow_line = max(0, min(engine.height - 1,
-                          int(round(engine.scenery_ground_y))))
-    road_y, spurs = cabin_path_network(
-        engine.args, engine.width, engine.height, snow_line)
-    segments = [((0.0, road_y), (engine.width - 1.0, road_y))]
-    for _, points in spurs:
-        segments.extend(zip(points, points[1:]))
     colours = ((79, 57, 40), (104, 73, 47), (57, 47, 39))
-    for segment_index, (start, end) in enumerate(segments):
-        distance = max(1, int(math.ceil(math.hypot(
-            end[0] - start[0], end[1] - start[1]))))
-        rng = random.Random(engine.args.seed + 71011 + segment_index * 313)
-        for step in range(distance + 1):
-            if rng.random() > 0.64:
-                continue
-            amount = step / distance
-            x = start[0] + (end[0] - start[0]) * amount
-            y = start[1] + (end[1] - start[1]) * amount
-            spread = 1.0 + 1.8 * math.sin(math.pi * amount)
-            x += rng.uniform(-spread, spread)
-            y += rng.uniform(-1.0, 1.0)
-            surface.pixel(x, y, colours[rng.randrange(len(colours))], 74)
+    # The cross-scene route follows the actual top of the accumulated bank;
+    # the old fixed ground coordinate put it along the bottom of tall banks.
+    road_rng = random.Random(engine.args.seed + 71011)
+    for x in range(engine.width):
+        y = engine.surface_y(x) - 1.0
+        for lane in (-1, 0, 1):
+            if road_rng.random() < (0.34 if lane else 0.70):
+                surface.pixel(
+                    x + road_rng.uniform(-0.6, 0.6),
+                    y + lane + road_rng.uniform(-0.35, 0.35),
+                    colours[road_rng.randrange(len(colours))], 74)
+
+    for path_index, (_, points) in enumerate(live_cabin_path_spurs(engine)):
+        rng = random.Random(engine.args.seed + 71324 + path_index * 313)
+        segments = tuple(zip(points, points[1:]))
+        for segment_index, (start, end) in enumerate(segments):
+            distance = max(1, int(math.ceil(math.hypot(
+                end[0] - start[0], end[1] - start[1]))))
+            path_amount = segment_index / max(1, len(segments) - 1)
+            # Wide loose pixels at the foreground road converge to a narrow
+            # mark at the door, making the spur itself communicate depth.
+            half_width = 2.8 * (1.0 - path_amount) + 0.55 * path_amount
+            for step in range(distance + 1):
+                if rng.random() > 0.78:
+                    continue
+                amount = step / distance
+                x = start[0] + (end[0] - start[0]) * amount
+                y = start[1] + (end[1] - start[1]) * amount
+                for _ in range(2):
+                    surface.pixel(
+                        x + rng.uniform(-half_width, half_width),
+                        y + rng.uniform(-half_width * 0.42,
+                                        half_width * 0.42),
+                        colours[rng.randrange(len(colours))], 74)
 
 
 def draw_crates(surface, engine):
@@ -5203,6 +5755,11 @@ def render_surface(background, engine):
     for rabbit in engine.rabbits:
         if rabbit.state not in ("abducting", "hidden") and rabbit.depth < 0.68:
             draw_rabbit(surface, engine, rabbit)
+    for npc in sorted(
+            (item for item in engine.npcs
+             if item.state != "hidden" and item.depth < 0.68),
+            key=lambda item: item.depth):
+        draw_npc(surface, engine, npc)
     for index, pixel in enumerate(background.pixels):
         if pixel is not None:
             surface.pixels[index] = pixel
@@ -5230,6 +5787,11 @@ def render_surface(background, engine):
         if (rabbit.state not in ("abducting", "hidden") and
                 rabbit.depth >= 0.68):
             draw_rabbit(surface, engine, rabbit)
+    for npc in sorted(
+            (item for item in engine.npcs
+             if item.state != "hidden" and item.depth >= 0.68),
+            key=lambda item: item.depth):
+        draw_npc(surface, engine, npc)
     draw_postman(surface, engine)
     if ("reindeer" in engine.args.scenery_set and
             engine.postman.state != "hidden" and
@@ -5561,7 +6123,10 @@ def detailed_dashboard_lines(args, engine, codec, stats, columns):
             (f" ⚙ PHYSICS {args.physics.upper()} | WIND {args.wind:+.1f} GUST {args.gust_strength:.1f} | "
              f"GROUND MAX {engine.maximum_depth_fraction:.1%} AVG {engine.average_depth_fraction:.1%} | "
              f"ACCUMULATION {args.accumulation:.2f} | REPOSE {args.snow_repose_slope:.2f} RELAX {args.snow_relaxation:.1f}"),
-            (f" ⇣ BROAD SHEDS {engine.shed_count} | LOCAL TOWERS {engine.tower_collapse_count} | "
+            (f" ⇣ BROAD SHEDS {engine.shed_count} @{args.shed_threshold:.0%} | "
+             f"MASS FALLAWAYS {engine.mass_fallaway_count} @{args.snow_fallaway_threshold:.0%} "
+             f"COUNTDOWN {engine.mass_fallaway_progress:.0%} | "
+             f"LOCAL TOWERS {engine.tower_collapse_count} | "
              f"ACTIVE SLUMPS {len(engine.tower_collapses)} | FALLING CHUNKS {len(engine.chunks)}"),
             (f" ❅ OBJECT PATCHES {len(engine.resting_snow):,}/{args.object_snow_max:,} | "
              f"CAUGHT {engine.object_snow_caught:,} SHED {engine.object_snow_shed:,} | "
@@ -5611,10 +6176,26 @@ def detailed_dashboard_lines(args, engine, codec, stats, columns):
         visible_rabbits = sum(r.state != "hidden" for r in engine.rabbits)
         states = ",".join(r.state for r in engine.rabbits if r.state != "hidden") or "hidden"
         depth_lanes = ",".join(f"{rabbit.depth:.2f}" for rabbit in engine.rabbits) or "none"
+        visible_npcs = [npc for npc in engine.npcs
+                            if npc.state != "hidden"]
+        tracked = next((npc for npc in engine.npcs
+                        if npc.npc_id == args.npc_track_id), None)
+        tracked_text = ("OFF" if args.npc_track_id < 0 else
+                        f"#{args.npc_track_id} MISSING" if tracked is None else
+                        f"#{tracked.npc_id}.{tracked.generation} "
+                        f"{tracked.state.upper()} X{tracked.x:.0f} D{tracked.depth:.2f}")
         page = [
-            f" ♙ RABBITS {visible_rabbits}/{len(engine.rabbits)} | STATES {states} | DEPTH {depth_lanes}",
-            f" ↔ SPEED {args.rabbit_speed:.1f} VPX/s | PERSPECTIVE SCALE/PARALLAX ON | REACTIONS {engine.rabbit_reactions}",
-            (f" ✉ POSTMAN {engine.postman.state.upper()} | DELIVERIES {engine.postman_delivery_count} | "
+            (f" ♟ NPCS {len(visible_npcs)}/{len(engine.npcs)} | SPAWNED "
+             f"{engine.npc_spawn_count} EXITED {engine.npc_exit_count} | TRACK {tracked_text}"),
+            (f" ⟳ SPEED {args.npc_speed_min:.1f}–{args.npc_speed_max:.1f} | "
+             f"DECISIONS {engine.npc_direction_changes} AVOIDS {engine.npc_avoidance_events} "
+             f"VIEWPORT TURNS {engine.npc_viewport_turns} | "
+             f"DRIVE {args.npc_crossing_motivation_min:+.2f}–"
+             f"{args.npc_crossing_motivation_max:+.2f} WANDER {args.npc_wander_angle:.0f}° "
+             f"SOCIAL {args.npc_social_factor:+.2f}"),
+            (f" ♙ RABBITS {visible_rabbits}/{len(engine.rabbits)} {states} D{depth_lanes} | "
+             f"REACTIONS {engine.rabbit_reactions} | ✉ POSTMAN {engine.postman.state.upper()} "
+             f"DELIVERIES {engine.postman_delivery_count} "
              f"SPEED {args.postman_speed:.1f} | INTERVAL {args.postman_interval:.1f}s "
              f"×{args.postman_delivery_frequency:.1f} | FOOT SLUMPS {engine.postman_snow_collapses}"),
             (f" ✺ TUMBLEWEEDS {len(engine.tumbleweeds)} | BLOCKS {engine.tumbleweed_blocks} | "
@@ -5653,7 +6234,8 @@ def detailed_dashboard_lines(args, engine, codec, stats, columns):
              f"{frame_budget:5.1f} {graph_bar(engine.pipeline_ms + engine.present_ms, frame_budget)}"),
             (f" ◆ MEMORY {memory} | GRID CELLS {stats['cells']:,} | ACTIVE {populated:,} | "
              f"OUTPUT {engine.frame_output_bytes / 1024.0:,.1f} KiB"),
-            (f" ◆ LOAD: FLAKES {len(engine.flakes):,} TREES≤{args.max_trees} | "
+            (f" ◆ LOAD: FLAKES {len(engine.flakes):,} TREES≤{args.max_trees} "
+             f"NPCS {len(engine.npcs)} | "
              f"TREE CACHE {cache.hits:,}H/{cache.misses:,}M | POSTMAN {postman_cache.hits:,}H/{postman_cache.misses:,}M"),
             (f" ◆ ENCODER {'RUST NATIVE' if engine.native_analyser else 'PYTHON'} | "
              f"MISSED DEADLINES {engine.frame_overruns:,} MAX LAG {engine.maximum_frame_lag_ms:.1f} ms | "
@@ -5671,12 +6253,17 @@ def status_line(args, engine, columns, frame):
     codes = "".join(code for name, code in (("trees", "T"), ("cabin", "C"),
                                               ("reindeer", "R"))
                     if name in args.scenery_set) or "-"
+    active_mass = sum(collapse.generation == 3
+                      for collapse in engine.tower_collapses)
+    active_local = len(engine.tower_collapses) - active_mass
+    states = []
     if engine.shedding:
-        state = "SHED"
-    elif engine.tower_collapses:
-        state = f"SLUMP×{len(engine.tower_collapses)}"
-    else:
-        state = "ACCUM"
+        states.append("SHED")
+    if active_mass:
+        states.append(f"FALLAWAY×{active_mass}")
+    if active_local:
+        states.append(f"SLUMP×{active_local}")
+    state = "+".join(states) or "ACCUM"
     control = f"LIVE {args.control_status}" if args.listen else "LIVE OFF"
     total_rows = engine.height // CODECS[args.mode].cell_height
     total_rows += dashboard_rows(args)
@@ -5687,20 +6274,23 @@ def status_line(args, engine, columns, frame):
                 f"MAX {engine.maximum_depth_fraction:5.1%} AVG {engine.average_depth_fraction:5.1%} | "
                 f"FLAKES {len(engine.flakes):4d} | WIND {args.wind:+.1f} GUST {args.gust_strength:.1f} | "
                 f"SCENE {codes} | {state} | "
-                f"SHEDS {engine.shed_count} TOWERS {engine.tower_collapse_count} | F {frame}")
+                f"SHEDS {engine.shed_count} MASS {engine.mass_fallaway_count} "
+                f"TOWERS {engine.tower_collapse_count} | F {frame}")
     elif columns >= 92:
         text = (f" SNOW {args.mode.upper()} | GRID {columns}x{total_rows} | 2CLR GND=FIXED | "
                 f"{control} | WX {args.weather.upper()} | "
                 f"DEPTH {engine.maximum_depth_fraction:.0%}/{engine.average_depth_fraction:.0%} | "
                 f"FLK {len(engine.flakes)} W {args.wind:+.1f} G {args.gust_strength:.1f} | "
-                f"{state} S{engine.shed_count} T{engine.tower_collapse_count} F{frame}")
+                f"{state} S{engine.shed_count} M{engine.mass_fallaway_count} "
+                f"T{engine.tower_collapse_count} F{frame}")
     else:
         live_short = args.control_status if args.listen else "OFF"
         text = (f" SNOW {args.mode.upper()} {columns}x{total_rows} | 2CLR GND | "
                 f"L:{live_short} WX:{args.weather[:1].upper()} | "
                 f"D {engine.maximum_depth_fraction:.0%}/{engine.average_depth_fraction:.0%} "
                 f"FLK{len(engine.flakes)} W{args.wind:+.1f} | "
-                f"S{engine.shed_count} T{engine.tower_collapse_count} F{frame}")
+                f"S{engine.shed_count} M{engine.mass_fallaway_count} "
+                f"T{engine.tower_collapse_count} F{frame}")
     return "\x1b[38;2;75;225;240m" + text[:columns].ljust(columns) + RESET
 
 
@@ -5923,7 +6513,7 @@ def rgb_colour(value):
 def colour_list(value):
     colours = tuple(rgb_colour(item) for item in value.split(",") if item.strip())
     if not 2 <= len(colours) <= 8:
-        raise argparse.ArgumentTypeError("sky colours need 2 to 8 comma-separated RRGGBB values")
+        raise argparse.ArgumentTypeError("colour lists need 2 to 8 comma-separated RRGGBB values")
     return colours
 
 
@@ -6265,6 +6855,54 @@ def build_parser():
                         help="approximate hidden time between rabbit appearances")
     events.add_argument("--rabbit-speed", type=float, default=13.0,
                         help="rabbit travel speed in virtual pixels per second")
+    events.add_argument("--npcs", action=argparse.BooleanOptionalAction,
+                        default=True,
+                        help="let independently steered npcs roam the perspective ground plane")
+    events.add_argument("--npc-count", type=int, default=3,
+                        help="simultaneously managed npc slots; 0 disables the population")
+    events.add_argument("--npc-colours", type=colour_list,
+                        default=colour_list("2E86AB,F18F01,6A994E,9B5DE5,D95D39,3A86FF"),
+                        help="2 to 8 comma-separated RRGGBB coat colours assigned across NPCs")
+    events.add_argument("--npc-speed-min", type=float, default=4.5,
+                        help="minimum NPC ground-plane speed in virtual pixels per second")
+    events.add_argument("--npc-speed-max", type=float, default=9.0,
+                        help="maximum NPC ground-plane speed in virtual pixels per second")
+    events.add_argument("--npc-decision-min-seconds", type=float, default=2.5,
+                        help="shortest interval before an NPC chooses a new heading")
+    events.add_argument("--npc-decision-max-seconds", type=float, default=8.0,
+                        help="longest interval before an NPC chooses a new heading")
+    events.add_argument("--npc-response-seconds", type=float, default=0.55,
+                        help="time used to turn toward a chosen or avoidance heading")
+    events.add_argument("--npc-object-awareness", type=float, default=18.0,
+                        help="ground-plane radius used to notice cabins, actors and vehicles")
+    events.add_argument("--npc-avoidance-strength", type=float, default=1.35,
+                        help="steering force away from nearby objects; 0 disables avoidance")
+    events.add_argument("--npc-crossing-motivation-min", type=float, default=0.45,
+                        help="minimum signed side-crossing drive; negative values oppose the assigned side")
+    events.add_argument("--npc-crossing-motivation-max", type=float, default=0.90,
+                        help="maximum signed side-crossing drive; 0 leaves direction to wandering")
+    events.add_argument("--npc-wander-angle", type=float, default=75.0,
+                        help="heading freedom around the side-crossing direction; 180 permits any bearing")
+    events.add_argument("--npc-reversal-chance", type=float, default=0.08,
+                        help="chance [0,1] of reversing the assigned crossing direction at each decision")
+    events.add_argument("--npc-side-spawn-share", type=float, default=0.82,
+                        help="fraction [0,1] spawning at left/right edges instead of near/far boundaries")
+    events.add_argument("--npc-respawn-seconds", type=float, default=2.5,
+                        help="mean delay before an out-of-bounds NPC slot receives a new person")
+    events.add_argument("--npc-depth-min", type=float, default=0.22,
+                        help="furthest permitted perspective depth, from 0.05 to 1")
+    events.add_argument("--npc-depth-max", type=float, default=1.35,
+                        help="nearest perspective depth; values above 1 approach through the viewport")
+    events.add_argument("--npc-social-factor", type=float, default=0.15,
+                        help="signed response to nearby NPCs: negative separates, positive groups")
+    events.add_argument("--npc-social-distance", type=float, default=24.0,
+                        help="ground-plane radius within which NPCs influence each other")
+    events.add_argument("--npc-path-adherence", type=float, default=0.62,
+                        help="steering attraction [0,1] toward visible cabin dirt paths")
+    events.add_argument("--npc-viewport-respawn-chance", type=float, default=0.35,
+                        help="chance [0,1] of respawning instead of turning at the near viewport")
+    events.add_argument("--npc-track-id", type=int, default=-1,
+                        help="NPC slot highlighted and reported by the dashboard; -1 disables tracking")
     events.add_argument("--postman", action=argparse.BooleanOptionalAction,
                         default=True,
                         help="occasionally send a walking postman to a cabin door")
@@ -6417,6 +7055,8 @@ def help_scene_preview(parser, mode, scenery, ambient, elapsed=0.0,
     args.snow_rate = 0
     args.max_flakes = 0
     args.preload_seconds = 0
+    args.npcs = False
+    args.npc_count = 0
     if ambient:
         args.tumbleweed_count = 1
         args.wind = 6.0
@@ -6544,6 +7184,8 @@ def pretty_help(parser, mode, colour=True):
         "  --cabin-count 3 --cabin-types cottage,lodge,a-frame --cabin-size-variation .35",
         paint("amber", "  Wildlife       ") +
         "  --rabbit-count 2 --rabbit-interval 18 --ambient tumbleweed",
+        paint("amber", "  Village life   ") +
+        "  --npc-count 6 --npc-wander-angle 120 --npc-social-factor .25 --npc-track-id 0",
         paint("amber", "  Sky parade     ") +
         "  --sky-events aeroplane,helicopter,airwolf,kite,ufo,santa --flyby-interval 12 --flyby-speed 40",
         paint("amber", "  Twilight sky   ") +
@@ -6626,6 +7268,12 @@ def parse_args(argv=None):
                 ("control-poll", args.control_poll),
                 ("rabbit-interval", args.rabbit_interval),
                 ("rabbit-speed", args.rabbit_speed),
+                ("npc-speed-min", args.npc_speed_min),
+                ("npc-speed-max", args.npc_speed_max),
+                ("npc-decision-min-seconds", args.npc_decision_min_seconds),
+                ("npc-decision-max-seconds", args.npc_decision_max_seconds),
+                ("npc-response-seconds", args.npc_response_seconds),
+                ("npc-respawn-seconds", args.npc_respawn_seconds),
                 ("postman-interval", args.postman_interval),
                 ("postman-speed", args.postman_speed),
                 ("postman-stop-seconds", args.postman_stop_seconds),
@@ -6650,6 +7298,9 @@ def parse_args(argv=None):
         args.gust_strength, args.accumulation, args.tree_density, args.tree_sway,
         args.lights, args.conifer_colour_variation, args.ambient_speed, args.max_cabins,
         args.tower_age, args.tower_age_jitter, args.rabbit_count,
+        args.npc_count, args.npc_object_awareness,
+        args.npc_avoidance_strength, args.npc_wander_angle,
+        args.npc_social_distance, args.npc_path_adherence,
         args.snow_repose_slope, args.snow_relaxation, args.object_snow_max,
         args.object_snow_hold, args.object_snow_hold_jitter,
         args.object_snow_adhesion,
@@ -6706,6 +7357,37 @@ def parse_args(argv=None):
         parser.error("tree-segment-budget must be in [0, 100000]")
     if args.rabbit_count < 0:
         parser.error("rabbit-count cannot be negative")
+    if args.npc_count < 0:
+        parser.error("npc-count cannot be negative")
+    if args.npc_speed_min > args.npc_speed_max:
+        parser.error("npc-speed-min cannot exceed npc-speed-max")
+    if args.npc_decision_min_seconds > args.npc_decision_max_seconds:
+        parser.error("npc-decision-min-seconds cannot exceed its maximum")
+    if not (-1 <= args.npc_crossing_motivation_min <= 1 and
+            -1 <= args.npc_crossing_motivation_max <= 1):
+        parser.error("npc crossing motivation must be in [-1, 1]")
+    if (args.npc_crossing_motivation_min >
+            args.npc_crossing_motivation_max):
+        parser.error("npc-crossing-motivation-min cannot exceed its maximum")
+    if not 0 <= args.npc_wander_angle <= 180:
+        parser.error("npc-wander-angle must be in [0, 180]")
+    if not 0 <= args.npc_reversal_chance <= 1:
+        parser.error("npc-reversal-chance must be in [0, 1]")
+    if not 0 <= args.npc_side_spawn_share <= 1:
+        parser.error("npc-side-spawn-share must be in [0, 1]")
+    if not (0.05 <= args.npc_depth_min <= 2 and
+            0.05 <= args.npc_depth_max <= 2):
+        parser.error("npc depth limits must be in [0.05, 2]")
+    if args.npc_depth_min > args.npc_depth_max:
+        parser.error("npc-depth-min cannot exceed npc-depth-max")
+    if not -1 <= args.npc_social_factor <= 1:
+        parser.error("npc-social-factor must be in [-1, 1]")
+    if not 0 <= args.npc_path_adherence <= 1:
+        parser.error("npc-path-adherence must be in [0, 1]")
+    if not 0 <= args.npc_viewport_respawn_chance <= 1:
+        parser.error("npc-viewport-respawn-chance must be in [0, 1]")
+    if args.npc_track_id < -1:
+        parser.error("npc-track-id must be -1 or a non-negative slot")
     if not 0 <= args.ejection_chance <= 1:
         parser.error("ejection-chance must be in [0, 1]")
     if args.cabin_scale <= 0:
