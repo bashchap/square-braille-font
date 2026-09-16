@@ -34,6 +34,7 @@ from christmas_snow import (
     draw_ambient,
     draw_ah64_helicopter,
     draw_aircraft_crashes,
+    draw_accumulation,
     draw_conifer,
     draw_cabin,
     draw_cabin_paths,
@@ -51,6 +52,8 @@ from christmas_snow import (
     draw_tree,
     encode_surface,
     encode_surface_native,
+    filled_ellipse,
+    filled_polygon,
     make_runtime,
     helicopter_landing_x,
     safe_helicopter_landing_x,
@@ -63,6 +66,7 @@ from christmas_snow import (
     reindeer_apparent_height,
     sky_event_margin,
     tumbleweed_states,
+    thick_line,
     viewer_quit_key,
 )
 from christmas_snow_control import Controller, namespace_to_argv, tui_parser
@@ -1809,6 +1813,51 @@ def main():
 
     analyser = load_native_analyser(False)
     if analyser is not None:
+        python_raster = Surface(96, 64)
+        native_raster = Surface(96, 64, native=analyser)
+
+        def exercise_raster(surface):
+            surface.rectangle(-3, 4, 48, 21, (21, 42, 84), 4)
+            surface.line(-8, 60, 103, 2, (230, 180, 45), 9)
+            filled_ellipse(surface, 31, 29, 17, 8, (80, 190, 130), 11)
+            filled_polygon(surface, ((54, 8), (91, 19), (73, 52), (47, 43)),
+                           (190, 70, 55), 13)
+            thick_line(surface, 6, 50, 87, 56, 5, (125, 80, 220), 15)
+            return surface
+
+        exercise_raster(python_raster)
+        exercise_raster(native_raster)
+        check(native_raster.pixels == python_raster.pixels,
+              "Rust batched raster primitives differ from Python")
+        check(native_raster.exposed_top_edges() ==
+              python_raster.exposed_top_edges(),
+              "Rust exposed-edge scan differs from Python")
+        python_overlay = Surface(96, 64)
+        native_overlay = Surface(96, 64, native=analyser)
+        python_overlay.overlay(python_raster, 27)
+        native_overlay.overlay(native_raster, 27)
+        python_overlay.promote_nonempty(31)
+        native_overlay.promote_nonempty(31)
+        check(native_overlay.pixels == python_overlay.pixels,
+              "Rust overlay or priority promotion differs from Python")
+        tree_pixels = tuple(
+            (x, y, (20 + x % 5, 100 + y % 7, 55), 20 + y % 4)
+            for y in range(-22, 4) for x in range(-8, 9)
+            if (x * 3 + y) % 4)
+        draw_cached_tree(python_overlay, 44, 48, 22, 3.75,
+                         tree_pixels, force=True)
+        draw_cached_tree(native_overlay, 44, 48, 22, 3.75,
+                         tree_pixels, force=True)
+        check(native_overlay.pixels == python_overlay.pixels,
+              "Rust cached-tree composition differs from Python")
+        python_bank = Surface(route_engine.width, route_engine.height)
+        native_bank = Surface(route_engine.width, route_engine.height,
+                              native=analyser)
+        draw_accumulation(python_bank, route_engine)
+        draw_accumulation(native_bank, route_engine)
+        check(native_bank.pixels == python_bank.pixels,
+              "Rust accumulation raster differs from Python")
+
         parity_surface = render_surface(
             build_scenery(route_args, route_engine.width, route_engine.height,
                           route_engine.scenery_ground_y), route_engine)
@@ -1856,7 +1905,7 @@ def main():
     print("PASS: AH-64/Airwolf yaw, safe landing, actor exclusion and rotor downwash")
     print("PASS: foreground crash heat melts local snow; apocalyptic impacts fade smoothly")
     if analyser is not None:
-        print("PASS: optional Rust cell analyser is byte-for-byte compatible with Python")
+        print("PASS: Rust raster/compositor and analyser are byte-for-byte compatible with Python")
 
 
 if __name__ == "__main__":

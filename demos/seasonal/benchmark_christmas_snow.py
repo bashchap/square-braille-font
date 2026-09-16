@@ -20,11 +20,12 @@ from christmas_snow import (
 PHASES = ("step", "scenery", "collision", "raster", "encode", "total")
 
 
-def scenario_args(columns, rows, physics, encoder, workload, sky_event):
+def scenario_args(columns, rows, physics, encoder, surface, workload, sky_event):
     arguments = [
         "--mode", "pua4", "--columns", str(columns), "--rows", str(rows),
         "--detailed-dashboard", "--fps", "25", "--physics", physics,
         "--native-encoder", encoder,
+        "--native-surface", surface,
         "--scenery", "all", "--tree-types", "all", "--max-trees", "96",
         "--ambient", "all", "--rabbit-count", "2",
         "--sky-events", "aeroplane,ufo,santa", "--flyby-interval", "12",
@@ -46,10 +47,10 @@ def scenario_args(columns, rows, physics, encoder, workload, sky_event):
     return parse_args(arguments)
 
 
-def one_run(columns, rows, physics, frames, encoder="auto",
+def one_run(columns, rows, physics, frames, encoder="auto", surface="auto",
             workload="standard", sky_event="helicopter", start_seconds=0.0):
     args = scenario_args(
-        columns, rows, physics, encoder, workload, sky_event)
+        columns, rows, physics, encoder, surface, workload, sky_event)
     codec, scene_rows, engine, background = make_runtime(args, columns, rows)
     samples = {name: [] for name in PHASES}
     dt = 1.0 / args.fps
@@ -59,7 +60,8 @@ def one_run(columns, rows, physics, frames, encoder="auto",
         engine.step(dt, elapsed)
         after_step = time.perf_counter()
         background = build_scenery(
-            args, engine.width, engine.height, engine.scenery_ground_y, elapsed)
+            args, engine.width, engine.height, engine.scenery_ground_y, elapsed,
+            engine.native_surface)
         after_scenery = time.perf_counter()
         engine.update_scenery_collision(background)
         after_collision = time.perf_counter()
@@ -86,6 +88,7 @@ def one_run(columns, rows, physics, frames, encoder="auto",
             samples[name].append(value * 1000.0)
     result = {name: statistics.median(values) for name, values in samples.items()}
     result["_encoder"] = "rust" if engine.native_analyser is not None else "python"
+    result["_surface"] = "rust" if engine.native_surface is not None else "python"
     return result
 
 
@@ -110,6 +113,8 @@ def main(argv=None):
     parser.add_argument("--encoder", choices=("auto", "off", "on", "both"),
                         default="auto",
                         help="encoder path; both emits directly comparable Python/Rust rows")
+    parser.add_argument("--surface", choices=("auto", "off", "on"),
+                        default="auto", help="packed raster/compositing backend")
     parser.add_argument("--workload", choices=("standard", "full"),
                         default="standard",
                         help="standard historical load or the current full-engine stress load")
@@ -136,13 +141,15 @@ def main(argv=None):
             for encoder in encoders:
                 runs = [one_run(
                     columns, rows, physics, options.frames, encoder,
-                    options.workload, options.sky_event, options.start_seconds)
+                    options.surface, options.workload, options.sky_event,
+                    options.start_seconds)
                         for _ in range(options.runs)]
                 medians = {name: statistics.median(run[name] for run in runs)
                            for name in PHASES}
                 report.append({
                     "viewport": f"{columns}x{rows}", "physics": physics,
                     "encoder": runs[0]["_encoder"],
+                    "surface": runs[0]["_surface"],
                     "workload": options.workload,
                     "sky_event": options.sky_event,
                     "start_seconds": options.start_seconds,
@@ -157,9 +164,9 @@ def main(argv=None):
         label = f"{viewport[0]}x{viewport[1]}"
         print(f"VIEWPORT {label} PUA4 · {options.workload} · "
               f"{options.sky_event} @ {options.start_seconds:.2f}s")
-        print("physics   encoder   step scenery collision raster  encode   total max-fps")
+        print("physics   encoder surface step scenery collision raster  encode   total max-fps")
         for row in (item for item in report if item["viewport"] == label):
-            print(f"{row['physics']:<10}{row['encoder']:<8}" + "".join(
+            print(f"{row['physics']:<10}{row['encoder']:<8}{row['surface']:<8}" + "".join(
                 f" {row[f'{phase}_ms']:7.2f}" for phase in PHASES) +
                 f" {row['maximum_fps']:7.2f}")
         print()

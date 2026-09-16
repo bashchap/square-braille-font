@@ -1,9 +1,9 @@
-# Christmas Snow performance analysis — 2026-09-15
+# Christmas Snow performance analysis — 2026-09-15, implemented 2026-09-16
 
-This report profiles the complete current engine and records the next Rust
-migration boundary. It supersedes the older recommendation to consider a full
-rewrite: the measurements support moving the rendering data plane to Rust, not
-the entire behavioural engine.
+This report profiles the complete engine, records the Rust migration boundary,
+and now includes the measured phase-three implementation. It supersedes the
+older recommendation to consider a full rewrite: the rendering data plane was
+the correct boundary, not the behavioural engine.
 
 ## Method
 
@@ -98,3 +98,66 @@ The next native component should be the complete `Surface` data plane:
 Only after those stages should a full Rust renderer be reconsidered. Based on
 the current phase split, migrating behavioural simulation first would increase
 complexity substantially while targeting less than one tenth of frame time.
+
+## Phase three implementation — 2026-09-16
+
+All five recommendations above are complete:
+
+- `Surface` now owns contiguous `array('I')` RGB and `bytearray` priority
+  planes. Its list-compatible `pixels` view keeps the Python reference and old
+  tests readable, while Rust borrows the real buffers directly with no
+  per-frame RGB/priority repacking.
+- the dependency-free Rust library now batches priority-tested rectangles,
+  lines, thick lines, filled ellipses, filled polygons, overlays, priority
+  promotion and exposed-top-edge scans;
+- bank accumulation and cached-tree compositing run as native batches, with
+  tree geometry packed once and retained by the bridge;
+- NPC cabin obstacles and perspective-projected dirt-path segments are built
+  once per simulation frame and reused by every NPC; and
+- `--native-surface auto|off|on` is a separate restart-only control. `auto`
+  enables it with the native encoder, `off` retains the packed Python oracle,
+  and `on` fails clearly if the library is unavailable.
+
+The verifier exercises every migrated primitive twice, once through Python and
+once through Rust, then requires identical colours, priorities, exposed edges,
+ANSI output and telemetry. The entire macOS Square/PUA4/3D/Voyager demo smoke
+suite also passed after the migration.
+
+## Post-migration results
+
+These are medians of three runs with eight measured frames after two warm-ups,
+using the same full workload at event time zero. `Python/Python` forces both
+reference paths off; `Rust/Rust` is the normal built-library `auto` path.
+
+| Cells | Encoder/surface | Step | Scenery | Collision | Moving raster | Encode | Total | Ceiling |
+|---:|---|---:|---:|---:|---:|---:|---:|---:|
+| 120×36 | Python/Python | 3.51 ms | 5.57 ms | 0.16 ms | 23.64 ms | 27.56 ms | 60.55 ms | 16.52 fps |
+| 120×36 | Rust/Rust | 3.52 ms | 1.17 ms | 0.20 ms | 3.99 ms | 3.28 ms | 12.56 ms | 79.60 fps |
+| 168×60 | Python/Python | 3.64 ms | 24.88 ms | 0.31 ms | 57.31 ms | 65.87 ms | 153.50 ms | 6.52 fps |
+| 168×60 | Rust/Rust | 3.71 ms | 2.01 ms | 0.35 ms | 5.58 ms | 8.82 ms | 20.53 ms | 48.71 fps |
+| 303×46 | Python/Python | 4.22 ms | 17.42 ms | 0.52 ms | 75.59 ms | 91.07 ms | 189.34 ms | 5.28 fps |
+| 303×46 | Rust/Rust | 4.24 ms | 2.19 ms | 0.55 ms | 6.42 ms | 11.70 ms | 25.12 ms | 39.81 fps |
+
+At 303×46, keeping the Rust encoder but forcing the packed Python surface took
+105.52 ms; enabling the Rust surface reduced that to 23.85 ms in the isolated
+pair, a 77.4% complete-frame reduction attributable to the new data plane.
+Compared with the previous phase-two production result of 132.90 ms, the
+three-viewport result of 25.12 ms is 81.1% lower and 5.29 times faster. The
+present terminal-independent ceiling is approximately 40 fps; actual display rate still includes terminal write
+and paint time, reported separately as `TTY`.
+
+Reproduce the post-migration comparison with:
+
+```sh
+cargo build --release --manifest-path native/seasonal_encoder/Cargo.toml
+python3 demos/seasonal/benchmark_christmas_snow.py \
+  --workload full --physics full --encoder both --surface auto \
+  --sky-event helicopter --frames 8 --runs 3 \
+  --viewport 120x36 --viewport 168x60 --viewport 303x46
+```
+
+There is no measured reason to migrate event scheduling, snow state, NPC
+decisions, postman/rabbit behaviour or the live controller. They are now the
+maintainable Python control plane around a borrowed-buffer Rust data plane.
+Future work should be driven by a new profile rather than a blanket language
+rewrite; terminal presentation is likely to become visible before simulation.

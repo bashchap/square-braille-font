@@ -8,6 +8,7 @@ Complete-frame rendering restores lower-priority scenery after moving objects.
 """
 
 import argparse
+from array import array
 import contextlib
 import functools
 import io
@@ -124,31 +125,116 @@ class TreeSettings:
     conifer_colour_variation: float
 
 
-class Surface:
-    """A small virtual-pixel surface with explicit painter priority."""
+def packed_colour(colour):
+    return (colour[0] << 16) | (colour[1] << 8) | colour[2]
 
-    def __init__(self, width, height, pixels=None):
+
+def unpacked_colour(colour):
+    return ((colour >> 16) & 255, (colour >> 8) & 255, colour & 255)
+
+
+class PackedPixels:
+    """List-compatible view over a Surface's contiguous native buffers."""
+
+    def __init__(self, surface):
+        self.surface = surface
+
+    def __len__(self):
+        return len(self.surface.priorities)
+
+    def __iter__(self):
+        colours = self.surface.colours
+        for index, priority in enumerate(self.surface.priorities):
+            yield ((unpacked_colour(colours[index]), priority)
+                   if priority else None)
+
+    def __getitem__(self, index):
+        if isinstance(index, slice):
+            return [self[position] for position in range(*index.indices(len(self)))]
+        if index < 0:
+            index += len(self)
+        priority = self.surface.priorities[index]
+        return ((unpacked_colour(self.surface.colours[index]), priority)
+                if priority else None)
+
+    def __setitem__(self, index, value):
+        if isinstance(index, slice):
+            positions = range(*index.indices(len(self)))
+            values = list(value)
+            if len(positions) != len(values):
+                raise ValueError("packed surface slices cannot change length")
+            for position, item in zip(positions, values):
+                self[position] = item
+            return
+        if index < 0:
+            index += len(self)
+        if value is None:
+            self.surface.colours[index] = 0
+            self.surface.priorities[index] = 0
+        else:
+            colour, priority = value
+            self.surface.colours[index] = packed_colour(colour)
+            self.surface.priorities[index] = priority
+        self.surface._bits_dirty = True
+
+    def __eq__(self, other):
+        if isinstance(other, PackedPixels):
+            return (self.surface.colours == other.surface.colours and
+                    self.surface.priorities == other.surface.priorities)
+        return list(self) == other
+
+    def copy(self):
+        return list(self)
+
+
+class Surface:
+    """Packed virtual-pixel RGB/priority planes with list-compatible access."""
+
+    def __init__(self, width, height, pixels=None, native=None):
         self.width = width
         self.height = height
-        self.pixels = pixels if pixels is not None else [None] * (width * height)
+        count = width * height
+        self.colours = array("I", [0]) * count
+        self.priorities = bytearray(count)
+        self.native = native
+        self.pixels = PackedPixels(self)
         # Each integer is a vertical occupancy bitset for one x coordinate.
         # Scenery collision can therefore find exposed surfaces without a
         # second width*height raster scan after drawing.
         self._column_bits = [0] * width
+        self._bits_dirty = False
         if pixels is not None:
             for index, value in enumerate(pixels):
-                if value is not None:
-                    y, x = divmod(index, width)
-                    self._column_bits[x] |= 1 << y
+                self.pixels[index] = value
+            self._rebuild_column_bits()
 
     def copy(self):
-        duplicate = Surface(self.width, self.height)
-        duplicate.pixels = self.pixels.copy()
+        duplicate = Surface(self.width, self.height, native=self.native)
+        duplicate.colours = self.colours[:]
+        duplicate.priorities = self.priorities[:]
+        duplicate.pixels = PackedPixels(duplicate)
         duplicate._column_bits = self._column_bits.copy()
+        duplicate._bits_dirty = self._bits_dirty
         return duplicate
+
+    def _rebuild_column_bits(self):
+        if self.native is not None:
+            self._column_bits = self.native.column_bits(self)
+        else:
+            columns = [0] * self.width
+            for index, priority in enumerate(self.priorities):
+                if priority:
+                    y, x = divmod(index, self.width)
+                    columns[x] |= 1 << y
+            self._column_bits = columns
+        self._bits_dirty = False
 
     def exposed_top_edges(self):
         """Return occupied runs' top edges using draw-time occupancy bits."""
+        if self._bits_dirty:
+            if self.native is not None:
+                return self.native.top_edges(self)
+            self._rebuild_column_bits()
         columns = []
         for bits in self._column_bits:
             starts = bits & ~(bits << 1)
@@ -165,9 +251,9 @@ class Surface:
         if not (0 <= x < self.width and 0 <= y < self.height):
             return
         index = y * self.width + x
-        current = self.pixels[index]
-        if current is None or priority >= current[1]:
-            self.pixels[index] = (colour, priority)
+        if priority >= self.priorities[index]:
+            self.colours[index] = packed_colour(colour)
+            self.priorities[index] = priority
             self._column_bits[x] |= 1 << y
 
     def rectangle(self, left, top, right, bottom, colour, priority):
@@ -175,17 +261,27 @@ class Surface:
         top = max(0, int(top))
         right = min(self.width, int(right))
         bottom = min(self.height, int(bottom))
+        if self.native is not None:
+            self.native.rectangle(
+                self, left, top, right, bottom, colour, priority)
+            self._bits_dirty = True
+            return
+        packed = packed_colour(colour)
         for y in range(top, bottom):
             start = y * self.width
             for x in range(left, right):
                 index = start + x
-                current = self.pixels[index]
-                if current is None or priority >= current[1]:
-                    self.pixels[index] = (colour, priority)
+                if priority >= self.priorities[index]:
+                    self.colours[index] = packed
+                    self.priorities[index] = priority
                     self._column_bits[x] |= 1 << y
 
     def line(self, x0, y0, x1, y1, colour, priority):
         x0, y0, x1, y1 = map(lambda value: int(round(value)), (x0, y0, x1, y1))
+        if self.native is not None:
+            self.native.line(self, x0, y0, x1, y1, colour, priority)
+            self._bits_dirty = True
+            return
         dx = abs(x1 - x0)
         dy = -abs(y1 - y0)
         sx = 1 if x0 < x1 else -1
@@ -203,6 +299,26 @@ class Surface:
                 error += dx
                 y0 += sy
 
+    def promote_nonempty(self, priority):
+        if self.native is not None:
+            self.native.promote(self, priority)
+        else:
+            for index, current in enumerate(self.priorities):
+                if current:
+                    self.priorities[index] = priority
+        self._bits_dirty = True
+
+    def overlay(self, other, minimum_priority=0):
+        """Replace destination pixels wherever the source is occupied."""
+        if self.native is not None:
+            self.native.overlay(self, other, minimum_priority)
+        else:
+            for index, priority in enumerate(other.priorities):
+                if priority:
+                    self.colours[index] = other.colours[index]
+                    self.priorities[index] = max(priority, minimum_priority)
+        self._bits_dirty = True
+
 
 def filled_ellipse(surface, centre_x, centre_y, radius_x, radius_y, colour, priority):
     """Draw a clipped filled ellipse in integer virtual pixels."""
@@ -210,6 +326,11 @@ def filled_ellipse(surface, centre_x, centre_y, radius_x, radius_y, colour, prio
     radius_y = max(1, int(round(radius_y)))
     centre_x = int(round(centre_x))
     centre_y = int(round(centre_y))
+    if surface.native is not None:
+        surface.native.filled_ellipse(
+            surface, centre_x, centre_y, radius_x, radius_y, colour, priority)
+        surface._bits_dirty = True
+        return
     for offset_y in range(-radius_y, radius_y + 1):
         fraction = 1.0 - (offset_y / radius_y) ** 2
         half_width = int(round(radius_x * math.sqrt(max(0.0, fraction))))
@@ -222,6 +343,10 @@ def filled_polygon(surface, points, colour, priority):
     """Fill a simple polygon using deterministic horizontal scan lines."""
     points = [(int(round(x)), int(round(y))) for x, y in points]
     if len(points) < 3:
+        return
+    if surface.native is not None:
+        surface.native.filled_polygon(surface, points, colour, priority)
+        surface._bits_dirty = True
         return
     minimum_y = min(y for _, y in points)
     maximum_y = max(y for _, y in points)
@@ -242,6 +367,12 @@ def filled_polygon(surface, points, colour, priority):
 def thick_line(surface, x0, y0, x1, y1, thickness, colour, priority):
     """Draw a line with enough weight to survive small terminal cell sizes."""
     radius = max(0, int(round(thickness)) // 2)
+    if surface.native is not None:
+        surface.native.thick_line(
+            surface, int(round(x0)), int(round(y0)), int(round(x1)),
+            int(round(y1)), radius, colour, priority)
+        surface._bits_dirty = True
+        return
     for offset_y in range(-radius, radius + 1):
         for offset_x in range(-radius, radius + 1):
             if offset_x * offset_x + offset_y * offset_y <= radius * radius + 1:
@@ -894,10 +1025,16 @@ def cached_tree_pixels(tree_seed, height, layer, lights, tree_type, settings,
 
 def draw_cached_tree(surface, centre, base, height, sway, pixels, force=False):
     """Apply cheap height-weighted sway while compositing cached geometry."""
+    if surface.native is not None:
+        surface.native.draw_tree_points(
+            surface, pixels, centre, base, height, sway, force)
+        surface._bits_dirty = True
+        return
     inverse_height = 1.0 / max(1.0, height)
     width = surface.width
     surface_height = surface.height
-    surface_pixels = surface.pixels
+    colours = surface.colours
+    priorities = surface.priorities
     column_bits = surface._column_bits
     centre = int(centre)
     base = int(base)
@@ -922,9 +1059,9 @@ def draw_cached_tree(surface, centre, base, height, sway, pixels, force=False):
         if not (0 <= x < width and 0 <= y < surface_height):
             continue
         index = y * width + x
-        current = surface_pixels[index]
-        if force or current is None or priority >= current[1]:
-            surface_pixels[index] = (colour, priority)
+        if force or priority >= priorities[index]:
+            colours[index] = packed_colour(colour)
+            priorities[index] = priority
             column_bits[x] |= 1 << y
 
 
@@ -1358,9 +1495,9 @@ def draw_horizon_structure(surface, args, snow_line):
             surface.pixel(x, base - height * 0.45, (244, 187, 72), 11)
 
 
-def build_scenery(args, width, height, ground_y, elapsed=0.0):
+def build_scenery(args, width, height, ground_y, elapsed=0.0, native=None):
     """Draw scenery against immutable terrain, never the accumulating bank."""
-    surface = Surface(width, height)
+    surface = Surface(width, height, native=native)
     rng = random.Random(args.seed + 7331)
     snow_line = max(0, min(height - 1, int(round(ground_y))))
     draw_horizon_structure(surface, args, snow_line)
@@ -3269,8 +3406,16 @@ def draw_ambient(surface, engine, elapsed):
 class SnowEngine:
     def __init__(self, args, width, height):
         self.args = args
-        self.native_analyser = load_native_analyser(
-            required=args.native_encoder == "on") if args.native_encoder != "off" else None
+        wants_native_surface = (
+            args.native_surface == "on" or
+            (args.native_surface == "auto" and args.native_encoder != "off"))
+        wants_native_library = args.native_encoder != "off" or wants_native_surface
+        native = (load_native_analyser(
+            required=(args.native_encoder == "on" or
+                      args.native_surface == "on"))
+                  if wants_native_library else None)
+        self.native_analyser = native if args.native_encoder != "off" else None
+        self.native_surface = native if wants_native_surface else None
         if args.size_weights is None:
             args.size_weights = tuple(DEFAULT_FLAKE_WEIGHTS[name]
                                       for name in args.flake_sizes)
@@ -3366,6 +3511,8 @@ class SnowEngine:
         self.npc_direction_changes = 0
         self.npc_avoidance_events = 0
         self.npc_viewport_turns = 0
+        self._npc_path_segments = ()
+        self._npc_cabin_obstacles = ()
         self.postman = Postman(
             x=-20.0, y=height - 1, direction=1, state="hidden",
             timer=(args.postman_interval / max(0.01, args.postman_delivery_frequency) *
@@ -4637,15 +4784,8 @@ class SnowEngine:
             influence(self.helicopter_exclusion_x, 1.0,
                       self.helicopter_exclusion_radius, 2.8)
 
-        if "cabin" in self.args.scenery_set:
-            snow_line = max(0, min(
-                self.height - 1, int(round(self.scenery_ground_y))))
-            aspects = {"cottage": 1.72, "lodge": 2.18, "a-frame": 1.48}
-            for centre, base, cabin_height, _, cabin_type in cabin_layout(
-                    self.args, self.width, self.height, snow_line):
-                cabin_depth = depth_for(centre, base)
-                width = cabin_height * aspects[cabin_type]
-                influence(centre, cabin_depth, width * 0.48, 1.7)
+        for centre, cabin_depth, radius in self._npc_cabin_obstacles:
+            influence(centre, cabin_depth, radius, 1.7)
 
         path_x, path_z = self.npc_path_steering(npc, plane_height)
         return (avoid_x * self.args.npc_avoidance_strength,
@@ -4659,37 +4799,22 @@ class SnowEngine:
         adherence = self.args.npc_path_adherence
         if adherence <= 0.0 or "cabin" not in self.args.scenery_set:
             return 0.0, 0.0
-        horizon = self.height * max(0.18, min(0.72, self.args.horizon_height))
-
-        def plane_point(point):
-            x, y = point
-            foreground = max(horizon + 4.0, self.actor_surface_y(x) - 1.0)
-            depth = ((y - horizon) /
-                     max(1.0, foreground - horizon))
-            return x, max(self.args.npc_depth_min,
-                          min(1.0, depth)) * plane_height
-
-        paths = [((0.0, self.surface_y(0) - 1.0),
-                  (self.width - 1.0,
-                   self.surface_y(self.width - 1) - 1.0))]
-        paths.extend(points for _, points in live_cabin_path_spurs(self))
+        if not self._npc_path_segments:
+            self.prepare_npc_navigation()
         px, pz = npc.x, npc.depth * plane_height
         nearest = None
-        for points in paths:
-            for left, right in zip(points, points[1:]):
-                ax, az = plane_point(left)
-                bx, bz = plane_point(right)
-                vx, vz = bx - ax, bz - az
-                length_sq = vx * vx + vz * vz
-                if length_sq <= 1e-6:
-                    continue
-                amount = max(0.0, min(
-                    1.0, ((px - ax) * vx + (pz - az) * vz) / length_sq))
-                nx, nz = ax + vx * amount, az + vz * amount
-                dx, dz = nx - px, nz - pz
-                distance = math.hypot(dx, dz)
-                if nearest is None or distance < nearest[0]:
-                    nearest = (distance, dx, dz, vx, vz)
+        for ax, az, bx, bz in self._npc_path_segments:
+            vx, vz = bx - ax, bz - az
+            length_sq = vx * vx + vz * vz
+            if length_sq <= 1e-6:
+                continue
+            amount = max(0.0, min(
+                1.0, ((px - ax) * vx + (pz - az) * vz) / length_sq))
+            nx, nz = ax + vx * amount, az + vz * amount
+            dx, dz = nx - px, nz - pz
+            distance = math.hypot(dx, dz)
+            if nearest is None or distance < nearest[0]:
+                nearest = (distance, dx, dz, vx, vz)
         if nearest is None:
             return 0.0, 0.0
         distance, dx, dz, tangent_x, tangent_z = nearest
@@ -4706,9 +4831,49 @@ class SnowEngine:
         return ((dx + tangent_x * 0.48) * adherence,
                 (dz + tangent_z * 0.48) * adherence)
 
+    def prepare_npc_navigation(self):
+        """Project shared cabin paths and obstacles once for the whole frame."""
+        plane_height = max(24.0, self.height * 0.72)
+        horizon = self.height * max(0.18, min(0.72, self.args.horizon_height))
+
+        def depth_for(x, y):
+            foreground = max(horizon + 4.0, self.actor_surface_y(x) - 1.0)
+            return max(0.0, min(1.0, (y - horizon) /
+                           max(1.0, foreground - horizon)))
+
+        self._npc_path_segments = ()
+        self._npc_cabin_obstacles = ()
+        if "cabin" not in self.args.scenery_set:
+            return
+        paths = [((0.0, self.surface_y(0) - 1.0),
+                  (self.width - 1.0,
+                   self.surface_y(self.width - 1) - 1.0))]
+        paths.extend(points for _, points in live_cabin_path_spurs(self))
+        segments = []
+        for points in paths:
+            for left, right in zip(points, points[1:]):
+                ax, ay = left
+                bx, by = right
+                segments.append((
+                    ax, max(self.args.npc_depth_min,
+                            depth_for(ax, ay)) * plane_height,
+                    bx, max(self.args.npc_depth_min,
+                            depth_for(bx, by)) * plane_height,
+                ))
+        self._npc_path_segments = tuple(segments)
+        snow_line = max(0, min(
+            self.height - 1, int(round(self.scenery_ground_y))))
+        aspects = {"cottage": 1.72, "lodge": 2.18, "a-frame": 1.48}
+        self._npc_cabin_obstacles = tuple(
+            (centre, depth_for(centre, base),
+             cabin_height * aspects[cabin_type] * 0.48)
+            for centre, base, cabin_height, _, cabin_type in cabin_layout(
+                self.args, self.width, self.height, snow_line))
+
     def step_npcs(self, dt):
         """Steer NPCs smoothly, preserving terrain contact and perspective."""
         self.sync_npcs()
+        self.prepare_npc_navigation()
         for npc in self.npcs:
             if npc.state == "hidden":
                 npc.respawn_timer -= dt
@@ -5582,12 +5747,17 @@ def draw_sky_gradient(surface, args):
         left, right = colours[interval], colours[interval + 1]
         colour = tuple(int(round(a + (b - a) * amount))
                        for a, b in zip(left, right))
-        start = y * surface.width
-        surface.pixels[start:start + surface.width] = [(colour, 1)] * surface.width
+        surface.rectangle(0, y, surface.width, y + 1, colour, 1)
 
 
 def draw_accumulation(surface, engine):
     bank = engine.palette["bank"]
+    if surface.native is not None:
+        depths = array("i", (max(0, min(engine.height, int(round(value))))
+                             for value in engine.depths))
+        surface.native.draw_accumulation(surface, depths, bank, 70)
+        surface._bits_dirty = True
+        return
     for x, depth_value in enumerate(engine.depths):
         depth = max(0, min(engine.height, int(round(depth_value))))
         top = engine.height - depth
@@ -5721,7 +5891,8 @@ def render_surface(background, engine):
     # Distant flybys are painted first and deliberately normalized to the
     # lowest depth. Scenery then replaces them pixel-for-pixel, so trees,
     # cabins, animals, banks and falling snow always occlude the sky objects.
-    surface = Surface(background.width, background.height)
+    surface = Surface(
+        background.width, background.height, native=background.native)
     draw_sky_gradient(surface, engine.args)
     draw_lightning(surface, engine)
     elapsed = getattr(engine, "elapsed", 0.0)
@@ -5740,8 +5911,7 @@ def render_surface(background, engine):
     draw_parachutists(surface, engine)
     draw_aircraft_crashes(surface, engine)
     draw_present_drops(surface, engine)
-    surface.pixels = [(pixel[0], 3) if pixel is not None else None
-                      for pixel in surface.pixels]
+    surface.promote_nonempty(3)
     draw_precipitation(surface, engine, "background")
     # A capture retains the rabbit's original lane. Its transporter is painted
     # in that same lane, immediately before the rabbit, so neither can jump
@@ -5760,9 +5930,7 @@ def render_surface(background, engine):
              if item.state != "hidden" and item.depth < 0.68),
             key=lambda item: item.depth):
         draw_npc(surface, engine, npc)
-    for index, pixel in enumerate(background.pixels):
-        if pixel is not None:
-            surface.pixels[index] = pixel
+    surface.overlay(background)
     draw_accumulation(surface, engine)
     draw_cabin_paths(surface, engine)
     draw_downwash(surface, engine, near=True)
@@ -5771,11 +5939,10 @@ def render_surface(background, engine):
         # craft are composited over scenery from approach through departure;
         # distant craft were painted before scenery above and stay occluded
         # even after descending. Phase can no longer flip the depth order.
-        landing_layer = Surface(surface.width, surface.height)
+        landing_layer = Surface(
+            surface.width, surface.height, native=surface.native)
         draw_sky_event(landing_layer, engine, elapsed, include_beam=False)
-        for index, pixel in enumerate(landing_layer.pixels):
-            if pixel is not None:
-                surface.pixels[index] = (pixel[0], max(85, pixel[1]))
+        surface.overlay(landing_layer, 85)
     draw_object_snow(surface, engine)
     draw_ambient(surface, engine, getattr(engine, "elapsed", 0.0))
     draw_crates(surface, engine)
@@ -5800,12 +5967,11 @@ def render_surface(background, engine):
         # Apparent height is the depth proxy shared by the two figures. A
         # smaller postman is behind the reindeer; a taller one remains in
         # front. Copy only the animal at promoted priority, not all scenery.
-        animal_layer = Surface(surface.width, surface.height)
+        animal_layer = Surface(
+            surface.width, surface.height, native=surface.native)
         draw_reindeer(animal_layer, engine.width, engine.height,
                       int(round(engine.scenery_ground_y)))
-        for index, pixel in enumerate(animal_layer.pixels):
-            if pixel is not None:
-                surface.pixels[index] = (pixel[0], max(106, pixel[1]))
+        surface.overlay(animal_layer, 106)
     for chunk in engine.chunks:
         draw_shape(surface, chunk.shape, chunk.x, chunk.y, chunk.colour, 82)
     draw_precipitation(surface, engine, "foreground")
@@ -5832,17 +5998,19 @@ def encode_surface(surface, codec, columns, rows, stats=None):
     flat_bits = tuple(bit for row in codec.bits for bit in row)
     cell_sample_count = codec.cell_width * codec.cell_height
     full_mask = (1 << cell_sample_count) - 1
-    pixels = surface.pixels
+    colours = surface.colours
+    priorities = surface.priorities
     surface_width = surface.width
     for cell_y in range(rows):
         parts = []
         for cell_x in range(columns):
-            cell_pixels = []
+            cell_indices = []
             for local_y in range(codec.cell_height):
                 y = cell_y * codec.cell_height + local_y
                 start = y * surface_width + cell_x * codec.cell_width
-                cell_pixels.extend(pixels[start:start + codec.cell_width])
-            if not any(cell_pixels):
+                cell_indices.extend(range(start, start + codec.cell_width))
+            front_priority = max(priorities[index] for index in cell_indices)
+            if front_priority == 0:
                 blank_cells += 1
                 reset_codes = []
                 if active_colour is not None:
@@ -5856,37 +6024,42 @@ def encode_surface(surface, codec, columns, rows, stats=None):
                 parts.append(" ")
                 continue
 
-            first_pixel = cell_pixels[0]
-            uniform = (first_pixel is not None and
-                       all(pixel == first_pixel for pixel in cell_pixels[1:]))
+            first_index = cell_indices[0]
+            first_colour = colours[first_index]
+            uniform = (
+                priorities[first_index] != 0 and
+                all(priorities[index] == priorities[first_index] and
+                    colours[index] == first_colour
+                    for index in cell_indices[1:]))
             if uniform:
                 mask = full_mask
-                front_priority = first_pixel[1]
-                colour = first_pixel[0]
+                colour = unpacked_colour(first_colour)
                 front_count = cell_sample_count
                 rear_count = 0
             else:
-                front_priority = max(pixel[1] for pixel in cell_pixels
-                                     if pixel is not None)
                 mask = 0
                 front_count = rear_count = 0
                 front_red = front_green = front_blue = 0
                 rear_red = rear_green = rear_blue = 0
-                for bit, pixel in zip(flat_bits, cell_pixels):
-                    if pixel is None:
+                for bit, index in zip(flat_bits, cell_indices):
+                    priority = priorities[index]
+                    if priority == 0:
                         continue
-                    sample_colour, priority = pixel
+                    sample_colour = colours[index]
+                    red = (sample_colour >> 16) & 255
+                    green = (sample_colour >> 8) & 255
+                    blue = sample_colour & 255
                     if priority == front_priority:
                         mask |= 1 << bit
                         front_count += 1
-                        front_red += sample_colour[0]
-                        front_green += sample_colour[1]
-                        front_blue += sample_colour[2]
+                        front_red += red
+                        front_green += green
+                        front_blue += blue
                     else:
                         rear_count += 1
-                        rear_red += sample_colour[0]
-                        rear_green += sample_colour[1]
-                        rear_blue += sample_colour[2]
+                        rear_red += red
+                        rear_green += green
+                        rear_blue += blue
                 colour = (round(front_red / front_count),
                           round(front_green / front_count),
                           round(front_blue / front_count))
@@ -5898,9 +6071,11 @@ def encode_surface(surface, codec, columns, rows, stats=None):
                                round(rear_blue / rear_count))
                 error_without = 0
                 error_with = 0
-                for pixel in cell_pixels:
-                    expected = (0, 0, 0) if pixel is None else pixel[0]
-                    if pixel is not None and pixel[1] == front_priority:
+                for index in cell_indices:
+                    priority = priorities[index]
+                    expected = ((0, 0, 0) if priority == 0 else
+                                unpacked_colour(colours[index]))
+                    if priority == front_priority:
                         actual_without = actual_with = colour
                     else:
                         actual_without = (0, 0, 0)
@@ -6238,6 +6413,7 @@ def detailed_dashboard_lines(args, engine, codec, stats, columns):
              f"NPCS {len(engine.npcs)} | "
              f"TREE CACHE {cache.hits:,}H/{cache.misses:,}M | POSTMAN {postman_cache.hits:,}H/{postman_cache.misses:,}M"),
             (f" ◆ ENCODER {'RUST NATIVE' if engine.native_analyser else 'PYTHON'} | "
+             f"SURFACE {'RUST BATCHED' if engine.native_surface else 'PYTHON PACKED'} | "
              f"MISSED DEADLINES {engine.frame_overruns:,} MAX LAG {engine.maximum_frame_lag_ms:.1f} ms | "
              f"SEAM GUARDS {stats.get('seam_guard_cells', 0):,}"),
         ]
@@ -6309,7 +6485,9 @@ def make_runtime(args, columns, rows):
     width = columns * codec.cell_width
     height = scene_rows * codec.cell_height
     engine = SnowEngine(args, width, height)
-    background = build_scenery(args, width, height, engine.scenery_ground_y)
+    background = build_scenery(
+        args, width, height, engine.scenery_ground_y,
+        native=engine.native_surface)
     engine.update_scenery_collision(background)
     return codec, scene_rows, engine, background
 
@@ -6450,8 +6628,9 @@ def animate(args):
                               scene_rows * codec.cell_height)
                 resized = True
             engine.step(dt, elapsed)
-            background = build_scenery(args, engine.width, engine.height,
-                                       engine.scenery_ground_y, elapsed)
+            background = build_scenery(
+                args, engine.width, engine.height, engine.scenery_ground_y,
+                elapsed, engine.native_surface)
             engine.update_scenery_collision(background)
             output = complete_frame(args, codec, scene_rows, engine, background,
                                     columns, frame, elapsed)
@@ -6595,6 +6774,9 @@ def build_parser():
     display.add_argument("--native-encoder", choices=("auto", "off", "on"),
                          default="auto",
                          help="use the optional Rust cell analyser when built; ON requires it")
+    display.add_argument("--native-surface", choices=("auto", "off", "on"),
+                         default="auto",
+                         help="use batched Rust raster/compositing with packed buffers; ON requires it")
 
     window = parser.add_argument_group("launcher window reproduction")
     window.add_argument("--terminal-columns", type=int,
@@ -7064,8 +7246,9 @@ def help_scene_preview(parser, mode, scenery, ambient, elapsed=0.0,
         args.ambient_speed = 12.0
     codec = CODECS[mode]
     engine = SnowEngine(args, columns * codec.cell_width, rows * codec.cell_height)
-    background = build_scenery(args, engine.width, engine.height,
-                               engine.scenery_ground_y, elapsed)
+    background = build_scenery(
+        args, engine.width, engine.height, engine.scenery_ground_y, elapsed,
+        engine.native_surface)
     engine.elapsed = elapsed
     return encode_surface(render_surface(background, engine), codec, columns, rows)
 

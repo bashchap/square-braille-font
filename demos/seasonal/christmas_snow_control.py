@@ -150,7 +150,7 @@ RESTART_ONLY = frozenset({
     "mode", "duration", "frames", "columns", "rows", "seed", "snapshot",
     "no_dashboard", "detailed_dashboard", "preload_seconds", "initial_snow",
     "bank_drift", "control_poll", "terminal_columns", "terminal_rows",
-    "font_size", "window_position", "native_encoder",
+    "font_size", "window_position", "native_encoder", "native_surface",
 })
 
 GROUP_COLOURS = {
@@ -181,7 +181,7 @@ GROUP_ICONS = {
 
 OPTION_ICONS = {
     "mode": "▦", "fps": "◷", "duration": "◴", "frames": "≡",
-    "physics": "⚙", "native_encoder": "⚡",
+    "physics": "⚙", "native_encoder": "⚡", "native_surface": "▦",
     "columns": "↔", "rows": "↕", "seed": "※", "snapshot": "▣",
     "terminal_columns": "⇔", "terminal_rows": "⇕", "font_size": "A",
     "window_position": "⌖",
@@ -274,6 +274,7 @@ OPTION_ICONS = {
 IMPACT_GUIDANCE = {
     "physics": "NONE provides the cheapest legacy-style fall/deposit path; GROUND adds bank slumping and terrain-aware bodies; FULL also indexes scenery so snow can rest and shed from objects.",
     "native_encoder": "AUTO uses the optional Rust cell analyser when built, OFF forces Python, and ON refuses to start if the native library is unavailable.",
+    "native_surface": "AUTO batches raster and compositing work through Rust whenever the native library is available, OFF preserves the packed Python parity path, and ON requires Rust.",
     "fps": "Higher values make motion smoother but raise CPU and terminal-output work almost linearly.",
     "duration": "Zero runs until stopped; a positive value ends the viewer after that many seconds.",
     "frames": "Zero leaves duration in control; a positive value stops after an exact rendered-frame count.",
@@ -473,7 +474,7 @@ CONTROL_TAB_SPECS = (
     ("DISPLAY", "▣", frozenset({
         "mode", "fps", "duration", "frames", "columns", "rows", "seed",
         "snapshot", "no_dashboard", "detailed_dashboard", "physics",
-        "native_encoder",
+        "native_encoder", "native_surface",
     })),
     ("WINDOW", "▤", frozenset({
         "terminal_columns", "terminal_rows", "font_size", "window_position",

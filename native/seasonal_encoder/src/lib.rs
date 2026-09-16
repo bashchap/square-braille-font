@@ -6,6 +6,413 @@
 
 use std::fmt::Write;
 
+unsafe fn surface_parts<'a>(
+    colours: *mut u32,
+    priorities: *mut u8,
+    width: usize,
+    height: usize,
+) -> Option<(&'a mut [u32], &'a mut [u8])> {
+    if colours.is_null() || priorities.is_null() || width == 0 || height == 0 {
+        return None;
+    }
+    let count = width.checked_mul(height)?;
+    Some((
+        std::slice::from_raw_parts_mut(colours, count),
+        std::slice::from_raw_parts_mut(priorities, count),
+    ))
+}
+
+fn put_pixel(
+    colours: &mut [u32],
+    priorities: &mut [u8],
+    width: usize,
+    height: usize,
+    x: i32,
+    y: i32,
+    colour: u32,
+    priority: u8,
+) -> bool {
+    if x < 0 || y < 0 || x >= width as i32 || y >= height as i32 {
+        return false;
+    }
+    let index = y as usize * width + x as usize;
+    if priority >= priorities[index] {
+        colours[index] = colour;
+        priorities[index] = priority;
+        true
+    } else {
+        false
+    }
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn surface_rectangle(
+    colours: *mut u32,
+    priorities: *mut u8,
+    width: usize,
+    height: usize,
+    left: i32,
+    top: i32,
+    right: i32,
+    bottom: i32,
+    colour: u32,
+    priority: u8,
+) -> usize {
+    let Some((colours, priorities)) = surface_parts(colours, priorities, width, height) else {
+        return 0;
+    };
+    let left = left.max(0).min(width as i32) as usize;
+    let right = right.max(0).min(width as i32) as usize;
+    let top = top.max(0).min(height as i32) as usize;
+    let bottom = bottom.max(0).min(height as i32) as usize;
+    let mut changed = 0;
+    for y in top..bottom {
+        let start = y * width;
+        for x in left..right {
+            let index = start + x;
+            if priority >= priorities[index] {
+                colours[index] = colour;
+                priorities[index] = priority;
+                changed += 1;
+            }
+        }
+    }
+    changed
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn surface_line(
+    colours: *mut u32,
+    priorities: *mut u8,
+    width: usize,
+    height: usize,
+    mut x0: i32,
+    mut y0: i32,
+    x1: i32,
+    y1: i32,
+    colour: u32,
+    priority: u8,
+) -> usize {
+    let Some((colours, priorities)) = surface_parts(colours, priorities, width, height) else {
+        return 0;
+    };
+    let dx = (x1 - x0).abs();
+    let dy = -(y1 - y0).abs();
+    let sx = if x0 < x1 { 1 } else { -1 };
+    let sy = if y0 < y1 { 1 } else { -1 };
+    let mut error = dx + dy;
+    let mut changed = 0;
+    loop {
+        changed += usize::from(put_pixel(
+            colours, priorities, width, height, x0, y0, colour, priority,
+        ));
+        if x0 == x1 && y0 == y1 {
+            break;
+        }
+        let twice = error * 2;
+        if twice >= dy {
+            error += dy;
+            x0 += sx;
+        }
+        if twice <= dx {
+            error += dx;
+            y0 += sy;
+        }
+    }
+    changed
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn surface_filled_ellipse(
+    colours: *mut u32,
+    priorities: *mut u8,
+    width: usize,
+    height: usize,
+    centre_x: i32,
+    centre_y: i32,
+    radius_x: i32,
+    radius_y: i32,
+    colour: u32,
+    priority: u8,
+) -> usize {
+    let Some((colours, priorities)) = surface_parts(colours, priorities, width, height) else {
+        return 0;
+    };
+    let radius_x = radius_x.max(1);
+    let radius_y = radius_y.max(1);
+    let mut changed = 0;
+    for offset_y in -radius_y..=radius_y {
+        let ratio = f64::from(offset_y) / f64::from(radius_y);
+        let half_width =
+            (f64::from(radius_x) * (1.0 - ratio * ratio).max(0.0).sqrt()).round_ties_even() as i32;
+        for x in centre_x - half_width..=centre_x + half_width {
+            changed += usize::from(put_pixel(
+                colours,
+                priorities,
+                width,
+                height,
+                x,
+                centre_y + offset_y,
+                colour,
+                priority,
+            ));
+        }
+    }
+    changed
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn surface_filled_polygon(
+    colours: *mut u32,
+    priorities: *mut u8,
+    width: usize,
+    height: usize,
+    points: *const i32,
+    point_count: usize,
+    colour: u32,
+    priority: u8,
+) -> usize {
+    let Some((colours, priorities)) = surface_parts(colours, priorities, width, height) else {
+        return 0;
+    };
+    if points.is_null() || point_count < 3 {
+        return 0;
+    }
+    let points = std::slice::from_raw_parts(points, point_count * 2);
+    let minimum_y = (0..point_count).map(|i| points[i * 2 + 1]).min().unwrap();
+    let maximum_y = (0..point_count).map(|i| points[i * 2 + 1]).max().unwrap();
+    let mut changed = 0;
+    for y in minimum_y..=maximum_y {
+        let mut intersections = Vec::with_capacity(point_count);
+        for index in 0..point_count {
+            let next = (index + 1) % point_count;
+            let (x0, y0) = (points[index * 2], points[index * 2 + 1]);
+            let (x1, y1) = (points[next * 2], points[next * 2 + 1]);
+            if y0 == y1 || y < y0.min(y1) || y >= y0.max(y1) {
+                continue;
+            }
+            intersections
+                .push(f64::from(x0) + f64::from(y - y0) * f64::from(x1 - x0) / f64::from(y1 - y0));
+        }
+        intersections.sort_by(|a, b| a.total_cmp(b));
+        for pair in intersections.chunks_exact(2) {
+            let left = pair[0].floor() as i32;
+            let right = pair[1].ceil() as i32;
+            for x in left..=right {
+                changed += usize::from(put_pixel(
+                    colours, priorities, width, height, x, y, colour, priority,
+                ));
+            }
+        }
+    }
+    changed
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn surface_thick_line(
+    colours: *mut u32,
+    priorities: *mut u8,
+    width: usize,
+    height: usize,
+    x0: i32,
+    y0: i32,
+    x1: i32,
+    y1: i32,
+    radius: i32,
+    colour: u32,
+    priority: u8,
+) -> usize {
+    let mut changed = 0;
+    let radius = radius.max(0);
+    for offset_y in -radius..=radius {
+        for offset_x in -radius..=radius {
+            if offset_x * offset_x + offset_y * offset_y <= radius * radius + 1 {
+                changed += surface_line(
+                    colours,
+                    priorities,
+                    width,
+                    height,
+                    x0 + offset_x,
+                    y0 + offset_y,
+                    x1 + offset_x,
+                    y1 + offset_y,
+                    colour,
+                    priority,
+                );
+            }
+        }
+    }
+    changed
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn surface_overlay(
+    destination_colours: *mut u32,
+    destination_priorities: *mut u8,
+    source_colours: *const u32,
+    source_priorities: *const u8,
+    count: usize,
+    minimum_priority: u8,
+) -> usize {
+    if destination_colours.is_null()
+        || destination_priorities.is_null()
+        || source_colours.is_null()
+        || source_priorities.is_null()
+    {
+        return 0;
+    }
+    let destination_colours = std::slice::from_raw_parts_mut(destination_colours, count);
+    let destination_priorities = std::slice::from_raw_parts_mut(destination_priorities, count);
+    let source_colours = std::slice::from_raw_parts(source_colours, count);
+    let source_priorities = std::slice::from_raw_parts(source_priorities, count);
+    let mut changed = 0;
+    for index in 0..count {
+        if source_priorities[index] != 0 {
+            destination_colours[index] = source_colours[index];
+            destination_priorities[index] = source_priorities[index].max(minimum_priority);
+            changed += 1;
+        }
+    }
+    changed
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn surface_promote(priorities: *mut u8, count: usize, priority: u8) -> usize {
+    if priorities.is_null() {
+        return 0;
+    }
+    let priorities = std::slice::from_raw_parts_mut(priorities, count);
+    let mut changed = 0;
+    for current in priorities {
+        if *current != 0 {
+            *current = priority;
+            changed += 1;
+        }
+    }
+    changed
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn surface_draw_accumulation(
+    colours: *mut u32,
+    priorities: *mut u8,
+    width: usize,
+    height: usize,
+    depths: *const i32,
+    bank: *const u32,
+    priority: u8,
+) -> usize {
+    let Some((colours, priorities)) = surface_parts(colours, priorities, width, height) else {
+        return 0;
+    };
+    if depths.is_null() || bank.is_null() {
+        return 0;
+    }
+    let depths = std::slice::from_raw_parts(depths, width);
+    let bank = std::slice::from_raw_parts(bank, 3);
+    let mut changed = 0;
+    for (x, depth) in depths.iter().copied().enumerate() {
+        let depth = depth.max(0).min(height as i32) as usize;
+        let top = height - depth;
+        for y in top..height {
+            let below = y - top;
+            let colour = if below < 2 {
+                bank[0]
+            } else if below < 4usize.max((depth as f64 * 0.45).ceil() as usize) {
+                bank[1]
+            } else {
+                bank[2]
+            };
+            changed += usize::from(put_pixel(
+                colours, priorities, width, height, x as i32, y as i32, colour, priority,
+            ));
+        }
+    }
+    changed
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn surface_draw_tree_points(
+    colours: *mut u32,
+    priorities: *mut u8,
+    width: usize,
+    surface_height: usize,
+    offsets: *const i32,
+    point_colours: *const u32,
+    point_priorities: *const u8,
+    point_count: usize,
+    centre: i32,
+    base: i32,
+    height: f64,
+    sway: f64,
+    force: u8,
+) -> usize {
+    let Some((colours, priorities)) = surface_parts(colours, priorities, width, surface_height)
+    else {
+        return 0;
+    };
+    if offsets.is_null() || point_colours.is_null() || point_priorities.is_null() {
+        return 0;
+    }
+    let offsets = std::slice::from_raw_parts(offsets, point_count * 2);
+    let point_colours = std::slice::from_raw_parts(point_colours, point_count);
+    let point_priorities = std::slice::from_raw_parts(point_priorities, point_count);
+    let inverse_height = 1.0 / height.max(1.0);
+    let mut changed = 0;
+    for index in 0..point_count {
+        let dx = offsets[index * 2];
+        let dy = offsets[index * 2 + 1];
+        let fraction = (-f64::from(dy) * inverse_height).clamp(0.0, 1.0);
+        let displacement = (sway * fraction * fraction).round_ties_even() as i32;
+        let x = centre + dx + displacement;
+        let y = base + dy;
+        if x < 0 || y < 0 || x >= width as i32 || y >= surface_height as i32 {
+            continue;
+        }
+        let destination = y as usize * width + x as usize;
+        let priority = point_priorities[index];
+        if force != 0 || priority >= priorities[destination] {
+            colours[destination] = point_colours[index];
+            priorities[destination] = priority;
+            changed += 1;
+        }
+    }
+    changed
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn surface_top_edges(
+    priorities: *const u8,
+    width: usize,
+    height: usize,
+    offsets: *mut usize,
+    values: *mut i32,
+    capacity: usize,
+) -> usize {
+    if priorities.is_null() || offsets.is_null() || values.is_null() {
+        return 0;
+    }
+    let priorities = std::slice::from_raw_parts(priorities, width.saturating_mul(height));
+    let offsets = std::slice::from_raw_parts_mut(offsets, width + 1);
+    let values = std::slice::from_raw_parts_mut(values, capacity);
+    let mut count = 0;
+    for x in 0..width {
+        offsets[x] = count;
+        for y in 0..height {
+            let index = y * width + x;
+            if priorities[index] != 0 && (y == 0 || priorities[index - width] == 0) {
+                if count >= capacity {
+                    return 0;
+                }
+                values[count] = y as i32;
+                count += 1;
+            }
+        }
+    }
+    offsets[width] = count;
+    count
+}
+
 fn mapped_character(mask: u16, mapping: u8) -> Option<char> {
     let codepoint = match mapping {
         0 => 0xE000 + u32::from(mask),
@@ -333,7 +740,77 @@ pub unsafe extern "C" fn analyse_cells(
 
 #[cfg(test)]
 mod tests {
-    use super::{analyse_cells, encode_terminal_cells, encode_terminal_cells_v2};
+    use super::{
+        analyse_cells, encode_terminal_cells, encode_terminal_cells_v2, surface_line,
+        surface_overlay, surface_rectangle, surface_top_edges,
+    };
+
+    #[test]
+    fn raster_priority_overlay_and_edges() {
+        let mut colours = [0u32; 24];
+        let mut priorities = [0u8; 24];
+        unsafe {
+            surface_rectangle(
+                colours.as_mut_ptr(),
+                priorities.as_mut_ptr(),
+                6,
+                4,
+                1,
+                1,
+                5,
+                3,
+                0x102030,
+                7,
+            );
+            surface_line(
+                colours.as_mut_ptr(),
+                priorities.as_mut_ptr(),
+                6,
+                4,
+                0,
+                0,
+                5,
+                3,
+                0xff0000,
+                9,
+            );
+        }
+        assert_eq!(priorities[0], 9);
+        assert_eq!(priorities[7], 9);
+        assert_eq!(priorities[9], 7);
+        assert_eq!(colours[9], 0x102030);
+
+        let source_colours = [0x00ff00u32; 24];
+        let mut source_priorities = [0u8; 24];
+        source_priorities[5] = 2;
+        unsafe {
+            surface_overlay(
+                colours.as_mut_ptr(),
+                priorities.as_mut_ptr(),
+                source_colours.as_ptr(),
+                source_priorities.as_ptr(),
+                24,
+                12,
+            );
+        }
+        assert_eq!(priorities[5], 12);
+        assert_eq!(colours[5], 0x00ff00);
+
+        let mut offsets = [0usize; 7];
+        let mut values = [0i32; 12];
+        let count = unsafe {
+            surface_top_edges(
+                priorities.as_ptr(),
+                6,
+                4,
+                offsets.as_mut_ptr(),
+                values.as_mut_ptr(),
+                values.len(),
+            )
+        };
+        assert!(count > 0);
+        assert_eq!(values[offsets[0]], 0);
+    }
 
     #[test]
     fn finds_front_mask_and_rear_colour() {

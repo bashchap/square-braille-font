@@ -759,11 +759,10 @@ Caching already happens at two useful levels:
   are held in a separate bounded cache. The process dashboard reports hit/miss
   totals for both tree geometry and postman frames.
 
-The composed scenery surface itself is currently rebuilt each frame because
-tree sway depends on live wind and time. Dirt and distant huts are deterministic
-within that rebuild, not retained as a separate bitmap; splitting immutable
-and swaying scenery into two cached layers is therefore a worthwhile next
-optimization.
+The composed scenery surface is rebuilt each frame because tree sway depends
+on live wind and time. Its packed RGB/priority planes are filled and composited
+in Rust when the optional library is present, so immutable/swaying layer splits
+are no longer the dominant optimization target.
 
 An optional dependency-free Rust terminal encoder now lives under
 `native/seasonal_encoder`. Build it with:
@@ -773,13 +772,17 @@ cargo build --release --manifest-path native/seasonal_encoder/Cargo.toml
 ```
 
 `--native-encoder auto` uses it when present and safely falls back to Python;
-`off` forces the reference path and `on` requires Rust. It accelerates the
-per-cell priority/mask/colour/error scan. Its shared ABI also performs complete
-RGB, ANSI-256 and no-colour terminal emission for the older basic, vector, 3D,
-PUA4 motion, Voyager and layered Voyager framebuffer demos.
-Local repeated encoding was approximately twice as fast at both 120x36 and
-168x60 cells, including marshaling. The verifier demands byte-for-byte ANSI and
-telemetry parity whenever the release library is present.
+`off` forces the reference path and `on` requires Rust. `--native-surface`
+provides the same `auto|off|on` selection independently for the packed raster
+and compositor. The native surface batches rectangles, lines, thick lines,
+ellipses, polygons, layer overlays, priority promotion, exposed-edge scans,
+snow-bank drawing and cached-tree compositing. No per-pixel FFI calls are used.
+The analyser borrows the packed planes directly, eliminating the old per-frame
+tuple marshaling. The shared ABI also performs complete RGB, ANSI-256 and
+no-colour terminal emission for older basic, vector, 3D, PUA4 motion, Voyager
+and layered Voyager framebuffer demos. The verifier demands byte-for-byte
+pixel, priority, edge, ANSI and telemetry parity whenever the release library
+is present.
 
 The shared migration covers geometry, snow, starfield, trail, vector tunnel
 (and its Elite/Defender users), Doom, Enterprise flyby/wireframe (and the
@@ -800,22 +803,18 @@ measured scenery at 44.465 -> 33.139 ms (25.5% lower) and the complete frame at
 120.966 -> 110.645 ms (8.5% lower). The benchmark now uses the native encoder
 when `--native-encoder auto` successfully loads it, matching the viewer.
 
-Fresh full-engine profiling is recorded in
+Fresh full-engine profiling and the completed migration are recorded in
 [`PERFORMANCE-2026-09-15.md`](PERFORMANCE-2026-09-15.md). At 303×46/full physics,
-the Rust path measured 132.90 ms/frame: 62.4% scenery plus raster/compositing,
-30.0% encoding (still including Python tuple packing), and 7.4% simulation plus
-collision. The current Rust encoder reduced total time by 16.3% relative to the
-Python encoder on that workload.
+the earlier encoder-only path measured 132.90 ms/frame. The current packed and
+batched path measures 25.12 ms/frame on the same development Mac, an 81.1%
+reduction and 5.29× speed-up. Scenery is 2.19 ms, moving raster/compositing is
+6.42 ms and zero-copy native analysis is 11.70 ms. NPC cabin routes and
+obstacles are also projected once per frame rather than once per NPC.
 
-The next optimization boundary is therefore the tuple-based virtual-pixel
-`Surface`, not a rewrite of the behavioural engine. A packed priority/RGB
-buffer shared with Rust removes per-frame tuple marshalling and provides a
-native target for batched rectangles, lines, polygons, accumulation and cached
-tree compositing. Keep event/NPC/postman/rabbit logic and procedural art
-definitions in Python. Fine-grained per-pixel FFI calls are explicitly avoided;
-the native side must consume buffers or command batches. A sprite atlas remains
-a possible later optimization for discrete poses, but profiling shows the
-shared raster/store path is the broader target.
+Python continues to own event/NPC/postman/rabbit logic, snow state and
+procedural art definitions. This preserves the byte-for-byte behavioral oracle
+while Rust owns the stable high-volume data plane. Any further migration should
+be justified by a fresh profile; the former broad Surface bottleneck is gone.
 
 ## Snow controls
 
@@ -1056,7 +1055,7 @@ For the current full-engine workload and an explicit Python/Rust comparison:
 ```sh
 cargo build --release --manifest-path native/seasonal_encoder/Cargo.toml
 python3 demos/seasonal/benchmark_christmas_snow.py \
-  --workload full --physics full --encoder both \
+  --workload full --physics full --encoder both --surface auto \
   --sky-event helicopter --start-seconds 15 \
   --viewport 120x36 --viewport 168x60 --viewport 303x46
 ```
@@ -1068,7 +1067,9 @@ frames; compare results only on the same host and terminal-independent workload.
 The verifier checks both full-mask mappings, the PUA4 MSB-left top-left bit,
 two-colour depth ownership, scenery generation, the 50% shedding trigger, live
 resize preservation, animated tree movement, frame dimensions, and the absence
-of reverse-video output. It also forces an aged local tower and neighbour
+of reverse-video output. With a release native library it also compares every
+batched raster/compositor primitive, packed colour/priority output, exposed
+edges, ANSI and telemetry against the Python oracle. It also forces an aged local tower and neighbour
 cascade, applies a live JSON revision, and round-trips the TUI's effective
 options back through the production parser. Additional checks cover varied
 cabin types and depth lanes, tumbleweed-aware rabbits, all seven sky events,
